@@ -172,7 +172,7 @@ int MiracastPrivate::p2pUninit()
 /*********Callback thread to send messages to Network Service Manager *********/
 void MiracastPrivate::p2pCtrlMonitorThread()
 {
-    bool goStart = false, goReq = false, goSuc = false;
+    bool goStart = false;
     while ((stop_p2p_monitor != true) && (wpa_p2p_ctrl_monitor != NULL))
     {
         if (wpa_ctrl_pending(wpa_p2p_ctrl_monitor) > 0)
@@ -202,14 +202,10 @@ void MiracastPrivate::p2pCtrlMonitorThread()
                     evtHandler(EVENT_SHOW_PIN,(void*)evt_buf, event_buffer_len);
                 }
                 if(strstr(event_buffer, "P2P-GO-NEG-REQUEST"))
-                {
-                    if(!goReq)
-                    {
-                        char* evt_buf = strdup(event_buffer);
-                        goReq = true;
-                        MIRACASTLOG_INFO("P2P Group owner negotiation request");
-                        evtHandler(EVENT_GO_NEG_REQ, (void*)evt_buf, event_buffer_len);
-                    }
+		{
+			char* evt_buf = strdup(event_buffer);
+			MIRACASTLOG_INFO("P2P Group owner negotiation request");
+			evtHandler(EVENT_GO_NEG_REQ, (void*)evt_buf, event_buffer_len);
                 }
                 if(strstr(event_buffer, "P2P-FIND-STOPPED"))
                 {
@@ -219,13 +215,9 @@ void MiracastPrivate::p2pCtrlMonitorThread()
                 }
                 if(strstr(event_buffer, "P2P-GO-NEG-SUCCESS"))
                 {
-                    if(!goSuc)
-                    {
                         char* evt_buf = strdup(event_buffer);
-                        goSuc = true;
                         MIRACASTLOG_INFO("P2P Group owner negotiation success");
                         evtHandler(EVENT_GO_NEG_SUCCESS, (void*)evt_buf, event_buffer_len);
-                    }
                 }
                 if(strstr(event_buffer, "P2P-GROUP-FORMATION-SUCCESS"))
                 {
@@ -237,9 +229,9 @@ void MiracastPrivate::p2pCtrlMonitorThread()
                 {
                     if(!goStart)
                     {
-                        goStart = true;
                         char* evt_buf = strdup(event_buffer);
                         MIRACASTLOG_INFO("P2P Group Started");
+                        goStart = true;
                         evtHandler(EVENT_GROUP_STARTED, (void*)evt_buf, event_buffer_len);
                     }
                 }
@@ -248,6 +240,7 @@ void MiracastPrivate::p2pCtrlMonitorThread()
                     char* evt_buf = strdup(event_buffer);
                     MIRACASTLOG_INFO("P2P Group Removed");
                     evtHandler(EVENT_GROUP_REMOVED, (void*)evt_buf, event_buffer_len);
+		    goStart = false;
                 }
                 if(strstr(event_buffer, "P2P-DEVICE-LOST"))
                 {
@@ -345,6 +338,7 @@ void MiracastPrivate::wfdInit(MiracastCallback* Callback)
     }
 
     m_eventCallback = Callback;
+#if 0
     std::string command, retBuffer;
     command = "STATUS";
     executeCommand(command, GLOBAL_INTERFACE, retBuffer);
@@ -358,10 +352,35 @@ void MiracastPrivate::wfdInit(MiracastCallback* Callback)
     executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
     command = "WFD_SUBELEM_SET 0 000600111c4400c8";
     executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-#if 0 
     command = "P2P_FLUSH";
     executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
     command = "P2P_FIND";
     executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
 #endif
+}
+
+void MiracastPrivate::setWiFiDisplayParams(void)
+{
+	if ( false == m_isWiFiDisplayParamsEnabled )
+	{
+		std::string command, retBuffer;
+		command = "STATUS";
+		executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+		command = "SET wifi_display 1";
+		executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+		command = "P2P_PEER FIRST";
+		executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+		command = "P2P_SET disallow_freq 5180-5900";
+		executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+		command = "WFD_SUBELEM_SET 0";
+		executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+		command = "WFD_SUBELEM_SET 0 000600111c4400c8";
+		executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+		m_isWiFiDisplayParamsEnabled = true;
+	}
+}
+
+void MiracastPrivate::resetWiFiDisplayParams(void)
+{
+	m_isWiFiDisplayParamsEnabled = false;
 }

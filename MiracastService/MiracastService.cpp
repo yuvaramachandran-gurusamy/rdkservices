@@ -62,7 +62,8 @@ namespace WPEFramework
 
 		MiracastService::MiracastService()
 			: PluginHost::JSONRPC(),
-			m_isPlatInitialized (false)
+			m_isPlatInitialized (false),
+			m_isDiscoverEnabled (false)
 		{
 			LOGINFO("MiracastService::ctor");
 			MiracastService::_instance = this;
@@ -98,6 +99,7 @@ namespace WPEFramework
 				mCurrentService = nullptr;
 				m_miracast_service_impl = nullptr;
 				m_isPlatInitialized = false;
+				m_isDiscoverEnabled = false;
 			}
 		}
 
@@ -120,10 +122,34 @@ namespace WPEFramework
 			LOGINFO("MiracastService::setEnable");
 			if ( parameters.HasLabel("enabled")){
 				is_enabled = parameters["enabled"].String();
-				if (( "true" == is_enabled ) || ( "false" == is_enabled )){
-					m_miracast_service_impl->setEnable( is_enabled );
-					success = true;
+				if ( "true" == is_enabled ){
+					if (!m_isDiscoverEnabled){
+						m_miracast_service_impl->setEnable( is_enabled );
+						success = true;
+						m_isDiscoverEnabled = true;
+						response["message"] = "Successfully enabled the Discovery";
+					}
+					else{
+						response["message"] = "Discovery already enabled...";
+					}
 				}
+				else if ( "false" == is_enabled ){
+					if (m_isDiscoverEnabled){
+						m_miracast_service_impl->setEnable( is_enabled );
+						success = true;
+						m_isDiscoverEnabled = false;
+						response["message"] = "Successfully disabled the Discovery";
+					}
+					else{
+						response["message"] = "Discovery already disabled...";
+					}
+				}
+				else{
+					response["message"] = "Supported 'enabled' parameter values are true or false";
+				}
+			}
+			else{
+				response["message"] = "Invalid parameter passed";
 			}
 			returnResponse(success);
 		}
@@ -141,11 +167,17 @@ namespace WPEFramework
 
 			LOGINFO("MiracastService::acceptClientConnectionRequest");
 			if ( parameters.HasLabel("requestStatus")){
-				requestedStatus = parameters[""].String();
+				requestedStatus = parameters["requestStatus"].String();
 				if (( "Accept" == requestedStatus ) || ( "Reject" == requestedStatus )){
 					m_miracast_service_impl->acceptClientConnectionRequest( requestedStatus );
 					success = true;
 				}
+				else{
+					response["message"] = "Supported 'requestStatus' parameter values are Accept or Reject";
+				}
+			}
+			else{
+				response["message"] = "Invalid parameter passed";
 			}
 
 			returnResponse(success);

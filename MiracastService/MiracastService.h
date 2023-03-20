@@ -72,6 +72,7 @@ namespace WPEFramework {
 	    static const string METHOD_MIRACAST_CLIENT_CONNECT_REQUEST;
         private:
             bool m_isPlatInitialized;
+            bool m_isDiscoverEnabled;
 	    uint32_t setEnable(const JsonObject& parameters, JsonObject& response);
 	    uint32_t acceptClientConnectionRequest(const JsonObject& parameters, JsonObject& response);
 
