@@ -99,6 +99,7 @@ typedef enum session_manager_actions_e
 	SESSION_MGR_GO_NEG_SUCCESS,
 	SESSION_MGR_GO_NEG_FAILURE,
 	SESSION_MGR_CONNECT_REQ_FROM_HANDLER,
+	SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT,
 	SESSION_MGR_GO_GROUP_STARTED,
 	SESSION_MGR_GO_GROUP_REMOVED,
 	SESSION_MGR_GO_GROUP_FORMATION_SUCCESS,
@@ -135,6 +136,8 @@ typedef enum client_req_handler_actions_e
 	CLIENT_REQ_HLDR_START_DISCOVER = 0x01,
 	CLIENT_REQ_HLDR_STOP_DISCOVER,
 	CLIENT_REQ_HLDR_CONNECT_DEVICE_FROM_SESSION_MGR,
+	CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED,
+	CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED,
 	CLIENT_REQ_HLDR_STOP_APPLICATION
 }
 CLIENT_MSG_HANDLER_ACTIONS;
@@ -199,6 +202,7 @@ class MiracastRTSPMessages
 };
 
 #define MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT	( -1 )
+#define CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME	( 30 )
 
 class MiracastThread
 {
@@ -274,6 +278,8 @@ class MiracastPrivate
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer );
 		SESSION_MANAGER_ACTIONS convertP2PtoSessionActions( enum P2P_EVENTS eventId );
 		MiracastError stopDiscoverDevices();
+		void setWiFiDisplayParams(void);
+		void resetWiFiDisplayParams(void);
 		void RestartSession( void );
 		void StopSession( void );
 
@@ -309,8 +315,7 @@ class MiracastPrivate
 		char event_buffer[2048];
 		size_t event_buffer_len;
 		bool m_isIARMEnabled;
-		sem_t session_client_req_sync;
-		sem_t session_rtsp_req_sync;
+		bool m_isWiFiDisplayParamsEnabled;
 		pthread_t p2p_ctrl_monitor_thread_id;
 		MiracastRTSPMessages* m_rtsp_msg;
 	        MiracastThread* m_client_req_handler_thread;

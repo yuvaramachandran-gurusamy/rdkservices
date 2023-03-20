@@ -132,9 +132,11 @@ void MiracastServiceImplementation::acceptClientConnectionRequest( std::string i
 {
 	std::cout << "MiracastServiceImplementation::acceptClientConnectionRequest\n";
 	if( "Accept" == is_accepted ){
+		MIRACASTLOG_VERBOSE("Client Connection Request accepted\n");
 		m_impl->SendMessageToClientReqHandler( Accept_ConnectDevice_Request );
 	}
 	else{
+		MIRACASTLOG_VERBOSE("Client Connection Request Rejected\n");
 		m_impl->SendMessageToClientReqHandler( Reject_ConnectDevice_Request );
 	}
 }
