@@ -82,8 +82,8 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_M3_RESPONSE_TAG		"RTSP/1.0 200 OK\r\nContent-Length: 210\r\nContent-Type: text/parameters\r\nCSeq: 2\r\n\r\nwfd_content_protection: none\r\nwfd_video_formats: 00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none\r\nwfd_audio_codecs: AAC 00000007 00\r\nwfd_client_rtp_ports: RTP/AVP/UDP;unicast 1991 0 mode=play\r\n"
 #define RTSP_M4_RESPONSE_TAG		"RTSP/1.0 200 OK\r\nCSeq: 3\r\n\r\n"
 #define RTSP_M5_RESPONSE_TAG		"RTSP/1.0 200 OK\r\nCSeq: 4\r\n\r\n"
-#define RTSP_M6_REQUEST_BUFFER		"SETUP rtsp://192.168.49.1/wfd1.0/streamid=0 RTSP/1.0\r\nTransport: RTP/AVP/UDP;unicast;client_port=1991\r\nCSeq: 2\r\n\r\n"
-#define RTSP_M7_REQUEST_START_TAG	"PLAY rtsp://192.168.49.1/wfd1.0/streamid=0 RTSP/1.0\r\nSession: "
+#define RTSP_M6_REQUEST_BUFFER		"SETUP rtsp://0.0.0.0/wfd1.0/streamid=0 RTSP/1.0\r\nTransport: RTP/AVP/UDP;unicast;client_port=1991\r\nCSeq: 2\r\n\r\n"
+#define RTSP_M7_REQUEST_START_TAG	"PLAY rtsp://0.0.0.0/wfd1.0/streamid=0 RTSP/1.0\r\nSession: "
 #define RTSP_M7_REQUEST_END_TAG		"\r\nCSeq: 3\r\n\r\n"
 
 
@@ -267,6 +267,7 @@ class MiracastPrivate
 		void ClientRequestHandlerThread(void* args);
 		
 		bool ReceiveBufferTimedOut( void* buffer , size_t buffer_len );
+		bool waitDataTimeout( int m_Sockfd , unsigned ms);
 		bool SendBufferTimedOut(std::string rtsp_response_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_msg_response_back(std::string rtsp_msg_buffer , RTSP_MSG_HANDLER_ACTIONS action_id );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer );
