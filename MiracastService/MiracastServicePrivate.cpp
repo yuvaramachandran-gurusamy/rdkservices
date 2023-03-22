@@ -42,7 +42,10 @@
 
 #define MAX_EPOLL_EVENTS 64
 #define SPACE " "
-//#define ENABLE_NON_BLOCKING
+
+#define ENABLE_NON_BLOCKING
+#define ONE_SECOND_PER_MILLISEC		( 1000 )
+#define SOCKET_WAIT_TIMEOUT_IN_MILLISEC	( 30 * ONE_SECOND_PER_MILLISEC )
 
 static MiracastPrivate* g_miracastPrivate = NULL;
 
@@ -401,13 +404,41 @@ bool MiracastPrivate::connectSink()
 }
 #endif
 
+/*
+ * Wait for data returned by the socket for specified time
+ */
+bool MiracastPrivate::waitDataTimeout( int m_Sockfd , unsigned ms)
+{
+	struct timeval timeout;
+	fd_set readFDSet;
+
+	FD_ZERO(&readFDSet);
+	FD_SET( m_Sockfd , &readFDSet );
+
+	timeout.tv_sec = (ms / 1000);
+	timeout.tv_usec = ((ms % 1000) * 1000);
+
+	if (select( m_Sockfd + 1, &readFDSet, NULL, NULL, &timeout) > 0)
+	{
+		return FD_ISSET( m_Sockfd , &readFDSet);
+	}
+	return false;
+}
+
 bool MiracastPrivate::ReceiveBufferTimedOut( void* buffer , size_t buffer_len )
 {
 	int recv_return = 0;
 	bool status = true;
 
 #ifdef ENABLE_NON_BLOCKING
-	recv_return = recv( m_tcpSockfd , buffer, buffer_len , 0 );
+	if (!waitDataTimeout( m_tcpSockfd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
+	{
+		recv_return = -1;
+	}
+	else
+	{
+		recv_return = recv( m_tcpSockfd , buffer, buffer_len , 0 );
+	}
 #else
 	recv_return = read(m_tcpSockfd, buffer , buffer_len );
 #endif
@@ -415,13 +446,12 @@ bool MiracastPrivate::ReceiveBufferTimedOut( void* buffer , size_t buffer_len )
 		status = false;
 
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			printf("error: recv timed out\n");
+			MIRACASTLOG_ERROR("error: recv timed out\n");
 		} else {
-			printf("error: recv failed, or connection closed\n");
+			MIRACASTLOG_ERROR("error: recv failed, or connection closed\n");
 		}
 	}
 	MIRACASTLOG_INFO("received string(%d) - %s\n", recv_return, buffer);
-	printf("received string(%d) - %s\n", recv_return, (char*)buffer);
 	return status;
 }
 
@@ -475,56 +505,41 @@ bool MiracastPrivate::initiateTCP(std::string goIP)
 
 #ifdef ENABLE_NON_BLOCKING
     fcntl(m_tcpSockfd, F_SETFL, O_NONBLOCK);
+    MIRACASTLOG_INFO("NON_BLOCKING Socket Enabled...\n");
 #endif
 
     r = connect(m_tcpSockfd, (struct sockaddr*)&in_addr, addr_size);
     if(r < 0)
     {
-        if(errno != EINPROGRESS)
-        {
-            MIRACASTLOG_INFO("Event %s received(%d)", strerror(errno), errno);
-        }
-        else
-        {
-#ifdef ENABLE_NON_BLOCKING
-	    // connection in progress
-	    fd_set write_set;
-	    struct timeval timeout;
-	    int ret;
-
-	    FD_ZERO(&write_set);
-	    FD_SET(m_tcpSockfd, &write_set);
-	    timeout.tv_sec = 30;
-	    timeout.tv_usec = 0;
-	    ret = select(m_tcpSockfd + 1, NULL, &write_set, NULL, &timeout);
-
-	    if (ret == 1 && FD_ISSET(m_tcpSockfd, &write_set)) {
-		    // connection successful
-		    // do something with the connected socket
-		    MIRACASTLOG_INFO("Socket Connected Successfully ...\n");
+	    if(errno != EINPROGRESS)
+	    {
+		    MIRACASTLOG_INFO("Event %s received(%d)", strerror(errno), errno);
 	    }
 	    else
-#endif
 	    {
-		    // connection timed out or failed
-		    MIRACASTLOG_INFO("Event (%s) received", strerror(errno));
+#ifdef ENABLE_NON_BLOCKING
+		    // connection in progress
+		    if (!waitDataTimeout( m_tcpSockfd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
+		    {
+			    // connection timed out or failed
+			    MIRACASTLOG_INFO("Socket Connection Timedout ...\n");
+		    }
+		    else
+		    {
+			    // connection successful
+			    // do something with the connected socket
+			    MIRACASTLOG_INFO("Socket Connected Successfully ...\n");
+		    }
 	    }
-	}
+#else
+	    // connection timed out or failed
+	    MIRACASTLOG_INFO("Event (%s) received", strerror(errno));
+#endif
     }
-    else{
+    else
+    {
 	    MIRACASTLOG_INFO("Socket Connected Successfully ...\n");
     }
-
-#ifdef ENABLE_NON_BLOCKING
-    // Set receive timeout
-    struct timeval recv_timeout = {0};
-
-    recv_timeout.tv_sec = 30;
-    recv_timeout.tv_usec = 0;
-    if (setsockopt( m_tcpSockfd , SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout)) == -1) {
-	    perror("setsockopt() failed");
-    }
-#endif
 
     /*---Wait for socket connect to complete---*/
     num_ready = epoll_wait(epfd, events, MAX_EPOLL_EVENTS, 1000/*timeout*/);
@@ -1182,22 +1197,30 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m5_msg_m6_send_request(st
 		m_rtsp_msg->m5_msg_resp_to_client.clear();
 		m_rtsp_msg->m5_msg_resp_to_client.append(RTSP_M5_RESPONSE_TAG);
 		
+		MIRACASTLOG_INFO("Sending the M5 response \n");
 		if ( true == SendBufferTimedOut( m_rtsp_msg->m5_msg_resp_to_client )){
-			MIRACASTLOG_INFO("Sending the M5 response \n");
+			MIRACASTLOG_INFO("M5 Response has sent\n");
 
 			m_rtsp_msg->m6_msg_req_to_client.clear();
 			m_rtsp_msg->m6_msg_req_to_client.append(RTSP_M6_REQUEST_BUFFER);
 
+			string templateIp = "0.0.0.0";
+			size_t pos = m_rtsp_msg->m6_msg_req_to_client.find(templateIp);
+			m_rtsp_msg->m6_msg_req_to_client.replace(pos, templateIp.length(), m_groupInfo->goIPAddr);
+
+			MIRACASTLOG_INFO("Sending the M6 Request\n");
 			if ( true == SendBufferTimedOut( m_rtsp_msg->m6_msg_req_to_client )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
-				MIRACASTLOG_INFO("Sending the M6 Request\n");
+				MIRACASTLOG_INFO("M6 Request has sent\n");
 			}
 			else{
 				response_code = RTSP_SEND_REQ_RESPONSE_NOK;
+				MIRACASTLOG_ERROR("Failed to Send the M6 Request\n");
 			}
 		}
 		else{
 			response_code = RTSP_SEND_REQ_RESPONSE_NOK;
+			MIRACASTLOG_ERROR("Failed to Send the M5 response\n");
 		}
 
 	}
@@ -1225,12 +1248,19 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m6_ack_m7_send_request(st
 			m_rtsp_msg->m7_msg_req_to_client.append(RTSP_M7_REQUEST_START_TAG);
 			m_rtsp_msg->m7_msg_req_to_client.append(session_number);
 			m_rtsp_msg->m7_msg_req_to_client.append(RTSP_M7_REQUEST_END_TAG);
+
+			string templateIp = "0.0.0.0";
+			size_t pos = m_rtsp_msg->m7_msg_req_to_client.find(templateIp);
+			m_rtsp_msg->m7_msg_req_to_client.replace(pos, templateIp.length(), m_groupInfo->goIPAddr);
+
+			MIRACASTLOG_INFO("Sending the M7 Request\n");
 			if ( true == SendBufferTimedOut( m_rtsp_msg->m7_msg_req_to_client )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
-				MIRACASTLOG_INFO("Sending the M7 Request\n");
+				MIRACASTLOG_INFO("M7 Request has sent\n");
 			}
 			else{
 				response_code = RTSP_SEND_REQ_RESPONSE_NOK;
+				MIRACASTLOG_ERROR("Failed to Send the M7 Request\n");
 			}
 		}
 	}
