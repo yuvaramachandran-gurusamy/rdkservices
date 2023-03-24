@@ -36,6 +36,8 @@
 #include <arpa/inet.h>
 #include <fstream>
 
+extern void GStreamerThreadFunc(void *);
+
 #define REMOVE_SPACES(x) x.erase(std::remove(x.begin(), x.end(), ' '), x.end())
 #define REMOVE_R(x) x.erase(std::remove(x.begin(), x.end(), '\r'), x.end())
 #define REMOVE_N(x) x.erase(std::remove(x.begin(), x.end(), '\n'), x.end())
@@ -1001,19 +1003,32 @@ MiracastError MiracastPrivate::startStreaming()
 		std::getline (mcgstfile, gstreamerPipeline);
         MIRACASTLOG_INFO("gstpipeline reading from file [%s], gstreamerPipeline as [ %s] ", mcastfile, gstreamerPipeline.c_str());
         mcgstfile.close();
+        if (0 == system(gstreamerPipeline.c_str()))
+            MIRACASTLOG_INFO("Pipeline created successfully ");
+        else
+        {
+            MIRACASTLOG_INFO("Pipeline creation failure");
+            return MIRACAST_FAIL;
+        }
     }
-    else 
+	else
     {
-        gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1990 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
-    }
-
-    MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
-    if(0 == system(gstreamerPipeline.c_str()))
-        MIRACASTLOG_INFO("Pipeline created successfully ");
-    else
-    {
-        MIRACASTLOG_INFO("Pipeline creation failure");
-        return MIRACAST_FAIL;
+		if(access( "/opt/miracast_gst", F_OK ) != 0)
+        {
+            gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1990 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
+            MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
+            if(0 == system(gstreamerPipeline.c_str()))
+                MIRACASTLOG_INFO("Pipeline created successfully ");
+            else
+            {
+                MIRACASTLOG_INFO("Pipeline creation failure");
+                return MIRACAST_FAIL;
+            }
+        }
+        else {
+            //m_gstThread = new std::thread([]{ GStreamerThreadFunc(NULL); });
+            GStreamerThreadFunc(NULL);
+        }
     }
 
    // m_eventCallback->onStreamingStarted();
