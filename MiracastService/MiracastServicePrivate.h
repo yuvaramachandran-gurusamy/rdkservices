@@ -23,7 +23,7 @@
 #include <MiracastService.h>
 #include <string>
 #include <vector>
-#include <logger.h> 
+#include <MiracastLogger.h>
 #include <glib.h>
 #include "wifiSrvMgrIarmIf.h"
 #include <semaphore.h>
