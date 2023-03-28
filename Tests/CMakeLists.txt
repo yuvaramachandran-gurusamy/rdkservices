@@ -43,6 +43,7 @@ set_source_files_properties(
         tests/test_SystemServices.cpp
         tests/test_Warehouse.cpp
         tests/test_FrontPanel.cpp
+        tests/test_HdmiCecSink.cpp
         PROPERTIES COMPILE_FLAGS "-fexceptions")
 
 include_directories(../LocationSync
@@ -74,6 +75,11 @@ include_directories(../LocationSync
         ../CompositeInput
         ../FrontPanel
         ../OCIContainer
+        ../HdmiCecSink
+        ../XCast
+        ../VoiceControl
+        ../ControlService
+        ../RemoteActionMapping
         )
 link_directories(../LocationSync
         ../PersistentStore
@@ -103,6 +109,11 @@ link_directories(../LocationSync
         ../CompositeInput
         ../FrontPanel
         ../OCIContainer
+        ../HdmiCecSink
+        ../XCast
+        ../VoiceControl
+        ../ControlService
+        ../RemoteActionMapping
         )
 
 target_link_libraries(${PROJECT_NAME}
@@ -136,6 +147,11 @@ target_link_libraries(${PROJECT_NAME}
         ${NAMESPACE}CompositeInput
         ${NAMESPACE}FrontPanel
         ${NAMESPACE}OCIContainer
+        ${NAMESPACE}HdmiCecSink
+        ${NAMESPACE}XCast
+        ${NAMESPACE}VoiceControl
+        ${NAMESPACE}ControlService
+        ${NAMESPACE}RemoteActionMapping
         )
 
 target_include_directories(${PROJECT_NAME}
