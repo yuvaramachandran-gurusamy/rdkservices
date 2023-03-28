@@ -20,7 +20,7 @@
 #ifndef _MIRACAST_SERVICE_H_
 #define _MIRACAST_SERVICE_H_
 
-#include <miracastErrors.h>
+#include <MiracastServiceError.h>
 #include <string>
 #include <vector>
 
