@@ -235,6 +235,7 @@ bool MiracastPrivate::connectSink()
         MIRACASTLOG_INFO("In else case ");
         response.clear();
         response = "RTSP/1.0 200 OK\r\nContent-Length: 210\r\nContent-Type: text/parameters\r\nCSeq: 2\r\n\r\nwfd_content_protection: none\r\nwfd_video_formats: 00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none\r\nwfd_audio_codecs: AAC 00000007 00\r\nwfd_client_rtp_ports: RTP/AVP/UDP;unicast 1990 0 mode=play\r\n";
+
         MIRACASTLOG_INFO("%s", response.c_str());
         read_ret = 0;
         read_ret = send(m_tcpSockfd, response.c_str(), response.length(), 0);
@@ -327,6 +328,7 @@ bool MiracastPrivate::connectSink()
 
     response.clear();
     response = "SETUP rtsp://192.168.49.1/wfd1.0/streamid=0 RTSP/1.0\r\nTransport: RTP/AVP/UDP;unicast;client_port=1990\r\nCSeq: 2\r\n\r\n";
+
     MIRACASTLOG_INFO("%s", response.c_str());
     read_ret = 0;
     read_ret = send(m_tcpSockfd, response.c_str(), response.length(), 0);
@@ -1029,6 +1031,7 @@ MiracastError MiracastPrivate::startStreaming()
             //m_gstThread = new std::thread([]{ GStreamerThreadFunc(NULL); });
             GStreamerThreadFunc(NULL);
         }
+
     }
 
    // m_eventCallback->onStreamingStarted();
