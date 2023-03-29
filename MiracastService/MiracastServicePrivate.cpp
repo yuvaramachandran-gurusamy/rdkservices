@@ -36,6 +36,8 @@
 #include <arpa/inet.h>
 #include <fstream>
 
+extern void GStreamerThreadFunc(void *);
+
 #define REMOVE_SPACES(x) x.erase(std::remove(x.begin(), x.end(), ' '), x.end())
 #define REMOVE_R(x) x.erase(std::remove(x.begin(), x.end(), '\r'), x.end())
 #define REMOVE_N(x) x.erase(std::remove(x.begin(), x.end(), '\n'), x.end())
@@ -232,7 +234,8 @@ bool MiracastPrivate::connectSink()
     {
         MIRACASTLOG_INFO("In else case ");
         response.clear();
-        response = "RTSP/1.0 200 OK\r\nContent-Length: 210\r\nContent-Type: text/parameters\r\nCSeq: 2\r\n\r\nwfd_content_protection: none\r\nwfd_video_formats: 00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none\r\nwfd_audio_codecs: AAC 00000007 00\r\nwfd_client_rtp_ports: RTP/AVP/UDP;unicast 1991 0 mode=play\r\n";
+        response = "RTSP/1.0 200 OK\r\nContent-Length: 210\r\nContent-Type: text/parameters\r\nCSeq: 2\r\n\r\nwfd_content_protection: none\r\nwfd_video_formats: 00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none\r\nwfd_audio_codecs: AAC 00000007 00\r\nwfd_client_rtp_ports: RTP/AVP/UDP;unicast 1990 0 mode=play\r\n";
+
         MIRACASTLOG_INFO("%s", response.c_str());
         read_ret = 0;
         read_ret = send(m_tcpSockfd, response.c_str(), response.length(), 0);
@@ -324,7 +327,8 @@ bool MiracastPrivate::connectSink()
     }
 
     response.clear();
-    response = "SETUP rtsp://192.168.49.1/wfd1.0/streamid=0 RTSP/1.0\r\nTransport: RTP/AVP/UDP;unicast;client_port=1991\r\nCSeq: 2\r\n\r\n";
+    response = "SETUP rtsp://192.168.49.1/wfd1.0/streamid=0 RTSP/1.0\r\nTransport: RTP/AVP/UDP;unicast;client_port=1990\r\nCSeq: 2\r\n\r\n";
+
     MIRACASTLOG_INFO("%s", response.c_str());
     read_ret = 0;
     read_ret = send(m_tcpSockfd, response.c_str(), response.length(), 0);
@@ -904,7 +908,7 @@ MiracastError MiracastPrivate::stopDiscoverDevices()
 MiracastPrivate::MiracastPrivate(MiracastCallback* Callback)
 {
 	//To delete the rules so that it would be duplicated in this program execution
-	system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1991 -j ACCEPT");
+	system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
 	system("iptables -D INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 	system("iptables -D OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 	p2p_init_done = false;
@@ -953,7 +957,7 @@ MiracastPrivate::~MiracastPrivate()
 		m_groupInfo = NULL;
 	}
 
-	system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1991 -j ACCEPT");
+	system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
 	system("iptables -D INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 	system("iptables -D OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 }
@@ -988,7 +992,7 @@ MiracastError MiracastPrivate::startStreaming()
 	}
 	else
 	{
-		system("iptables -I INPUT -p udp -s 192.168.0.0/16 --dport 1991 -j ACCEPT");
+		system("iptables -I INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
 	}
 	MIRACASTLOG_INFO("Casting started. Player initiated");
 	std::string gstreamerPipeline;
@@ -1001,19 +1005,33 @@ MiracastError MiracastPrivate::startStreaming()
 		std::getline (mcgstfile, gstreamerPipeline);
         MIRACASTLOG_INFO("gstpipeline reading from file [%s], gstreamerPipeline as [ %s] ", mcastfile, gstreamerPipeline.c_str());
         mcgstfile.close();
+        if (0 == system(gstreamerPipeline.c_str()))
+            MIRACASTLOG_INFO("Pipeline created successfully ");
+        else
+        {
+            MIRACASTLOG_INFO("Pipeline creation failure");
+            return MIRACAST_FAIL;
+        }
     }
-    else 
+	else
     {
-        gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1991 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
-    }
+		if(access( "/opt/miracast_gst", F_OK ) != 0)
+        {
+            gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1990 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
+            MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
+            if(0 == system(gstreamerPipeline.c_str()))
+                MIRACASTLOG_INFO("Pipeline created successfully ");
+            else
+            {
+                MIRACASTLOG_INFO("Pipeline creation failure");
+                return MIRACAST_FAIL;
+            }
+        }
+        else {
+            //m_gstThread = new std::thread([]{ GStreamerThreadFunc(NULL); });
+            GStreamerThreadFunc(NULL);
+        }
 
-    MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
-    if(0 == system(gstreamerPipeline.c_str()))
-        MIRACASTLOG_INFO("Pipeline created successfully ");
-    else
-    {
-        MIRACASTLOG_INFO("Pipeline creation failure");
-        return MIRACAST_FAIL;
     }
 
    // m_eventCallback->onStreamingStarted();
@@ -1022,7 +1040,7 @@ MiracastError MiracastPrivate::startStreaming()
 
 bool MiracastPrivate::stopStreaming()
 {
-    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1991 -j ACCEPT");
+    system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
     return true;
 }
 
