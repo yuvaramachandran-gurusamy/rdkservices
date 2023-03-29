@@ -83,6 +83,8 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_STD_RESPONSE_STR			"RTSP/1.0 200 OK" RTSP_CRLF_STR
 #define RTSP_STD_REQUEST_STR			"RTSP/1.0" RTSP_CRLF_STR
 
+#define RTSP_M16_REQUEST_MSG			"GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
+
 #define RTSP_STD_PUBLIC_FIELD			"Public: "
 #define RTSP_STD_SEQUENCE_FIELD			"CSeq: "
 #define RTSP_STD_REQUIRE_FIELD			"Require: "
@@ -149,16 +151,18 @@ typedef enum session_manager_actions_e
 
 typedef enum rtsp_msg_handler_actions_e
 {
-	M1_REQUEST_RECEIVED = 0x01,
-	M2_REQUEST_ACK,
-	M3_REQUEST_RECEIVED,
-	M4_REQUEST_RECEIVED,
-	M5_REQUEST_RECEIVED,
-	M6_REQUEST_ACK,
-	M7_REQUEST_ACK,
-	RTSP_ACTIVATE,
+	RTSP_M1_REQUEST_RECEIVED = 0x01,
+	RTSP_M2_REQUEST_ACK,
+	RTSP_M3_REQUEST_RECEIVED,
+	RTSP_M4_REQUEST_RECEIVED,
+	RTSP_M5_REQUEST_RECEIVED,
+	RTSP_M6_REQUEST_ACK,
+	RTSP_M7_REQUEST_ACK,
+	RTSP_MSG_POST_M1_M7_XCHANGE,
+	RTSP_START,
+	RTSP_RESTART,
 	RTSP_SELF_ABORT,
-	RTSP_INACTIVATE
+	RTSP_STOP
 }RTSP_MSG_HANDLER_ACTIONS;
 
 typedef enum client_req_handler_actions_e
@@ -353,6 +357,7 @@ class MiracastPrivate
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer );
+		RTSP_SEND_RESPONSE_CODE validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer );
 		SESSION_MANAGER_ACTIONS convertP2PtoSessionActions( enum P2P_EVENTS eventId );
 		MiracastError stopDiscoverDevices();
 		void setWiFiDisplayParams(void);
