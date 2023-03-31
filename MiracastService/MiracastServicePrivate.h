@@ -59,7 +59,8 @@ typedef enum rtsp_send_response_code_e
 	RTSP_SEND_REQ_RESPONSE_NOK=0x01,
 	RTSP_INVALID_MSG_RECEIVED,
 	RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK,
-	RTSP_RECV_TIMEDOUT
+	RTSP_RECV_TIMEDOUT,
+	RTSP_SRC_TEARDOWN_REQUEST
 }RTSP_SEND_RESPONSE_CODE;
 
 #define SESSION_MGR_NAME		( "MIRA_SESSION_MGR" )
@@ -107,6 +108,7 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_REQ_SET_PARAMETER			", SET_PARAMETER"
 #define RTSP_REQ_SETUP_MODE			"SETUP"
 #define RTSP_REQ_PLAY_MODE			"PLAY"
+#define RTSP_REQ_TEARDOWN_MODE		"TEARDOWN"
 
 #define RTSP_M2_REQ_SINK2SRC_SEQ_NO		"11"
 #define RTSP_M6_REQ_SINK2SRC_SEQ_NO		"12"
@@ -118,6 +120,31 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_DFLT_TRANSPORT_PROFILE		"RTP/AVP/UDP"
 #define RTSP_DFLT_STREAMING_PORT		"1990"
 #define RTSP_DFLT_CLIENT_RTP_PORTS RTSP_DFLT_TRANSPORT_PROFILE RTSP_SEMI_COLON_STR RTSP_STD_UNICAST_FIELD RTSP_SPACE_STR RTSP_DFLT_STREAMING_PORT RTSP_SPACE_STR "0 mode=play"
+
+typedef enum rtsp_message_format_sink2src_e
+{
+	RTSP_MSG_FMT_M1_RESPONSE	= 0x00,
+	RTSP_MSG_FMT_M2_REQUEST,
+	RTSP_MSG_FMT_M3_RESPONSE,
+	RTSP_MSG_FMT_M4_RESPONSE,
+	RTSP_MSG_FMT_M5_RESPONSE,
+	RTSP_MSG_FMT_M6_REQUEST,
+	RTSP_MSG_FMT_M7_REQUEST,
+	RTSP_MSG_FMT_M16_RESPONSE,
+	RTSP_MSG_FMT_PAUSE_REQUEST,
+	RTSP_MSG_FMT_PLAY_REQUEST,
+	RTSP_MSG_FMT_TEARDOWN_REQUEST,
+	RTSP_MSG_FMT_TEARDOWN_RESPONSE,
+	RTSP_MSG_FMT_INVALID
+}
+RTSP_MSG_FMT_SINK2SRC;
+
+typedef struct rtsp_msg_template_info
+{
+	RTSP_MSG_FMT_SINK2SRC	rtsp_msg_fmt_e;
+	const char*	template_name;
+}
+RTSP_MSG_TEMPLATE_INFO;
 
 typedef enum session_manager_actions_e
 {
@@ -143,6 +170,7 @@ typedef enum session_manager_actions_e
 	SESSION_MGR_RTSP_MSG_TIMEDOUT,
 	SESSION_MGR_RTSP_INVALID_MESSAGE,
 	SESSION_MGR_RTSP_SEND_REQ_RESP_FAILED,
+	SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED,
 	SESSION_MGR_GO_EVENT_ERROR,
 	SESSION_MGR_GO_UNKNOWN_EVENT,
 	SESSION_MGR_SELF_ABORT,
@@ -159,10 +187,12 @@ typedef enum rtsp_msg_handler_actions_e
 	RTSP_M6_REQUEST_ACK,
 	RTSP_M7_REQUEST_ACK,
 	RTSP_MSG_POST_M1_M7_XCHANGE,
-	RTSP_START,
+	RTSP_START_RECEIVE_MSGS,
 	RTSP_RESTART,
+	RTSP_PAUSE_FROM_SINK2SRC,
+	RTSP_PLAY_FROM_SINK2SRC,
 	RTSP_SELF_ABORT,
-	RTSP_STOP
+	RTSP_INVALID_ACTION
 }RTSP_MSG_HANDLER_ACTIONS;
 
 typedef enum client_req_handler_actions_e
@@ -248,6 +278,7 @@ class MiracastRTSPMessages
 		std::string GetWFDTransportProfile( void );
 		std::string GetWFDStreamingPortNumber( void );
 		bool IsWFDUnicastSupported( void );
+		std::string GetCurrentWFDSessionNumber( void );
 
 		bool SetWFDVideoFormat( std::string video_formats );
 		bool SetWFDAudioCodecs( std::string audio_codecs );
@@ -263,6 +294,25 @@ class MiracastRTSPMessages
 		bool SetWFDTransportProfile( std::string profile );
 		bool SetWFDStreamingPortNumber( std::string port_number );
 		bool SetWFDEnableDisableUnicast( bool enable_disable_unicast );
+		bool SetCurrentWFDSessionNumber( std::string session );
+		const char* GetRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
+		std::string GenerateRequestResponseFormat( RTSP_MSG_FMT_SINK2SRC msg_fmt_needed , std::string received_session_no, std::string append_data1 );
+		std::string GetRequestSequenceNumber(void);
+
+		static std::string format_string(const char* fmt, const std::vector<const char*>& args ) {
+			std::string result = fmt;
+			size_t arg_index = 0;
+			size_t arg_count = args.size();
+
+			while (arg_index < arg_count) {
+				size_t found = result.find("%s");
+				if (found != std::string::npos) {
+					result.replace(found, 2, args[arg_index]);
+				}
+				++arg_index;
+			}
+			return result;
+		};
 
 	private:
 		std::string wfd_video_formats;
@@ -279,6 +329,9 @@ class MiracastRTSPMessages
 		std::string wfd_transport_profile;
 		std::string wfd_streaming_port;
 		bool	is_unicast;
+		std::string wfd_session_number;
+		std::string m_current_sequence_number;
+		static RTSP_MSG_TEMPLATE_INFO rtsp_msg_template_info[];
 };
 
 #define MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT	( -1 )
@@ -358,6 +411,7 @@ class MiracastPrivate
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer );
+		RTSP_SEND_RESPONSE_CODE handle_rtsp_msg_play_pause( RTSP_MSG_HANDLER_ACTIONS action_id );
 		SESSION_MANAGER_ACTIONS convertP2PtoSessionActions( enum P2P_EVENTS eventId );
 		MiracastError stopDiscoverDevices();
 		void setWiFiDisplayParams(void);

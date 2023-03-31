@@ -50,6 +50,22 @@ extern void GStreamerThreadFunc(void *);
 #define SOCKET_WAIT_TIMEOUT_IN_MILLISEC	( 30 * ONE_SECOND_PER_MILLISEC )
 
 static MiracastPrivate* g_miracastPrivate = NULL;
+std::string dummy = "";
+
+RTSP_MSG_TEMPLATE_INFO MiracastRTSPMessages::rtsp_msg_template_info[] = {
+	{ RTSP_MSG_FMT_M1_RESPONSE , "RTSP/1.0 200 OK\r\nPublic: \"%s, GET_PARAMETER, SET_PARAMETER\"\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M2_REQUEST , "OPTIONS * RTSP/1.0\r\nRequire: %s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M3_RESPONSE , "RTSP/1.0 200 OK\r\nContent-Length: %s\r\nContent-Type: text/parameters\r\nCSeq: %s\r\n\r\n%s" },
+	{ RTSP_MSG_FMT_M4_RESPONSE , "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M5_RESPONSE , "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M6_REQUEST , "SETUP %s RTSP/1.0\r\nTransport: %s;%sclient_port=%s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M7_REQUEST , "PLAY %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_M16_RESPONSE , "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_PAUSE_REQUEST , "PAUSE %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_PLAY_REQUEST , "PLAY %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_TEARDOWN_REQUEST , "TEARDOWN %s RTSP/1.0\r\nSession: %s\r\nCSeq: %s\r\n\r\n" },
+	{ RTSP_MSG_FMT_TEARDOWN_RESPONSE , "RTSP/1.0 200 OK\r\nCSeq: %s\r\n\r\n" }
+};
 
 void ClientRequestHandlerCallback( void* args );
 void SessionMgrThreadCallback( void* args );
@@ -1127,33 +1143,16 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m1_msg_m2_send_request(st
 		m_rtsp_msg->m1_msg_req_src2sink.append(rtsp_m1_msg_buffer);
 
 		m_rtsp_msg->m1_msg_resp_sink2src.clear();
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_STD_RESPONSE_STR);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_STD_PUBLIC_FIELD);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_DOUBLE_QUOTE_STR);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(req_str);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_REQ_GET_PARAMETER);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_REQ_SET_PARAMETER);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_DOUBLE_QUOTE_STR);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_CRLF_STR);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(seq_str);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_CRLF_STR);
-		m_rtsp_msg->m1_msg_resp_sink2src.append(RTSP_CRLF_STR);
+		m_rtsp_msg->m1_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M1_RESPONSE ,  seq_str ,  req_str );
 
 		MIRACASTLOG_INFO("Sending the M1 response \n-%s", m_rtsp_msg->m1_msg_resp_sink2src.c_str());
 
 		if ( true == SendBufferTimedOut( m_rtsp_msg->m1_msg_resp_sink2src )){
 			response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 			MIRACASTLOG_INFO("M1 response sent\n");
+
 			m_rtsp_msg->m2_msg_req_sink2src.clear();
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_REQ_OPTIONS);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_STD_REQUIRE_FIELD);
-			m_rtsp_msg->m2_msg_req_sink2src.append(req_str);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_CRLF_STR);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_M2_REQ_SINK2SRC_SEQ_NO);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_CRLF_STR);
-			m_rtsp_msg->m2_msg_req_sink2src.append(RTSP_CRLF_STR);
+			m_rtsp_msg->m2_msg_req_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M2_REQUEST ,  dummy ,  req_str );
 
 			MIRACASTLOG_INFO("%s", m_rtsp_msg->m2_msg_req_sink2src.c_str());
 			MIRACASTLOG_INFO("Sending the M2 request \n");
@@ -1207,45 +1206,9 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m3_response_back(std::str
 		m_rtsp_msg->m3_msg_req_src2sink.append(rtsp_m3_msg_buffer);
 
 		m_rtsp_msg->m3_msg_resp_sink2src.clear();
-		
-		// prepare content buffer
-		content_buffer.clear();
 
-		// Append content protection type
-		content_buffer.append(RTSP_STD_WFD_CONTENT_PROTECT_FIELD);
-		content_buffer.append(m_rtsp_msg->GetWFDContentProtection());
-		content_buffer.append(RTSP_CRLF_STR);
-
-		// Append Video Formats
-		content_buffer.append(RTSP_STD_WFD_VIDEO_FMT_FIELD);
-		content_buffer.append(m_rtsp_msg->GetWFDVideoFormat());
-		content_buffer.append(RTSP_CRLF_STR);
-
-		// Append Audio Formats
-		content_buffer.append(RTSP_STD_WFD_AUDIO_FMT_FIELD);
-		content_buffer.append(m_rtsp_msg->GetWFDAudioCodecs());
-		content_buffer.append(RTSP_CRLF_STR);
-
-		// Append Client RTP Client port configuration
-		content_buffer.append(RTSP_STD_WFD_CLIENT_PORTS_FIELD);
-		content_buffer.append(m_rtsp_msg->GetWFDClientRTPPorts());
-		content_buffer.append(RTSP_CRLF_STR);
-
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_STD_RESPONSE_STR);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_STD_CONTENT_LEN_FIELD);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(std::to_string(content_buffer.length()));
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_CRLF_STR);
-
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_STD_CONTENT_TYPE_FIELD);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_DFLT_CONTENT_TYPE);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_CRLF_STR);
-
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(seq_str);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_CRLF_STR);
-		m_rtsp_msg->m3_msg_resp_sink2src.append(RTSP_CRLF_STR);
-
-		m_rtsp_msg->m3_msg_resp_sink2src.append(content_buffer);
+		m_rtsp_msg->m3_msg_resp_sink2src.clear();
+		m_rtsp_msg->m3_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M3_RESPONSE ,  seq_str ,  dummy );
 
 		MIRACASTLOG_INFO("%s", m_rtsp_msg->m3_msg_resp_sink2src.c_str());
 
@@ -1293,12 +1256,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m4_response_back(std::str
 		m_rtsp_msg->m4_msg_req_src2sink.append(rtsp_m4_msg_buffer);
 
 		m_rtsp_msg->m4_msg_resp_sink2src.clear();
-
-		m_rtsp_msg->m4_msg_resp_sink2src.append(RTSP_STD_RESPONSE_STR);
-		m_rtsp_msg->m4_msg_resp_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-		m_rtsp_msg->m4_msg_resp_sink2src.append(seq_str);
-		m_rtsp_msg->m4_msg_resp_sink2src.append(RTSP_CRLF_STR);
-		m_rtsp_msg->m4_msg_resp_sink2src.append(RTSP_CRLF_STR);
+		m_rtsp_msg->m4_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M4_RESPONSE ,  seq_str ,  dummy );
 
 		MIRACASTLOG_INFO("Sending the M4 response \n");
 		if ( true == SendBufferTimedOut( m_rtsp_msg->m4_msg_resp_sink2src )){
@@ -1339,43 +1297,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m5_msg_m6_send_request(st
 		m_rtsp_msg->m5_msg_req_src2sink.append(rtsp_m5_msg_buffer);
 
 		m_rtsp_msg->m5_msg_resp_sink2src.clear();
-		m_rtsp_msg->m5_msg_resp_sink2src.append(RTSP_STD_RESPONSE_STR);
-		m_rtsp_msg->m5_msg_resp_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-		m_rtsp_msg->m5_msg_resp_sink2src.append(seq_str);
-		m_rtsp_msg->m5_msg_resp_sink2src.append(RTSP_CRLF_STR);
-		m_rtsp_msg->m5_msg_resp_sink2src.append(RTSP_CRLF_STR);
+		m_rtsp_msg->m5_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M5_RESPONSE ,  seq_str ,  dummy );
 
 		MIRACASTLOG_INFO("Sending the M5 response \n");
 		if ( true == SendBufferTimedOut( m_rtsp_msg->m5_msg_resp_sink2src )){
 			MIRACASTLOG_INFO("M5 Response has sent\n");
 
 			m_rtsp_msg->m6_msg_req_sink2src.clear();
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_REQ_SETUP_MODE);
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_SPACE_STR);
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(m_rtsp_msg->GetWFDPresentationURL());
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_SPACE_STR);
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_STD_REQUEST_STR);
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_STD_TRANSPORT_FIELD);
-			m_rtsp_msg->m6_msg_req_sink2src.append(m_rtsp_msg->GetWFDTransportProfile());
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_SEMI_COLON_STR);
-
-			if ( true == m_rtsp_msg->IsWFDUnicastSupported()){
-				m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_STD_UNICAST_FIELD);
-				m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_SEMI_COLON_STR);
-			}
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_STD_CLIENT_PORT_FIELD);
-			m_rtsp_msg->m6_msg_req_sink2src.append(m_rtsp_msg->GetWFDStreamingPortNumber());
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_CRLF_STR);
-
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_M6_REQ_SINK2SRC_SEQ_NO);
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_CRLF_STR);
-			m_rtsp_msg->m6_msg_req_sink2src.append(RTSP_CRLF_STR);
+			m_rtsp_msg->m6_msg_req_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M6_REQUEST ,  seq_str ,  dummy );
 
 			MIRACASTLOG_INFO("Sending the M6 Request\n");
 			if ( true == SendBufferTimedOut( m_rtsp_msg->m6_msg_req_sink2src )){
@@ -1409,26 +1338,12 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m6_ack_m7_send_request(st
 		pos_ses = session.find(";");
 		std::string session_number = session.substr(0, pos_ses);
 
+		m_rtsp_msg->SetCurrentWFDSessionNumber( session_number );
+
 		if(rtsp_m6_ack_buffer.find("client_port") != std::string::npos)
 		{
 			m_rtsp_msg->m7_msg_req_sink2src.clear();
-
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_REQ_PLAY_MODE);
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_SPACE_STR);
-
-			m_rtsp_msg->m7_msg_req_sink2src.append(m_rtsp_msg->GetWFDPresentationURL());
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_SPACE_STR);
-
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_STD_REQUEST_STR);
-
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_STD_SESSION_FIELD);
-			m_rtsp_msg->m7_msg_req_sink2src.append(session_number);
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_CRLF_STR);
-
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_M7_REQ_SINK2SRC_SEQ_NO);
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_CRLF_STR);
-			m_rtsp_msg->m7_msg_req_sink2src.append(RTSP_CRLF_STR);
+			m_rtsp_msg->m7_msg_req_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M7_REQUEST ,  dummy ,  dummy );
 
 			MIRACASTLOG_INFO("Sending the M7 Request\n");
 			if ( true == SendBufferTimedOut( m_rtsp_msg->m7_msg_req_sink2src )){
@@ -1454,40 +1369,75 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m7_request_ack(std::strin
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer )
 {
 	RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
+	RTSP_SEND_RESPONSE_CODE sub_response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
+	std::string rtsp_resp_sink2src = "";
+	std::string seq_str = "";
+	std::stringstream ss(rtsp_post_m1_m7_xchange_buffer);
+	std::string prefix = "";
+	std::string line;
+
+	while (std::getline(ss, line)) {
+		if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos) {
+			prefix = RTSP_STD_SEQUENCE_FIELD;
+			seq_str = line.substr(prefix.length());
+			REMOVE_R(seq_str);
+			REMOVE_N(seq_str);
+			break;
+		}
+	}
 
 	if( rtsp_post_m1_m7_xchange_buffer.find(RTSP_M16_REQUEST_MSG) != std::string::npos)
 	{
-		std::string seq_str = "";
-		std::stringstream ss(rtsp_post_m1_m7_xchange_buffer);
-		std::string prefix = "";
-		std::string line;
+		rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M16_RESPONSE ,  seq_str ,  dummy );
+	}
+	else if( rtsp_post_m1_m7_xchange_buffer.find("wfd_trigger_method: TEARDOWN") != std::string::npos)
+	{
+		MIRACASTLOG_INFO("TEARDOWN request from Source received\n");
+		rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_TEARDOWN_RESPONSE ,  seq_str ,  dummy );
+		sub_response_code = RTSP_SRC_TEARDOWN_REQUEST;
+	}
 
-		while (std::getline(ss, line)) {
-			if (line.find(RTSP_STD_SEQUENCE_FIELD) != std::string::npos) {
-				prefix = RTSP_STD_SEQUENCE_FIELD;
-				seq_str = line.substr(prefix.length());
-				REMOVE_R(seq_str);
-				REMOVE_N(seq_str);
-				break;
-			}
-		}
-
-		std::string rtsp_m16_resp_sink2src = "";
-
-		rtsp_m16_resp_sink2src.append(RTSP_STD_RESPONSE_STR);
-		rtsp_m16_resp_sink2src.append(RTSP_STD_SEQUENCE_FIELD);
-		rtsp_m16_resp_sink2src.append(seq_str);
-		rtsp_m16_resp_sink2src.append(RTSP_CRLF_STR);
-		rtsp_m16_resp_sink2src.append(RTSP_CRLF_STR);
-
-		MIRACASTLOG_INFO("Sending the M16 response \n");
-		if ( true == SendBufferTimedOut( rtsp_m16_resp_sink2src )){
-			response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
-			MIRACASTLOG_INFO("M16 response sent\n");
+	if(!(rtsp_resp_sink2src.empty())){
+		MIRACASTLOG_INFO("Sending the Response \n");
+		if ( true == SendBufferTimedOut( rtsp_resp_sink2src )){
+			response_code = sub_response_code;
+			MIRACASTLOG_INFO("Response sent\n");
 		}
 		else{
 			response_code = RTSP_SEND_REQ_RESPONSE_NOK;
-			MIRACASTLOG_INFO("Failed to sent M16 response\n");
+			MIRACASTLOG_INFO("Failed to sent Response\n");
+		}
+	}
+
+	return response_code;
+}
+
+RTSP_SEND_RESPONSE_CODE MiracastPrivate::handle_rtsp_msg_play_pause( RTSP_MSG_HANDLER_ACTIONS action_id )
+{
+	RTSP_MSG_FMT_SINK2SRC play_or_pause_mode = RTSP_MSG_FMT_INVALID;
+	RTSP_SEND_RESPONSE_CODE response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
+
+	if ( RTSP_PLAY_FROM_SINK2SRC == action_id ){
+		play_or_pause_mode = RTSP_MSG_FMT_PLAY_REQUEST;
+	}
+	else if ( RTSP_PAUSE_FROM_SINK2SRC == action_id ){
+		play_or_pause_mode = RTSP_MSG_FMT_PAUSE_REQUEST;
+	}
+
+	if ( RTSP_MSG_FMT_INVALID != play_or_pause_mode ){
+		std::string rtsp_resp_sink2src;
+		rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_TEARDOWN_RESPONSE ,  dummy ,  dummy );
+
+		if(!(rtsp_resp_sink2src.empty())){
+			MIRACASTLOG_INFO("Sending the PLAY/PAUSE REQUEST \n");
+			if ( true == SendBufferTimedOut( rtsp_resp_sink2src )){
+				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
+				MIRACASTLOG_INFO("PLAY/PAUSE sent\n");
+			}
+			else{
+				response_code = RTSP_SEND_REQ_RESPONSE_NOK;
+				MIRACASTLOG_INFO("Failed to sent PLAY/PAUSE\n");
+			}
 		}
 	}
 
@@ -1540,14 +1490,6 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_msg_response_back(std::st
 			response_code = validate_rtsp_post_m1_m7_xchange( rtsp_msg_buffer );
 		}
 		break;
-		case RTSP_SELF_ABORT:
-		case RTSP_STOP:
-		case RTSP_START:
-		case RTSP_RESTART:
-		{
-			//
-		}
-		break;
 		default:
 		{
 			//
@@ -1561,6 +1503,8 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_msg_response_back(std::st
 MiracastRTSPMessages::MiracastRTSPMessages()
 {
 	std::string default_configuration;
+
+	m_current_sequence_number.clear();
 
 	SetWFDEnableDisableUnicast(true);
 
@@ -1585,6 +1529,125 @@ MiracastRTSPMessages::MiracastRTSPMessages()
 
 MiracastRTSPMessages::~MiracastRTSPMessages()
 {
+}
+
+std::string MiracastRTSPMessages::GetRequestSequenceNumber(void)
+{
+	int next_number = std::stoi(m_current_sequence_number.empty() ? "0" : m_current_sequence_number) + 1;
+	m_current_sequence_number = std::to_string(next_number);
+	return m_current_sequence_number;
+}
+
+const char* MiracastRTSPMessages::GetRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type)
+{
+    int index = static_cast<RTSP_MSG_FMT_SINK2SRC>(format_type) - static_cast<RTSP_MSG_FMT_SINK2SRC>(RTSP_MSG_FMT_M1_RESPONSE);
+    if (index >= 0 && index < static_cast<int>(sizeof(rtsp_msg_template_info)/sizeof(rtsp_msg_template_info[0]))) {
+        return rtsp_msg_template_info[index].template_name;
+    }
+    return "";
+}
+
+std::string MiracastRTSPMessages::GenerateRequestResponseFormat( RTSP_MSG_FMT_SINK2SRC msg_fmt_needed , std::string received_session_no, std::string append_data1 )
+{
+	std::vector<const char*> sprintf_args;
+	const char* template_str = GetRequestResponseFormat(msg_fmt_needed);
+	std::string content_buffer = "";
+	std::string unicast_supported = "";
+	std::string content_buffer_len;
+	std::string sequence_number = GetRequestSequenceNumber();
+	std::string URL = GetWFDPresentationURL();
+	std::string TSProfile = GetWFDTransportProfile();
+	std::string StreamingPort = GetWFDStreamingPortNumber();
+	std::string WFDSessionNum = GetCurrentWFDSessionNumber();
+
+	// Determine the required buffer size using snprintf
+	switch( msg_fmt_needed  ){
+		case RTSP_MSG_FMT_M1_RESPONSE:
+		{
+			sprintf_args.push_back(append_data1.c_str());
+			sprintf_args.push_back(received_session_no.c_str());
+		}
+		break;
+		case RTSP_MSG_FMT_M3_RESPONSE:
+		{
+			// prepare content buffer
+			// Append content protection type
+			content_buffer.append(RTSP_STD_WFD_CONTENT_PROTECT_FIELD);
+			content_buffer.append(GetWFDContentProtection());
+			content_buffer.append(RTSP_CRLF_STR);
+			// Append Video Formats
+			content_buffer.append(RTSP_STD_WFD_VIDEO_FMT_FIELD);
+			content_buffer.append(GetWFDVideoFormat());
+			content_buffer.append(RTSP_CRLF_STR);
+			// Append Audio Formats
+			content_buffer.append(RTSP_STD_WFD_AUDIO_FMT_FIELD);
+			content_buffer.append(GetWFDAudioCodecs());
+			content_buffer.append(RTSP_CRLF_STR);
+			// Append Client RTP Client port configuration
+			content_buffer.append(RTSP_STD_WFD_CLIENT_PORTS_FIELD);
+			content_buffer.append(GetWFDClientRTPPorts());
+			content_buffer.append(RTSP_CRLF_STR);
+
+			content_buffer_len = std::to_string(content_buffer.length());
+
+			sprintf_args.push_back(content_buffer_len.c_str());
+			sprintf_args.push_back(received_session_no.c_str());
+			sprintf_args.push_back(content_buffer.c_str());
+
+			MIRACASTLOG_INFO("content_buffer - [%s]\n",content_buffer.c_str());
+		}
+		break;
+		case RTSP_MSG_FMT_M4_RESPONSE:
+		case RTSP_MSG_FMT_M5_RESPONSE:
+		case RTSP_MSG_FMT_M16_RESPONSE:
+		case RTSP_MSG_FMT_TEARDOWN_RESPONSE:
+		{
+			sprintf_args.push_back(received_session_no.c_str());
+		}
+		break;
+		case RTSP_MSG_FMT_M2_REQUEST:
+		case RTSP_MSG_FMT_M6_REQUEST:
+		case RTSP_MSG_FMT_M7_REQUEST:
+		case RTSP_MSG_FMT_PAUSE_REQUEST:
+		case RTSP_MSG_FMT_PLAY_REQUEST:
+		case RTSP_MSG_FMT_TEARDOWN_REQUEST:
+		{
+			if ( RTSP_MSG_FMT_M2_REQUEST == msg_fmt_needed ){
+				sprintf_args.push_back(append_data1.c_str());
+			}
+			else{
+				sprintf_args.push_back(URL.c_str());
+
+				if ( RTSP_MSG_FMT_M6_REQUEST == msg_fmt_needed ){
+					sprintf_args.push_back(TSProfile.c_str());
+					if ( true == IsWFDUnicastSupported()){
+						unicast_supported.append(RTSP_STD_UNICAST_FIELD);
+						unicast_supported.append(RTSP_SEMI_COLON_STR);
+						sprintf_args.push_back(unicast_supported.c_str());
+					}
+					sprintf_args.push_back(StreamingPort.c_str());
+				}
+				else{
+					sprintf_args.push_back(WFDSessionNum.c_str());
+				}
+			}
+			sprintf_args.push_back(sequence_number.c_str());
+		}
+		break;
+		default:
+		{
+			MIRACASTLOG_ERROR("INVALID FMT REQUEST\n");
+		}
+		break;
+	}
+
+	std::string result = "";
+
+	if ( 0 != sprintf_args.size()){
+		result = MiracastRTSPMessages::format_string( template_str , sprintf_args );
+	}
+
+    return result;
 }
 
 std::string MiracastRTSPMessages::GetWFDVideoFormat( void )
@@ -1653,6 +1716,11 @@ std::string MiracastRTSPMessages::GetWFDStreamingPortNumber( void )
 bool MiracastRTSPMessages::IsWFDUnicastSupported( void )
 {
 	return is_unicast;
+}
+
+std::string MiracastRTSPMessages::GetCurrentWFDSessionNumber( void )
+{
+	return wfd_session_number;
 }
 
 bool MiracastRTSPMessages::SetWFDVideoFormat( std::string video_formats )
@@ -1729,6 +1797,12 @@ bool MiracastRTSPMessages::SetWFDStreamingPortNumber( std::string port_number )
 bool MiracastRTSPMessages::SetWFDEnableDisableUnicast( bool enable_disable_unicast )
 {
 	is_unicast = enable_disable_unicast;
+	return true;
+}
+
+bool MiracastRTSPMessages::SetCurrentWFDSessionNumber( std::string session )
+{
+	wfd_session_number = session;
 	return true;
 }
 
@@ -1820,7 +1894,7 @@ int8_t MiracastThread::receive_message( void* message , size_t msg_size , int se
 void MiracastPrivate::SessionManagerThread(void* args)
 {
 	SessionMgrMsg session_message_data = { 0 };
-	RTSPHldrMsg rtsp_message_data = { RTSP_STOP , 0 };
+	RTSPHldrMsg rtsp_message_data = { RTSP_INVALID_ACTION , 0 };
 	bool client_req_client_connection_sent = false;
 
 	while( true ){
@@ -1991,8 +2065,8 @@ void MiracastPrivate::SessionManagerThread(void* args)
 
 					if(ret == true)
 					{
-						rtsp_message_data.action = RTSP_START;
-						MIRACASTLOG_INFO("RTSP Thread Initialated with RTSP_START\n");
+						rtsp_message_data.action = RTSP_START_RECEIVE_MSGS;
+						MIRACASTLOG_INFO("RTSP Thread Initialated with RTSP_START_RECEIVE_MSGS\n");
 						m_rtsp_msg_handler_thread->send_message( &rtsp_message_data , RTSP_HANDLER_MSGQ_SIZE);
 						ret = false;
 					}
@@ -2045,8 +2119,9 @@ void MiracastPrivate::SessionManagerThread(void* args)
 			case SESSION_MGR_RTSP_MSG_TIMEDOUT:
 			case SESSION_MGR_RTSP_INVALID_MESSAGE:
 			case SESSION_MGR_RTSP_SEND_REQ_RESP_FAILED:
+			case SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED:
 			{
-				MIRACASTLOG_INFO("SESSION_MGR_RTSP_MSG_FAILED Received\n");
+				MIRACASTLOG_INFO("[TIMEDOUT/TEARDOWN_REQ/SEND_REQ_RESP_FAIL/INVALID_MESSAG] Received\n");
 				RestartSession();
 			}
 			break;
@@ -2058,7 +2133,7 @@ void MiracastPrivate::SessionManagerThread(void* args)
 			case SESSION_MGR_GO_NEG_FAILURE:
 			case SESSION_MGR_GO_GROUP_FORMATION_FAILURE:
 			{
-				MIRACASTLOG_INFO("GO_NEG/GROUP_FORMATION_FAILURE Received\n");
+				MIRACASTLOG_INFO("[GO_NEG/GROUP_FORMATION_FAILURE] Received\n");
 				RestartSession();
 			}
 			break;
@@ -2070,7 +2145,7 @@ void MiracastPrivate::SessionManagerThread(void* args)
 			case SESSION_MGR_SELF_ABORT:
 			case SESSION_MGR_INVALID_ACTION:
 			{
-				//
+				MIRACASTLOG_INFO("[STOP_FIND/NEG_SUCCESS/GROUP_FORMATION_SUCCESS/EVENT_ERROR] Received\n");
 			}
 			break;
 		}
@@ -2084,6 +2159,7 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 	SessionMgrMsg session_mgr_buffer = {0};
 	RTSP_SEND_RESPONSE_CODE response_code = RTSP_RECV_TIMEDOUT;
 	std::string socket_buffer;
+	bool start_monitor_keep_alive_msg = false;
 
 	while( true ){
 		MIRACASTLOG_INFO("[%s] Waiting for Event .....\n",__FUNCTION__);
@@ -2096,7 +2172,7 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 			break;
 		}
 
-		if ( RTSP_START != message_data.action ){
+		if ( RTSP_START_RECEIVE_MSGS != message_data.action ){
 			continue;
 		}
 		message_data.action = RTSP_M1_REQUEST_RECEIVED;
@@ -2119,9 +2195,12 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 			message_data.action = static_cast<RTSP_MSG_HANDLER_ACTIONS>(message_data.action + 1);
 		}
 
+		start_monitor_keep_alive_msg = false;
+
 		if (( RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK == response_code ) && ( RTSP_M7_REQUEST_ACK == message_data.action ))
 		{
 			session_mgr_buffer.action = SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY;
+			start_monitor_keep_alive_msg = true;
 		}
 		else if ( RTSP_INVALID_MSG_RECEIVED == response_code ){
 			session_mgr_buffer.action = SESSION_MGR_RTSP_INVALID_MESSAGE;
@@ -2135,7 +2214,7 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 		MIRACASTLOG_INFO("Msg to SessionMgr Action[%#04X]\n",session_mgr_buffer.action);
 		m_session_manager_thread->send_message( &session_mgr_buffer , sizeof(session_mgr_buffer));
 
-		while( true )
+		while( true == start_monitor_keep_alive_msg )
 		{
 			if ( ReceiveBufferTimedOut( rtsp_message_socket , sizeof(rtsp_message_socket))){
 				socket_buffer.clear();
@@ -2145,19 +2224,27 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 				response_code = validate_rtsp_msg_response_back( socket_buffer , RTSP_MSG_POST_M1_M7_XCHANGE );
 
 				MIRACASTLOG_INFO("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n",__FUNCTION__,message_data.action,response_code);
-				if ( RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK != response_code){
+				if (( RTSP_SRC_TEARDOWN_REQUEST == response_code)||
+					(( RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK != response_code)&&
+					( RTSP_SRC_TEARDOWN_REQUEST != response_code))){
+					session_mgr_buffer.action = SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED;
+					MIRACASTLOG_INFO("Msg to SessionMgr Action[%#04X]\n",session_mgr_buffer.action);
+					m_session_manager_thread->send_message( &session_mgr_buffer , sizeof(session_mgr_buffer));
 					break;
 				}
 				memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
 			}
 
 			MIRACASTLOG_INFO("[%s] Waiting for Event .....\n",__FUNCTION__);
-			m_rtsp_msg_handler_thread->receive_message( &message_data , sizeof(message_data) , 1 );
-
-			MIRACASTLOG_INFO("[%s] Received Action[%#04X]\n",__FUNCTION__,message_data.action);
-			if (( RTSP_RESTART == message_data.action )||( RTSP_SELF_ABORT == message_data.action )){
-				MIRACASTLOG_INFO("RTSP_SELF_ABORT/RTSP_RESTART ACTION Received\n");
-				break;
+			if ( true == m_rtsp_msg_handler_thread->receive_message( &message_data , sizeof(message_data) , 1 )){
+				MIRACASTLOG_INFO("[%s] Received Action[%#04X]\n",__FUNCTION__,message_data.action);
+				if (( RTSP_SELF_ABORT == message_data.action )||( RTSP_RESTART == message_data.action )){
+					MIRACASTLOG_INFO("RTSP_SELF_ABORT/RTSP_RESTART ACTION Received\n");
+					break;
+				}
+				else if (( RTSP_PLAY_FROM_SINK2SRC == message_data.action )||( RTSP_PAUSE_FROM_SINK2SRC == message_data.action )){
+					handle_rtsp_msg_play_pause( message_data.action );
+				}
 			}
 		}
 
