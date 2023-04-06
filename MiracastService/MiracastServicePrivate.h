@@ -114,7 +114,17 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_M6_REQ_SINK2SRC_SEQ_NO		"12"
 #define RTSP_M7_REQ_SINK2SRC_SEQ_NO		"13"
 
+#ifdef ENABLE_HDCP2X_SUPPORT
+#define HDCP2X_SOCKET_BUF_MAX 80
+#define HDCP2X_PORT 40001
+#define SA struct sockaddr
+
+#define HDCP2X_AKE_THREAD_NAME			"HDCP2X_AKE_HLDR"
+#define HDCP2X_AKE_THREAD_STACK			(256 * 1024)
+#define RTSP_DFLT_CONTENT_PROTECTION		"HDCP2.0 port=40001"
+#else
 #define RTSP_DFLT_CONTENT_PROTECTION		"none"
+#endif /*ENABLE_HDCP2X_SUPPORT*/
 #define RTSP_DFLT_VIDEO_FORMATS			"00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none"
 #define RTSP_DFLT_AUDIO_FORMATS			"AAC 00000007 00"
 #define RTSP_DFLT_TRANSPORT_PROFILE		"RTP/AVP/UDP"
@@ -215,6 +225,7 @@ typedef struct group_info
 	std::string ipAddr;
 	std::string ipMask;
 	std::string goIPAddr;
+	std::string localIPAddr;
 }GroupInfo;
 
 typedef struct session_mgr_msg
@@ -303,7 +314,6 @@ class MiracastRTSPMessages
 			std::string result = fmt;
 			size_t arg_index = 0;
 			size_t arg_count = args.size();
-
 			while (arg_index < arg_count) {
 				size_t found = result.find("%s");
 				if (found != std::string::npos) {
@@ -359,6 +369,21 @@ class MiracastThread
 		void (*thread_callback)(void *);
 };
 
+class MiracastSingleton {
+public:
+    static MiracastSingleton& getInstance() {
+        static MiracastSingleton instance;
+        return instance;
+    }
+
+    std::string getP2PGOLocalIP();
+
+private:
+    MiracastSingleton() {}
+    MiracastSingleton(const MiracastSingleton&) = delete;
+    MiracastSingleton& operator=(const MiracastSingleton&) = delete;
+};
+
 class MiracastThread;
 class MiracastRTSPMessages;
 
@@ -377,7 +402,7 @@ class MiracastPrivate
 		MiracastError selectDevice();
 		MiracastError connectDevice(std::string MAC);
 		MiracastError startStreaming();
-
+		std::string getP2PGroupLocalIP();
 		string getConnectedMAC();
 		vector<DeviceInfo*> getAllPeers();
 		bool getConnectionStatus();
@@ -398,10 +423,12 @@ class MiracastPrivate
 		void RTSPMessageHandlerThread(void* args);
 		// Client Request Handler
 		void ClientRequestHandlerThread(void* args);
+		void HDCPTCPServerHandlerThread(void* args);
+		void DumpBuffer( char* buffer , int length );
 		
-		bool ReceiveBufferTimedOut( void* buffer , size_t buffer_len );
+		bool ReceiveBufferTimedOut( int sockfd , void* buffer , size_t buffer_len );
 		bool waitDataTimeout( int m_Sockfd , unsigned ms);
-		bool SendBufferTimedOut(std::string rtsp_response_buffer );
+		bool SendBufferTimedOut( int sockfd , std::string rtsp_response_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_msg_response_back(std::string rtsp_msg_buffer , RTSP_MSG_HANDLER_ACTIONS action_id );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer );
@@ -423,8 +450,8 @@ class MiracastPrivate
 
 		MiracastError executeCommand(std::string command, int interface, std::string& retBuffer);
 		std::string storeData(const char* tmpBuff, const char* lookup_data);
-		std::string startDHCPClient(std::string interface);
-		bool initiateTCP(std::string goIP);
+		std::string startDHCPClient(std::string interface ,  std::string& default_gw_ip_addr );
+		bool initiateTCP(std::string goIP );
 		bool connectSink();
 		void wfdInit(MiracastCallback* Callback);
 
@@ -435,6 +462,7 @@ class MiracastPrivate
 		std::string m_iface;
 		bool m_connectionStatus;
 		int m_tcpSockfd;
+		int m_hdcptcpSockfd;
 
 		/*members for interacting with wpa_supplicant*/
 		int p2pInit();
@@ -454,9 +482,10 @@ class MiracastPrivate
 		bool m_isWiFiDisplayParamsEnabled;
 		pthread_t p2p_ctrl_monitor_thread_id;
 		MiracastRTSPMessages* m_rtsp_msg;
-	        MiracastThread* m_client_req_handler_thread;
-	        MiracastThread* m_session_manager_thread;
-	        MiracastThread* m_rtsp_msg_handler_thread;
+		MiracastThread* m_client_req_handler_thread;
+		MiracastThread* m_session_manager_thread;
+		MiracastThread* m_rtsp_msg_handler_thread;
+		MiracastThread* m_hdcp_handler_thread;
 };
 
 #endif

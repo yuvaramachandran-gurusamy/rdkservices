@@ -36,6 +36,8 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 target_include_directories(${MODULE_NAME} PRIVATE ./ ../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDES})
 
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error -fpermissive -Os -pipe -g -feliminate-unused-debug-types -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed)
+target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_AUTO_CONNECT)
+#target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_HDCP2X_SUPPORT)
 
 target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins ${NAMESPACE}SecurityUtil ${IARMBUS_LIBRARIES} ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} -lwpa_client -lpthread -lrdkloggers)
 
