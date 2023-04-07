@@ -68,7 +68,9 @@ namespace WPEFramework
 			LOGINFO("MiracastService::ctor");
 			MiracastService::_instance = this;
 			Register( METHOD_MIRACAST_SET_ENABLE , &MiracastService::setEnable, this);
+#ifndef ENABLE_AUTO_CONNECT
 			Register( METHOD_MIRACAST_CLIENT_CONNECT_REQUEST , &MiracastService::acceptClientConnectionRequest, this);
+#endif
 		}
 
 		MiracastService::~MiracastService()

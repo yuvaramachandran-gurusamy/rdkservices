@@ -71,6 +71,10 @@ void ClientRequestHandlerCallback( void* args );
 void SessionMgrThreadCallback( void* args );
 void RTSPMsgHandlerCallback( void* args );
 
+#ifdef ENABLE_HDCP2X_SUPPORT
+void HDCPHandlerCallback( void* args );
+#endif
+
 std::string MiracastPrivate::storeData(const char* tmpBuff, const char* lookup_data)
 {
     char return_buf[1024] = {0};
@@ -100,40 +104,55 @@ std::string MiracastPrivate::storeData(const char* tmpBuff, const char* lookup_d
         return std::string(" ");
 }
 
-std::string MiracastPrivate::startDHCPClient(std::string interface)
+std::string MiracastPrivate::startDHCPClient(std::string interface ,  std::string& default_gw_ip_addr )
 {
-    FILE *fp;
-    std::string IP;
-    char command[128] = {0};
-    char data[1024] = {0};
+	FILE *fp;
+	std::string IP;
+	char command[128] = {0};
+	char data[1024] = {0};
+	size_t len = 0;
+	char *ln = NULL;
+	std::string local_addr = "";
 
-    size_t len = 0;
-    char *ln = NULL;
+	sprintf(command, "/sbin/udhcpc -v -i ");
+	sprintf(command+strlen(command), interface.c_str());
+	sprintf(command+strlen(command), " 2>&1");
 
-    sprintf(command, "/sbin/udhcpc -i ");
-    sprintf(command+strlen(command), interface.c_str());
-    sprintf(command+strlen(command), " 2>&1 | grep -i \"lease of\" | cut -d ' ' -f 4");
+	MIRACASTLOG_VERBOSE("command : [%s]", command);
 
-    MIRACASTLOG_VERBOSE("command : [%s]", command);
+	fp = popen(command,"r");
 
-    fp = popen(command,"r");
+	if(!fp){
+		MIRACASTLOG_ERROR("Could not open pipe for output.");
+	}
+	else{
+		while (getline(&ln, &len, fp) != -1)
+		{
+			sprintf( data + strlen(data) , ln );
+			MIRACASTLOG_VERBOSE("data : [%s]", data);
+		}
+		pclose(fp);
 
-    if(!fp){
-        MIRACASTLOG_ERROR("Could not open pipe for output.");
-        return std::string();
-    }
+		std::string popen_buffer = data;
 
-    while (getline(&ln, &len, fp) != -1)
-    {
-        sprintf(data+strlen(data), ln);
-        MIRACASTLOG_VERBOSE("data : [%s]", data);
-        fputs(ln, stdout);
-    }
-    std::string local_addr(data);
-    MIRACASTLOG_VERBOSE("local IP addr obtained is %s", local_addr.c_str());
-    REMOVE_SPACES(local_addr);
-    free(ln);
-    return local_addr;
+		MIRACASTLOG_VERBOSE("popen_buffer is %s\n", popen_buffer.c_str());
+
+		std::string leaseof_str = "lease of ";
+		std::string gw_str = "route add default gw ";
+
+		std::size_t local_ip_pos = popen_buffer.find(leaseof_str.c_str()) + leaseof_str.length();
+		local_addr = popen_buffer.substr(local_ip_pos, popen_buffer.find(" obtained") - local_ip_pos);
+		MIRACASTLOG_VERBOSE("local IP addr obtained is %s\n", local_addr.c_str());
+
+		/* Here retrieved the default gw ip address. Later it can be used as GO IP address if P2P-GROUP started as PERSISTENT */
+		std::size_t gw_pos = popen_buffer.find(gw_str.c_str()) + gw_str.length();
+		default_gw_ip_addr = popen_buffer.substr(gw_pos, popen_buffer.find(" dev") - gw_pos);
+		MIRACASTLOG_VERBOSE("default_gw_ip_addr obtained is %s\n", default_gw_ip_addr.c_str());
+
+		free(ln);
+	}
+
+	return local_addr;
 }
 
 #if 0
@@ -443,22 +462,22 @@ bool MiracastPrivate::waitDataTimeout( int m_Sockfd , unsigned ms)
 	return false;
 }
 
-bool MiracastPrivate::ReceiveBufferTimedOut( void* buffer , size_t buffer_len )
+bool MiracastPrivate::ReceiveBufferTimedOut( int socket_fd , void* buffer , size_t buffer_len )
 {
 	int recv_return = 0;
 	bool status = true;
 
 #ifdef ENABLE_NON_BLOCKING
-	if (!waitDataTimeout( m_tcpSockfd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
-	{
+	if (!waitDataTimeout( socket_fd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
+  {
 		recv_return = -1;
 	}
 	else
 	{
-		recv_return = recv( m_tcpSockfd , buffer, buffer_len , 0 );
+		recv_return = recv( socket_fd , buffer, buffer_len , 0 );
 	}
 #else
-	recv_return = read(m_tcpSockfd, buffer , buffer_len );
+	recv_return = read( socket_fd , buffer , buffer_len );
 #endif
 	if ( recv_return <= 0 ){
 		status = false;
@@ -480,21 +499,14 @@ bool MiracastPrivate::initiateTCP(std::string goIP)
     struct epoll_event events[MAX_EPOLL_EVENTS];
     struct sockaddr_in addr = {0};
     struct sockaddr_storage str_addr = {0};
-    std::string defaultgoIP = "192.168.49.1";
 
     system("iptables -I INPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
     system("iptables -I OUTPUT -p tcp -s 192.168.0.0/16 --dport 7236 -j ACCEPT");
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(7236);
-    
-    if (goIP.empty()){
-	    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
-    }
-    else
-    {
-	    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
-    }
+
+    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
     
     if (r != 1)
     {
@@ -550,8 +562,8 @@ bool MiracastPrivate::initiateTCP(std::string goIP)
 		    }
 	    }
 #else
-	    // connection timed out or failed
-	    MIRACASTLOG_INFO("Event (%s) received", strerror(errno));
+	// connection timed out or failed
+	MIRACASTLOG_INFO("Event (%s) received", strerror(errno));
 #endif
     }
     else
@@ -937,10 +949,15 @@ MiracastPrivate::MiracastPrivate(MiracastCallback* Callback)
 	m_client_req_handler_thread->start();
 
 	m_session_manager_thread = new MiracastThread( SESSION_MGR_NAME , SESSION_MGR_STACK , SESSION_MGR_MSG_COUNT , SESSION_MGR_MSGQ_SIZE , reinterpret_cast<void (*)(void*)>(&SessionMgrThreadCallback) , NULL );
-        m_session_manager_thread->start();
+	m_session_manager_thread->start();
 	
 	m_rtsp_msg_handler_thread = new MiracastThread( RTSP_HANDLER_NAME , RTSP_HANDLER_STACK , RTSP_HANDLER_MSG_COUNT , RTSP_HANDLER_MSGQ_SIZE , reinterpret_cast<void (*)(void*)>(&RTSPMsgHandlerCallback) , NULL );
 	m_rtsp_msg_handler_thread->start();
+
+#ifdef ENABLE_HDCP2X_SUPPORT
+	m_hdcp_handler_thread = new MiracastThread( HDCP2X_AKE_THREAD_NAME , HDCP2X_AKE_THREAD_STACK , 0 , 0 , reinterpret_cast<void (*)(void*)>(&HDCPHandlerCallback) , NULL );
+	m_hdcp_handler_thread->start();
+#endif/*ENABLE_HDCP2X_SUPPORT*/
 
 	m_rtsp_msg = new MiracastRTSPMessages();
 
@@ -1062,6 +1079,15 @@ bool MiracastPrivate::disconnectDevice()
     return true;
 }
 
+std::string MiracastPrivate::getP2PGroupLocalIP()
+{
+	std::string	ip_addr = "";
+	if ( nullptr != m_groupInfo ){
+		ip_addr = m_groupInfo->localIPAddr;
+	}
+    return ip_addr;
+}
+
 std::string MiracastPrivate::getConnectedMAC()
 {
     return m_groupInfo->goDevAddr;
@@ -1094,11 +1120,11 @@ DeviceInfo* MiracastPrivate::getDeviceDetails(std::string MAC)
     return deviceInfo;
 }
 
-bool MiracastPrivate::SendBufferTimedOut(std::string rtsp_response_buffer )
+
+bool MiracastPrivate::SendBufferTimedOut( int socket_fd , std::string rtsp_response_buffer )
 {
 	int read_ret = 0;
-
-	read_ret = send( m_tcpSockfd, rtsp_response_buffer.c_str(), rtsp_response_buffer.length(), 0 );
+	read_ret = send( socket_fd, rtsp_response_buffer.c_str(), rtsp_response_buffer.length(), 0 );
 
 	if( 0 > read_ret )
 	{
@@ -1147,7 +1173,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m1_msg_m2_send_request(st
 
 		MIRACASTLOG_INFO("Sending the M1 response \n-%s", m_rtsp_msg->m1_msg_resp_sink2src.c_str());
 
-		if ( true == SendBufferTimedOut( m_rtsp_msg->m1_msg_resp_sink2src )){
+		if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m1_msg_resp_sink2src )){
 			response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 			MIRACASTLOG_INFO("M1 response sent\n");
 
@@ -1156,7 +1182,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m1_msg_m2_send_request(st
 
 			MIRACASTLOG_INFO("%s", m_rtsp_msg->m2_msg_req_sink2src.c_str());
 			MIRACASTLOG_INFO("Sending the M2 request \n");
-			if ( true == SendBufferTimedOut( m_rtsp_msg->m2_msg_req_sink2src )){
+			if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m2_msg_req_sink2src )){
 				MIRACASTLOG_INFO("M2 request sent\n");
 			}
 			else{
@@ -1212,7 +1238,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m3_response_back(std::str
 
 		MIRACASTLOG_INFO("%s", m_rtsp_msg->m3_msg_resp_sink2src.c_str());
 
-		if ( true == SendBufferTimedOut( m_rtsp_msg->m3_msg_resp_sink2src )){
+		if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m3_msg_resp_sink2src )){
 			response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 			MIRACASTLOG_INFO("Sending the M3 response \n");
 		}
@@ -1259,7 +1285,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m4_response_back(std::str
 		m_rtsp_msg->m4_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M4_RESPONSE ,  seq_str ,  dummy );
 
 		MIRACASTLOG_INFO("Sending the M4 response \n");
-		if ( true == SendBufferTimedOut( m_rtsp_msg->m4_msg_resp_sink2src )){
+		if ( true == SendBufferTimedOut(  m_tcpSockfd , m_rtsp_msg->m4_msg_resp_sink2src )){
 			response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 			MIRACASTLOG_INFO("M4 response sent\n");
 		}
@@ -1300,14 +1326,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m5_msg_m6_send_request(st
 		m_rtsp_msg->m5_msg_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M5_RESPONSE ,  seq_str ,  dummy );
 
 		MIRACASTLOG_INFO("Sending the M5 response \n");
-		if ( true == SendBufferTimedOut( m_rtsp_msg->m5_msg_resp_sink2src )){
+		if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m5_msg_resp_sink2src )){
 			MIRACASTLOG_INFO("M5 Response has sent\n");
 
 			m_rtsp_msg->m6_msg_req_sink2src.clear();
 			m_rtsp_msg->m6_msg_req_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M6_REQUEST ,  seq_str ,  dummy );
 
 			MIRACASTLOG_INFO("Sending the M6 Request\n");
-			if ( true == SendBufferTimedOut( m_rtsp_msg->m6_msg_req_sink2src )){
+			if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m6_msg_req_sink2src )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 				MIRACASTLOG_INFO("M6 Request has sent\n");
 			}
@@ -1346,7 +1372,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m6_ack_m7_send_request(st
 			m_rtsp_msg->m7_msg_req_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_M7_REQUEST ,  dummy ,  dummy );
 
 			MIRACASTLOG_INFO("Sending the M7 Request\n");
-			if ( true == SendBufferTimedOut( m_rtsp_msg->m7_msg_req_sink2src )){
+			if ( true == SendBufferTimedOut( m_tcpSockfd , m_rtsp_msg->m7_msg_req_sink2src )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 				MIRACASTLOG_INFO("M7 Request has sent\n");
 			}
@@ -1399,7 +1425,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::s
 
 	if(!(rtsp_resp_sink2src.empty())){
 		MIRACASTLOG_INFO("Sending the Response \n");
-		if ( true == SendBufferTimedOut( rtsp_resp_sink2src )){
+		if ( true == SendBufferTimedOut( m_tcpSockfd , rtsp_resp_sink2src )){
 			response_code = sub_response_code;
 			MIRACASTLOG_INFO("Response sent\n");
 		}
@@ -1430,7 +1456,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::handle_rtsp_msg_play_pause( RTSP_MSG_HA
 
 		if(!(rtsp_resp_sink2src.empty())){
 			MIRACASTLOG_INFO("Sending the PLAY/PAUSE REQUEST \n");
-			if ( true == SendBufferTimedOut( rtsp_resp_sink2src )){
+			if ( true == SendBufferTimedOut( m_tcpSockfd , rtsp_resp_sink2src )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 				MIRACASTLOG_INFO("PLAY/PAUSE sent\n");
 			}
@@ -2048,16 +2074,23 @@ void MiracastPrivate::SessionManagerThread(void* args)
 						MIRACASTLOG_VERBOSE("Dump command to execute - %s", tcpdump.c_str());
 						system(tcpdump.c_str());
 					}
+
+					std::string default_gw_ip = "";
+
 					//STB is a client in the p2p group
 					m_groupInfo->isGO = false;
-					std::string localIP = startDHCPClient(m_groupInfo->interface);
-					if(localIP.empty())
+					m_groupInfo->localIPAddr = startDHCPClient(m_groupInfo->interface , default_gw_ip );
+					if(m_groupInfo->localIPAddr.empty())
 					{
 						MIRACASTLOG_ERROR("Local IP address is not obtained");
 						break;
 					}
 					else
 					{
+						if ( m_groupInfo->goIPAddr.empty()){
+							MIRACASTLOG_VERBOSE("default_gw_ip [%s]\n",default_gw_ip.c_str());
+							m_groupInfo->goIPAddr.append(default_gw_ip);
+						}
 						MIRACASTLOG_VERBOSE("initiateTCP started GO IP[%s]\n",m_groupInfo->goIPAddr.c_str());
 						ret = initiateTCP(m_groupInfo->goIPAddr);
 						MIRACASTLOG_VERBOSE("initiateTCP done ret[%x]\n",ret);
@@ -2179,7 +2212,7 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 
 		memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
 
-		while( ReceiveBufferTimedOut( rtsp_message_socket , sizeof(rtsp_message_socket)))
+		while( ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket)))
 		{
 			socket_buffer.clear();
 			socket_buffer = rtsp_message_socket;
@@ -2216,7 +2249,8 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 
 		while( true == start_monitor_keep_alive_msg )
 		{
-			if ( ReceiveBufferTimedOut( rtsp_message_socket , sizeof(rtsp_message_socket))){
+			memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
+			if ( ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket))){
 				socket_buffer.clear();
 				socket_buffer = rtsp_message_socket;
 				MIRACASTLOG_INFO("\n #### RTSP Message [%s] #### \n",socket_buffer.c_str());
@@ -2232,7 +2266,6 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 					m_session_manager_thread->send_message( &session_mgr_buffer , sizeof(session_mgr_buffer));
 					break;
 				}
-				memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
 			}
 
 			MIRACASTLOG_INFO("[%s] Waiting for Event .....\n",__FUNCTION__);
@@ -2292,7 +2325,7 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 
 				send_message = true;
 				MIRACASTLOG_INFO("\n################# GO DEVICE[%s - %s] wants to connect: #################\n",device_name.c_str(),MAC.c_str());
-
+#ifndef ENABLE_AUTO_CONNECT
 				if ( true == m_client_req_handler_thread->receive_message( &client_req_hldr_msg_data , sizeof(client_req_hldr_msg_data) , CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME )){
 					MIRACASTLOG_INFO("ClientReqHandler Msg Received [%#04X]\n",client_req_hldr_msg_data.action);
 					if ( CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED == client_req_hldr_msg_data.action ){
@@ -2315,6 +2348,10 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 				else{
 					session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
 				}
+#else
+				strcpy( session_mgr_msg_data.event_buffer , MAC.c_str());
+				session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
+#endif
 			}
 			break;
 			case CLIENT_REQ_HLDR_STOP_APPLICATION:
@@ -2361,6 +2398,7 @@ void MiracastPrivate::SendMessageToClientReqHandler( size_t action )
 			client_message_data.action = CLIENT_REQ_HLDR_STOP_APPLICATION;
 		}
 		break;
+#ifndef ENABLE_AUTO_CONNECT
 		case Accept_ConnectDevice_Request:
 		{
 			client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED; 
@@ -2371,6 +2409,7 @@ void MiracastPrivate::SendMessageToClientReqHandler( size_t action )
 			client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED;
 		}
 		break;
+#endif
 		default:
 		{
 			valid_mesage = false;
@@ -2399,4 +2438,87 @@ void SessionMgrThreadCallback( void* args )
 void RTSPMsgHandlerCallback( void* args )
 {
 	g_miracastPrivate->RTSPMessageHandlerThread(NULL);
+}
+
+void MiracastPrivate::DumpBuffer( char* buffer , int length )
+{
+	// Loop through the buffer, printing each byte in hex format
+    std::string hex_string;
+    for (int i = 0; i < length; i++) {
+        char hex_byte[3];
+		snprintf(hex_byte, sizeof(hex_byte), "%02X", (unsigned char)buffer[i]);
+		hex_string += "0x";
+		hex_string += hex_byte;
+		hex_string += " ";
+    }
+	MIRACASTLOG_INFO("\n######### DUMP BUFFER[%u] #########\n%s\n###############################\n",length,hex_string.c_str());
+}
+
+#ifdef ENABLE_HDCP2X_SUPPORT
+void MiracastPrivate::HDCPTCPServerHandlerThread( void* args )
+{
+	char buff[HDCP2X_SOCKET_BUF_MAX];
+	int sockfd, connfd, len;
+	struct sockaddr_in servaddr, cli;
+
+	// socket create and verification
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockfd == -1) {
+		MIRACASTLOG_ERROR("socket creation failed...\n");
+	}
+	else
+		MIRACASTLOG_INFO("Socket successfully created..\n");
+	bzero(&servaddr, sizeof(servaddr));
+
+	// assign IP, PORT
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port = htons(HDCP2X_PORT);
+
+	// Binding newly created socket to given IP and verification
+	if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
+		MIRACASTLOG_ERROR("socket bind failed...\n");
+	}
+	else
+		MIRACASTLOG_INFO("Socket successfully binded..\n");
+
+	// Now server is ready to listen and verification
+	if ((listen(sockfd, 5)) != 0) {
+		MIRACASTLOG_ERROR("Listen failed...\n");
+	}
+	else
+		MIRACASTLOG_INFO("Server listening..\n");
+	len = sizeof(cli);
+
+	// Accept the data packet from client and verification
+	connfd = accept(sockfd, (SA*)&cli, &len);
+	if (connfd < 0) {
+		MIRACASTLOG_ERROR("server accept failed...\n");
+	}
+	else
+		MIRACASTLOG_INFO("server accept the client...\n");
+
+	while( true )
+	{
+		bzero(buff, HDCP2X_SOCKET_BUF_MAX);
+
+		// read the message from client and copy it in buffer
+		int n = read(connfd, buff, sizeof(buff));
+
+		if ( 0 < n ){
+			DumpBuffer( buff , n );
+		}
+
+		bzero(buff, HDCP2X_SOCKET_BUF_MAX);
+	}
+}
+
+void HDCPHandlerCallback( void* args )
+{
+	g_miracastPrivate->HDCPTCPServerHandlerThread(NULL);
+}
+#endif /*ENABLE_HDCP2X_SUPPORT*/
+
+std::string MiracastSingleton::getP2PGOLocalIP(){
+	return g_miracastPrivate->getP2PGroupLocalIP();
 }
