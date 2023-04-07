@@ -1120,10 +1120,10 @@ DeviceInfo* MiracastPrivate::getDeviceDetails(std::string MAC)
     return deviceInfo;
 }
 
+
 bool MiracastPrivate::SendBufferTimedOut( int socket_fd , std::string rtsp_response_buffer )
 {
 	int read_ret = 0;
-
 	read_ret = send( socket_fd, rtsp_response_buffer.c_str(), rtsp_response_buffer.length(), 0 );
 
 	if( 0 > read_ret )
