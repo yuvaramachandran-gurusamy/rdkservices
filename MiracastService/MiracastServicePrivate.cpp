@@ -469,7 +469,7 @@ bool MiracastPrivate::ReceiveBufferTimedOut( int socket_fd , void* buffer , size
 
 #ifdef ENABLE_NON_BLOCKING
 	if (!waitDataTimeout( socket_fd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
-	{
+  {
 		recv_return = -1;
 	}
 	else
@@ -505,8 +505,8 @@ bool MiracastPrivate::initiateTCP(std::string goIP)
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(7236);
-    
-	r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
+
+    r = inet_pton(AF_INET, goIP.c_str(), &addr.sin_addr);
     
     if (r != 1)
     {
