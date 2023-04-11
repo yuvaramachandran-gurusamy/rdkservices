@@ -49,6 +49,7 @@ typedef struct _CustomData
 
 static void on_pad_added(GstElement *gstelement, GstPad *pad, gpointer user_data);
 static gboolean GstBusCallback(GstBus *bus, GstMessage *message, CustomData *data);
+static gboolean handle_message (GstBus *bus, GstMessage *msg, GstElement *data);
 
 /* Functions below print the Capabilities in a human-friendly format */
 static gboolean print_field(GQuark field, const GValue *value, gpointer pfx)
@@ -112,11 +113,9 @@ static void print_pad_capabilities(GstElement *element, gchar *pad_name)
 
 static void pad_added_handler(GstElement *gstelement, GstPad *new_pad, CustomData *data)
 {
-    bool result = TRUE;
-    GstPadLinkReturn ret;
     GstCaps *new_pad_caps = NULL;
     GstStructure *new_pad_struct = NULL;
-    const gchar *new_pad_type = NULL;
+    //const gchar *new_pad_type = NULL;
 
     MIRACASTLOG_INFO("Entering..!!!");
 
@@ -131,9 +130,9 @@ static void pad_added_handler(GstElement *gstelement, GstPad *new_pad, CustomDat
     /* Check the new pad's type */
     new_pad_caps = gst_pad_get_current_caps(new_pad);
     new_pad_struct = gst_caps_get_structure(new_pad_caps, 0);
-    new_pad_type = gst_structure_get_name(new_pad_struct);
+    //new_pad_type = gst_structure_get_name(new_pad_struct);
 
-    char *pad_name = gst_structure_get_name(new_pad_struct);
+    char *pad_name = (char *)gst_structure_get_name(new_pad_struct);
 
     MIRACASTLOG_INFO("Pad Name: %s", pad_name);
 
@@ -170,6 +169,7 @@ static void pad_added_handler(GstElement *gstelement, GstPad *new_pad, CustomDat
     MIRACASTLOG_INFO("Exiting..!!!");
 }
 
+#if 0
 bool createPipeline()
 {
     CustomData data;
@@ -289,6 +289,78 @@ bool createPipeline()
     MIRACASTLOG_INFO("Exiting..!!!");
     return true;
 }
+#endif
+
+unsigned getGstPlayFlag(const char* nick)
+{
+  static GFlagsClass* flagsClass = static_cast<GFlagsClass*>(g_type_class_ref(g_type_from_name("GstPlayFlags")));
+  GFlagsValue* flag = g_flags_get_value_by_nick(flagsClass, nick);
+  if (!flag) {
+    return 0;
+  }
+  return flag->value;
+}
+
+
+bool createPipeline()
+{
+    GstElement *source;
+    GstStateChangeReturn ret;
+    GstBus *bus;
+    gint flags;
+
+    MIRACASTLOG_INFO("Entering..!!!");
+
+    gst_init(NULL, NULL);
+    
+    MIRACASTLOG_TRACE("Creating Pipeline.");
+
+    source = gst_element_factory_make("playbin", "miracastplaybin");
+
+    if (!source) 
+    {
+        MIRACASTLOG_ERROR ("Could not load playbin element.");
+        return false;
+    }
+//    unsigned flagAudio = getGstPlayFlag("audio");
+//    unsigned flagVideo = getGstPlayFlag("video");
+//    unsigned flagBuffering = getGstPlayFlag("buffering");
+
+    
+    g_object_set(source, "uri", "udp://0.0.0.0:1990",  NULL);
+
+    /* Set flags to show Audio and Video*/
+//    g_object_get (source, "flags", &flags, NULL);
+//    g_object_set (source, "flags", flagAudio | flagVideo | flagBuffering, NULL);
+
+    /* Set connection speed. This will affect some internal decisions of playbin */
+//    g_object_set (source, "connection-speed", 56, NULL);
+
+    GstElement *videoSinkGst  = gst_element_factory_make ("westerossink", NULL);
+    g_object_set(source, "video-sink", videoSinkGst, NULL);
+
+    //g_object_set(G_OBJECT(videoSinkGst), "zorder",0.0f, NULL);
+
+    bus = gst_element_get_bus (source);
+    gst_bus_add_watch (bus, (GstBusFunc)handle_message, source);
+    
+    MIRACASTLOG_INFO("Start Playing.");
+    
+    /* Start playing */
+    ret = gst_element_set_state(source, GST_STATE_PLAYING);
+    
+    if (ret == GST_STATE_CHANGE_FAILURE) 
+    {
+        MIRACASTLOG_ERROR ("Unable to set the pipeline to the playing state.");
+        gst_object_unref (source);
+        return false;
+  }
+
+    MIRACASTLOG_INFO("Exiting..!!!"); 
+
+    return true;
+
+}
 
 void GStreamerThreadFunc(void *)
 {
@@ -357,4 +429,40 @@ gboolean GstBusCallback(GstBus *bus, GstMessage *message, CustomData *data)
         g_free(debug);
 
     return true;
+}
+
+
+/* Process messages from GStreamer */
+gboolean handle_message (GstBus *bus, GstMessage *msg, GstElement *data) 
+{
+    GError *err;
+    gchar *debug_info;
+
+    switch (GST_MESSAGE_TYPE (msg)) {
+    case GST_MESSAGE_ERROR:
+      gst_message_parse_error (msg, &err, &debug_info);
+      MIRACASTLOG_ERROR ("Error received from element %s: %s.", GST_OBJECT_NAME (msg->src), err->message);
+      MIRACASTLOG_ERROR ("Debugging information: %s.", debug_info ? debug_info : "none");
+      g_clear_error (&err);
+      g_free (debug_info);
+      //g_main_loop_quit (data->main_loop);
+      break;
+    case GST_MESSAGE_EOS:
+      MIRACASTLOG_ERROR ("End-Of-Stream reached.");
+      //g_main_loop_quit (data->main_loop);
+      break;
+    case GST_MESSAGE_STATE_CHANGED: {
+        GstState old_state, new_state, pending_state;
+        gst_message_parse_state_changed (msg, &old_state, &new_state, &pending_state);
+        MIRACASTLOG_VERBOSE("%s old_state %s, new_state %s, pending %s", \
+                        GST_MESSAGE_SRC_NAME(msg) ? GST_MESSAGE_SRC_NAME(msg) : "", \
+                        gst_element_state_get_name(old_state), gst_element_state_get_name(new_state), gst_element_state_get_name(pending_state));
+
+        if (GST_ELEMENT(GST_MESSAGE_SRC(msg)) != data)
+            break;      
+        } 
+    break;
+    }
+  /* We want to keep receiving messages */
+  return TRUE;
 }

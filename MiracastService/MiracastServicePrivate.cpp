@@ -51,6 +51,7 @@ extern void GStreamerThreadFunc(void *);
 
 static MiracastPrivate* g_miracastPrivate = NULL;
 std::string dummy = "";
+//std::thread *m_gstThread;
 
 RTSP_MSG_TEMPLATE_INFO MiracastRTSPMessages::rtsp_msg_template_info[] = {
 	{ RTSP_MSG_FMT_M1_RESPONSE , "RTSP/1.0 200 OK\r\nPublic: \"%s, GET_PARAMETER, SET_PARAMETER\"\r\nCSeq: %s\r\n\r\n" },
@@ -1046,9 +1047,10 @@ MiracastError MiracastPrivate::startStreaming()
 	}
 	else
 	{
-		if(access( "/opt/miracast_gst", F_OK ) != 0)
+		if(access( "/opt/miracast_gst", F_OK ) == 0)
 		{
-			gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1990 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
+			//gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv udpsrc  port=1990 caps=\"application/x-rtp, media=video\" ! rtpmp2tdepay ! tsdemux name=demuxer demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmvidfilter ! brcmvideodecoder ! brcmvideosink demuxer. ! queue max-size-buffers=0 max-size-time=0 ! brcmaudfilter ! brcmaudiodecoder ! brcmaudiosink";
+			gstreamerPipeline = "GST_DEBUG=3 gst-launch-1.0 -vvv playbin uri=udp://0.0.0.0:1990 video-sink=\"westerossink\"";
 			MIRACASTLOG_INFO("pipeline constructed is --> %s", gstreamerPipeline.c_str());
 			if(0 == system(gstreamerPipeline.c_str()))
 				MIRACASTLOG_INFO("Pipeline created successfully ");
