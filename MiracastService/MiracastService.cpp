@@ -19,6 +19,7 @@
 
 #include "MiracastService.h"
 #include <algorithm>
+#include <regex>
 
 #include "rdk/iarmmgrs-hal/pwrMgr.h"
 
@@ -29,13 +30,25 @@ const short WPEFramework::Plugin::MiracastService::API_VERSION_NUMBER_MAJOR = 1;
 const short WPEFramework::Plugin::MiracastService::API_VERSION_NUMBER_MINOR = 0;
 const string WPEFramework::Plugin::MiracastService::SERVICE_NAME = "org.rdk.MiracastService";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_ENABLE = "setEnable";
+const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_GET_ENABLE = "getEnable";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_CLIENT_CONNECT_REQUEST = "acceptClientConnectionRequest";
+const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_STOP_CLIENT_CONNECT = "stopClientConnection";
 
 using namespace std;
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
+
+#define XCAST_CALLSIGN "org.rdk.Xcast.1"
+#define SECURITY_TOKEN_LEN_MAX 1024
+#define THUNDER_RPC_TIMEOUT 2000
+
+#define EVT_ON_CLIENT_CONNECTION_REQUEST	"onClientConnectionRequest"
+#define EVT_ON_CLIENT_STOP_REQUEST	"onClientStopRequest"
+#define EVT_ON_CLIENT_CONNECTION_STARTED	"onClientConnectionStarted"
+#define EVT_ON_CLIENT_CONNECTION_ERROR         "onClientConnectionError"
+
 
 namespace WPEFramework
 {
@@ -67,7 +80,30 @@ namespace WPEFramework
 		{
 			LOGINFO("MiracastService::ctor");
 			MiracastService::_instance = this;
+			/* Create Thunder Security token */
+			string sToken;
+			string query;
+
+			/* If we're in a container, get the token from the Dobby env var */
+			Core::SystemInfo::GetEnvironment(_T("THUNDER_SECURITY_TOKEN"), sToken);
+			if (sToken.empty())
+			{
+				unsigned char buffer[SECURITY_TOKEN_LEN_MAX] = {0};
+				int ret = GetSecurityToken(SECURITY_TOKEN_LEN_MAX, buffer);
+
+				if (ret > 0)
+				{
+					sToken = (char *)buffer;
+				}
+			}
+			query = "token=" + sToken;
+
+			LOGINFO("Instantiating remote object of rdkservices plugins\n");
+
+			remoteObjectXCast = new WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>(XCAST_CALLSIGN, "", false, query);
 			Register( METHOD_MIRACAST_SET_ENABLE , &MiracastService::setEnable, this);
+			Register( METHOD_MIRACAST_GET_ENABLE , &MiracastService::getEnable, this);
+			Register( METHOD_MIRACAST_STOP_CLIENT_CONNECT , &MiracastService::stopClientConnection, this);
 #ifndef ENABLE_AUTO_CONNECT
 			Register( METHOD_MIRACAST_CLIENT_CONNECT_REQUEST , &MiracastService::acceptClientConnectionRequest, this);
 #endif
@@ -76,14 +112,24 @@ namespace WPEFramework
 		MiracastService::~MiracastService()
 		{
 			LOGINFO("MiracastService::~MiracastService");
+
+			if (nullptr != remoteObjectXCast){
+				delete remoteObjectXCast;
+				remoteObjectXCast = nullptr;
+			}
 		}
 
 		const string MiracastService::Initialize(PluginHost::IShell* service )
 		{
 			LOGINFO("MiracastService::Initialize");
 			if (!m_isPlatInitialized){
+				std::string friendlyname = "";
+
 				mCurrentService = service;
-				m_miracast_service_impl = MiracastServiceImplementation::create(nullptr);
+				m_miracast_service_impl = MiracastServiceImplementation::create(this);
+				if( Core::ERROR_NONE == get_XCastFriendlyName(friendlyname)){
+					m_miracast_service_impl->setFriendlyName(friendlyname);
+				}
 				m_isPlatInitialized = true;
 			}
 
@@ -96,7 +142,7 @@ namespace WPEFramework
 			MiracastService::_instance = nullptr;
 			LOGINFO("MiracastService::Deinitialize");
 			if (m_isPlatInitialized){
-				m_miracast_service_impl->StopApplication();
+				m_miracast_service_impl->Shutdown();
 				MiracastServiceImplementation::Destroy(m_miracast_service_impl);
 				mCurrentService = nullptr;
 				m_miracast_service_impl = nullptr;
@@ -157,6 +203,19 @@ namespace WPEFramework
 		}
 
 		/**
+		 * @brief This method used to get the current state of Miracast Discovery.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastService::getEnable(const JsonObject& parameters, JsonObject& response)
+		{
+			LOGINFO("MiracastService::getEnable");
+			response["enabled"] = m_isDiscoverEnabled;
+			returnResponse(true);
+		}
+
+		/**
 		 * @brief This method used to accept or reject the connection request.
 		 *
 		 * @param: None.
@@ -183,6 +242,114 @@ namespace WPEFramework
 			}
 
 			returnResponse(success);
+		}
+
+		/**
+		 * @brief This method used to stop the client connection.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastService::stopClientConnection(const JsonObject& parameters, JsonObject& response)
+		{
+			bool success = false;
+			std::string mac_addr = "";
+
+			LOGINFO("MiracastService::stopClientConnection");
+
+			if ( parameters.HasLabel("clientMac")){
+				mac_addr = parameters["clientMac"].String();
+				const std::regex mac_regex("^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$");
+				if ( true == std::regex_match(mac_addr, mac_regex)){
+					if ( true == m_miracast_service_impl->StopClientConnection( mac_addr )){
+						success = true;
+						response["message"] = "Successfully Initiated the Stop Client Connection";
+					}
+					else{
+						response["message"] = "MAC Address not connected yet";
+					}
+				}
+				else{
+					response["message"] = "Invalid MAC Address";
+				}
+			}
+			else{
+				response["message"] = "Invalid parameter passed";
+			}
+
+			returnResponse(success);
+		}
+
+		void MiracastService::onMiracastServiceClientConnectionRequest(string client_mac, string client_name)
+		{
+			LOGINFO("MiracastService::onMiracastServiceClientConnectionRequest ");
+
+			JsonObject params;
+			params["clientMac"] = client_mac;
+			params["clientName"]= client_name;
+			sendNotify( EVT_ON_CLIENT_CONNECTION_REQUEST , params);
+		}
+
+		void MiracastService::onMiracastServiceClientStopRequest(string client_mac, string client_name)
+		{
+			LOGINFO("MiracastService::onMiracastServiceClientStopRequest ");
+
+			JsonObject params;
+			params["clientMac"] = client_mac;
+			params["clientName"]= client_name;
+			sendNotify( EVT_ON_CLIENT_STOP_REQUEST , params);
+		}
+
+		void MiracastService::onMiracastServiceClientConnectionStarted(string client_mac, string client_name)
+		{
+			LOGINFO("MiracastService::onMiracastServiceClientConnectionStarted ");
+
+			JsonObject params;
+			params["clientMac"] = client_mac;
+			params["clientName"]= client_name;
+			sendNotify( EVT_ON_CLIENT_CONNECTION_STARTED , params);
+		}
+
+		void MiracastService::onMiracastServiceClientConnectionError(string client_mac, string client_name)
+		{
+			LOGINFO("MiracastService::onMiracastServiceClientConnectionError ");
+
+			JsonObject params;
+			params["clientMac"] = client_mac;
+			params["clientName"]= client_name;
+			sendNotify( EVT_ON_CLIENT_CONNECTION_ERROR , params);
+		}
+
+		int MiracastService::get_XCastFriendlyName(std::string& friendlyname)
+		{
+			JsonObject params, Result;
+			LOGINFO("MiracastService::get_XCastFriendlyName");
+
+			if ( nullptr == remoteObjectXCast ){
+				LOGINFO("remoteObjectXCast not yet instantiated");
+				return Core::ERROR_GENERAL;
+			}
+
+			uint32_t ret = remoteObjectXCast->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT,_T("getFriendlyName"), params, Result);
+
+			if (Core::ERROR_NONE == ret)
+			{
+				if (Result["success"].Boolean())
+				{
+					friendlyname = Result["friendlyname"].String();
+					LOGINFO("XCAST FriendlyName=%s",friendlyname.c_str());
+				}
+				else
+				{
+					ret = Core::ERROR_GENERAL;
+					LOGINFO("get_XCastFriendlyName call failed");
+				}
+			}
+			else
+			{
+				LOGINFO("get_XCastFriendlyName call failed E[%u]",ret);
+			}
+			return ret;
 		}
 	} // namespace Plugin
 } // namespace WPEFramework

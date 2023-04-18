@@ -105,6 +105,16 @@ std::string MiracastPrivate::storeData(const char* tmpBuff, const char* lookup_d
         return std::string(" ");
 }
 
+void MiracastPrivate::setFriendlyName(std::string friendly_name)
+{
+	m_friendly_name = friendly_name;
+}
+
+std::string MiracastPrivate::getFriendlyName(void)
+{
+	return m_friendly_name;
+}
+
 std::string MiracastPrivate::startDHCPClient(std::string interface ,  std::string& default_gw_ip_addr )
 {
 	FILE *fp;
@@ -463,15 +473,15 @@ bool MiracastPrivate::waitDataTimeout( int m_Sockfd , unsigned ms)
 	return false;
 }
 
-bool MiracastPrivate::ReceiveBufferTimedOut( int socket_fd , void* buffer , size_t buffer_len )
+RTSP_CTRL_SOCKET_STATES MiracastPrivate::ReceiveBufferTimedOut( int socket_fd , void* buffer , size_t buffer_len )
 {
-	int recv_return = 0;
-	bool status = true;
+	int recv_return = -1;
+	RTSP_CTRL_SOCKET_STATES status = RTSP_SOCKET_RECV_SENT_SUCCESS;
 
 #ifdef ENABLE_NON_BLOCKING
 	if (!waitDataTimeout( socket_fd , SOCKET_WAIT_TIMEOUT_IN_MILLISEC ))
-  {
-		recv_return = -1;
+	{
+		return RTSP_SOCKET_RECV_SENT_TIMEDOUT;
 	}
 	else
 	{
@@ -480,13 +490,15 @@ bool MiracastPrivate::ReceiveBufferTimedOut( int socket_fd , void* buffer , size
 #else
 	recv_return = read( socket_fd , buffer , buffer_len );
 #endif
-	if ( recv_return <= 0 ){
-		status = false;
 
+	if ( recv_return <= 0 ){
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			MIRACASTLOG_ERROR("error: recv timed out\n");
-		} else {
+			status = RTSP_SOCKET_RECV_SENT_TIMEDOUT;
+		}
+		else {
 			MIRACASTLOG_ERROR("error: recv failed, or connection closed\n");
+			status = RTSP_SOCKET_RECV_SENT_FAILURE;
 		}
 	}
 	MIRACASTLOG_INFO("received string(%d) - %s\n", recv_return, buffer);
@@ -932,7 +944,7 @@ MiracastError MiracastPrivate::stopDiscoverDevices()
 }
 
 
-MiracastPrivate::MiracastPrivate(MiracastCallback* Callback)
+MiracastPrivate::MiracastPrivate(MiracastServiceNotifier* notifier )
 {
 	//To delete the rules so that it would be duplicated in this program execution
 	system("iptables -D INPUT -p udp -s 192.168.0.0/16 --dport 1990 -j ACCEPT");
@@ -943,6 +955,9 @@ MiracastPrivate::MiracastPrivate(MiracastCallback* Callback)
 	m_authType = "pbc";
 	memset(event_buffer, '\0', sizeof(event_buffer));
 	MIRACASTLOG_INFO("Private instance instantiated");
+
+	m_rtsp_msg = new MiracastRTSPMessages();
+	setFriendlyName(MIRACAST_DEFAULT_NAME);
 
 	g_miracastPrivate = this;
 
@@ -960,9 +975,7 @@ MiracastPrivate::MiracastPrivate(MiracastCallback* Callback)
 	m_hdcp_handler_thread->start();
 #endif/*ENABLE_HDCP2X_SUPPORT*/
 
-	m_rtsp_msg = new MiracastRTSPMessages();
-
-	wfdInit(Callback);
+	wfdInit(notifier);
 }
 
 MiracastPrivate::~MiracastPrivate()
@@ -974,9 +987,9 @@ MiracastPrivate::~MiracastPrivate()
 	}
 
 	delete m_rtsp_msg_handler_thread;
-	delete m_rtsp_msg;
 	delete m_session_manager_thread;
 	delete m_client_req_handler_thread;
+	delete m_rtsp_msg;
 
 	while(!m_deviceInfo.empty())
 	{
@@ -1066,7 +1079,10 @@ MiracastError MiracastPrivate::startStreaming()
 		}
 	}
 
-	// m_eventCallback->onStreamingStarted();
+	std::string MAC = m_rtsp_msg->GetWFDSourceMACAddress();
+	std::string device_name = m_rtsp_msg->GetWFDSourceName();
+
+	m_eventCallback->onMiracastServiceClientConnectionStarted( MAC , device_name );
 	return MIRACAST_OK;
 }
 
@@ -1090,9 +1106,13 @@ std::string MiracastPrivate::getP2PGroupLocalIP()
     return ip_addr;
 }
 
+std::string MiracastPrivate::getWFDStreamingPortNumber(){
+	return m_rtsp_msg->GetWFDStreamingPortNumber();
+}
+
 std::string MiracastPrivate::getConnectedMAC()
 {
-    return m_groupInfo->goDevAddr;
+    return m_rtsp_msg->GetWFDSourceMACAddress();
 }
 
 std::vector<DeviceInfo*> MiracastPrivate::getAllPeers()
@@ -1440,27 +1460,44 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::s
 	return response_code;
 }
 
-RTSP_SEND_RESPONSE_CODE MiracastPrivate::handle_rtsp_msg_play_pause( RTSP_MSG_HANDLER_ACTIONS action_id )
+RTSP_SEND_RESPONSE_CODE MiracastPrivate::rtsp_sink2src_request_msg_handling( RTSP_MSG_HANDLER_ACTIONS action_id )
 {
-	RTSP_MSG_FMT_SINK2SRC play_or_pause_mode = RTSP_MSG_FMT_INVALID;
+	RTSP_MSG_FMT_SINK2SRC request_mode = RTSP_MSG_FMT_INVALID;
 	RTSP_SEND_RESPONSE_CODE response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 
-	if ( RTSP_PLAY_FROM_SINK2SRC == action_id ){
-		play_or_pause_mode = RTSP_MSG_FMT_PLAY_REQUEST;
-	}
-	else if ( RTSP_PAUSE_FROM_SINK2SRC == action_id ){
-		play_or_pause_mode = RTSP_MSG_FMT_PAUSE_REQUEST;
+	switch (action_id)
+	{
+		case RTSP_TEARDOWN_FROM_SINK2SRC:
+		{
+			request_mode = RTSP_MSG_FMT_TEARDOWN_REQUEST;
+		}
+		break;
+		case RTSP_PLAY_FROM_SINK2SRC:
+		{
+			request_mode = RTSP_MSG_FMT_PLAY_REQUEST;
+		}
+		break;
+		case RTSP_PAUSE_FROM_SINK2SRC:
+		{
+			request_mode = RTSP_MSG_FMT_PAUSE_REQUEST;
+		}
+		break;
+		default:
+		{
+			//
+		}
+		break;
 	}
 
-	if ( RTSP_MSG_FMT_INVALID != play_or_pause_mode ){
+	if ( RTSP_MSG_FMT_INVALID != request_mode ){
 		std::string rtsp_resp_sink2src;
 		rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat( RTSP_MSG_FMT_TEARDOWN_RESPONSE ,  dummy ,  dummy );
 
 		if(!(rtsp_resp_sink2src.empty())){
-			MIRACASTLOG_INFO("Sending the PLAY/PAUSE REQUEST \n");
+			MIRACASTLOG_INFO("Sending the [PLAY/PAUSE/TEARDOWN] REQUEST \n");
 			if ( true == SendBufferTimedOut( m_tcpSockfd , rtsp_resp_sink2src )){
 				response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
-				MIRACASTLOG_INFO("PLAY/PAUSE sent\n");
+				MIRACASTLOG_INFO("[PLAY/PAUSE/TEARDOWN] sent\n");
 			}
 			else{
 				response_code = RTSP_SEND_REQ_RESPONSE_NOK;
@@ -1834,6 +1871,36 @@ bool MiracastRTSPMessages::SetCurrentWFDSessionNumber( std::string session )
 	return true;
 }
 
+void MiracastRTSPMessages::SetWFDSourceMACAddress( std::string MAC_Addr )
+{
+    connected_mac_addr = MAC_Addr;
+}
+
+void MiracastRTSPMessages::ResetWFDSourceMACAddress( void )
+{
+    connected_mac_addr.clear();
+}
+
+std::string MiracastRTSPMessages::GetWFDSourceMACAddress(void)
+{
+    return connected_mac_addr;
+}
+
+void MiracastRTSPMessages::SetWFDSourceName( std::string device_name )
+{
+    connected_device_name = device_name;
+}
+
+void MiracastRTSPMessages::ResetWFDSourceName( void )
+{
+    connected_device_name.clear();
+}
+
+std::string MiracastRTSPMessages::GetWFDSourceName(void)
+{
+    return connected_device_name;
+}
+
 MiracastThread::MiracastThread(std::string thread_name, size_t stack_size, size_t msg_size, size_t queue_depth , void (*callback)(void*) , void* user_data )
 {
 	thread_name = thread_name;
@@ -1917,6 +1984,23 @@ int8_t MiracastThread::receive_message( void* message , size_t msg_size , int se
 
 	}
 	return status;
+}
+
+std::string MiracastPrivate::GetDeviceNameByMAC(std::string mac_address ){
+	size_t found;
+	std::string device_name = "";
+	int i = 0;
+	for(auto devices : m_deviceInfo)
+	{
+		found = devices->deviceMAC.find(mac_address);
+		if(found != std::string::npos)
+		{
+			device_name = devices->modelName;
+			break;
+		}
+		i++;
+	}
+	return device_name;
 }
 
 void MiracastPrivate::SessionManagerThread(void* args)
@@ -2017,26 +2101,24 @@ void MiracastPrivate::SessionManagerThread(void* args)
 					REMOVE_SPACES(MAC);
 				}
 
-				size_t found;
-				std::string device_name;
-				int i = 0;
-				for(auto devices : m_deviceInfo)
-				{
-					found = devices->deviceMAC.find(MAC);
-					if(found != std::string::npos)
-					{
-						device_name = devices->modelName;
-						break;
-					}
-					i++;
-				}
+				std::string device_name = GetDeviceNameByMAC( MAC );
 
 				if ( false == client_req_client_connection_sent ){
-					client_req_msg_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_FROM_SESSION_MGR;
-					strcpy( client_req_msg_data.action_buffer , MAC.c_str());
-					strcpy( client_req_msg_data.buffer_user_data , device_name.c_str());
-					m_client_req_handler_thread->send_message( &client_req_msg_data , sizeof(client_req_msg_data));
-					client_req_client_connection_sent = true;
+					if (m_rtsp_msg->GetWFDSourceMACAddress().empty()){
+						client_req_msg_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_FROM_SESSION_MGR;
+						strcpy( client_req_msg_data.action_buffer , MAC.c_str());
+						strcpy( client_req_msg_data.buffer_user_data , device_name.c_str());
+						m_client_req_handler_thread->send_message( &client_req_msg_data , sizeof(client_req_msg_data));
+						client_req_client_connection_sent = true;
+					}
+					else{
+						//TODO
+						// Need to handle connect request received evenafter connection already established with other client
+					}
+				}
+				else{
+					//TODO
+					// Need to handle connect request received evenafter connection already established with other client
 				}
 			}
 			break;
@@ -2044,13 +2126,17 @@ void MiracastPrivate::SessionManagerThread(void* args)
 			{
 				MIRACASTLOG_INFO("SESSION_MGR_CONNECT_REQ_FROM_HANDLER Received\n");
 				std::string mac_address = event_buffer;
+				std::string device_name = GetDeviceNameByMAC( mac_address );
 
 				connectDevice( mac_address );
+				m_rtsp_msg->SetWFDSourceMACAddress( mac_address );
+				m_rtsp_msg->SetWFDSourceName( device_name );
 				client_req_client_connection_sent = false;
 			}
 			break;
 			case SESSION_MGR_GO_GROUP_STARTED:
 			{
+				std::string device_name = "";
 				MIRACASTLOG_INFO("SESSION_MGR_GO_GROUP_STARTED Received\n");
 				m_groupInfo = new GroupInfo;
 				int ret = -1;
@@ -2062,6 +2148,9 @@ void MiracastPrivate::SessionManagerThread(void* args)
 					m_groupInfo->ipMask =  storeData(event_buffer.c_str(), "ip_mask");
 					m_groupInfo->goIPAddr =  storeData(event_buffer.c_str(), "go_ip_addr");
 					m_groupInfo->goDevAddr =  storeData(event_buffer.c_str(), "go_dev_addr");
+					m_groupInfo->SSID =  storeData(event_buffer.c_str(), "ssid");
+
+					device_name = GetDeviceNameByMAC( m_groupInfo->goDevAddr );
 
 					size_t found_client = event_buffer.find("client");
 					m_groupInfo->interface =  event_buffer.substr(found_space, found_client-found_space);
@@ -2085,7 +2174,8 @@ void MiracastPrivate::SessionManagerThread(void* args)
 					if(m_groupInfo->localIPAddr.empty())
 					{
 						MIRACASTLOG_ERROR("Local IP address is not obtained");
-						break;
+						m_eventCallback->onMiracastServiceClientConnectionError( m_groupInfo->goDevAddr , device_name );
+						continue;
 					}
 					else
 					{
@@ -2118,20 +2208,18 @@ void MiracastPrivate::SessionManagerThread(void* args)
 					//STB is the GO in the p2p group
 					m_groupInfo->isGO = true;
 				}
-				m_groupInfo->SSID =  storeData(event_buffer.c_str(), "ssid");
 				m_connectionStatus = true;
 			}
 			break;
 			case SESSION_MGR_GO_GROUP_REMOVED:
 			{
 				MIRACASTLOG_INFO("SESSION_MGR_GO_GROUP_REMOVED Received\n");
-				std::string reason = storeData(event_buffer.c_str(), "reason");
-				RestartSession();
 			}
 			break;
 			case SESSION_MGR_START_STREAMING:
+			case SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY:
 			{
-				MIRACASTLOG_INFO("SESSION_MGR_START_STREAMING Received\n");
+				MIRACASTLOG_INFO("[SESSION_MGR_START_STREAMING/SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY] Received\n");
 				startStreaming();
 			}
 			break;
@@ -2143,20 +2231,30 @@ void MiracastPrivate::SessionManagerThread(void* args)
 			case SESSION_MGR_STOP_STREAMING:
 			{
 				MIRACASTLOG_INFO("SESSION_MGR_STOP_STREAMING Received\n");
-			}
-			break;
-			case SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY:
-			{
-				MIRACASTLOG_INFO("SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY Received\n");
-				startStreaming();
+				stopStreaming();
 			}
 			break;
 			case SESSION_MGR_RTSP_MSG_TIMEDOUT:
 			case SESSION_MGR_RTSP_INVALID_MESSAGE:
 			case SESSION_MGR_RTSP_SEND_REQ_RESP_FAILED:
 			case SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED:
+			case SESSION_MGR_GO_NEG_FAILURE:
+			case SESSION_MGR_GO_GROUP_FORMATION_FAILURE:
+			case SESSION_MGR_RESTART_DISCOVERING:
 			{
-				MIRACASTLOG_INFO("[TIMEDOUT/TEARDOWN_REQ/SEND_REQ_RESP_FAIL/INVALID_MESSAG] Received\n");
+				std::string MAC = m_rtsp_msg->GetWFDSourceMACAddress();
+				std::string device_name = m_rtsp_msg->GetWFDSourceName();
+
+				if ( SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED == session_message_data.action ){
+					MIRACASTLOG_INFO("[TEARDOWN_REQ] Received\n");
+					m_eventCallback->onMiracastServiceClientStopRequest( MAC , device_name );
+				}
+				else if ( SESSION_MGR_RESTART_DISCOVERING != session_message_data.action ){
+					MIRACASTLOG_INFO("[TIMEDOUT/SEND_REQ_RESP_FAIL/INVALID_MESSAG/GO_NEG/GROUP_FORMATION_FAILURE] Received\n");
+					m_eventCallback->onMiracastServiceClientConnectionError( MAC , device_name );
+				}
+				m_rtsp_msg->ResetWFDSourceMACAddress();
+				m_rtsp_msg->ResetWFDSourceName();
 				RestartSession();
 			}
 			break;
@@ -2165,22 +2263,27 @@ void MiracastPrivate::SessionManagerThread(void* args)
 				client_req_client_connection_sent = false;
 			}
 			break;
-			case SESSION_MGR_GO_NEG_FAILURE:
-			case SESSION_MGR_GO_GROUP_FORMATION_FAILURE:
+			case SESSION_MGR_TEARDOWN_REQ_FROM_HANDLER:
 			{
-				MIRACASTLOG_INFO("[GO_NEG/GROUP_FORMATION_FAILURE] Received\n");
-				RestartSession();
+				rtsp_message_data.action = RTSP_TEARDOWN_FROM_SINK2SRC;
+				MIRACASTLOG_INFO("TEARDOWN request sent to RTSP handler\n");
+				m_rtsp_msg_handler_thread->send_message( &rtsp_message_data , RTSP_HANDLER_MSGQ_SIZE);
 			}
 			break;
 			case SESSION_MGR_GO_STOP_FIND:
 			case SESSION_MGR_GO_NEG_SUCCESS:
 			case SESSION_MGR_GO_GROUP_FORMATION_SUCCESS:
-			case SESSION_MGR_GO_EVENT_ERROR:
-			case SESSION_MGR_GO_UNKNOWN_EVENT:
 			case SESSION_MGR_SELF_ABORT:
-			case SESSION_MGR_INVALID_ACTION:
 			{
 				MIRACASTLOG_INFO("[STOP_FIND/NEG_SUCCESS/GROUP_FORMATION_SUCCESS/EVENT_ERROR] Received\n");
+			}
+			break;
+			case SESSION_MGR_GO_EVENT_ERROR:
+			case SESSION_MGR_GO_UNKNOWN_EVENT:
+			case SESSION_MGR_INVALID_ACTION:
+			default:
+			{
+
 			}
 			break;
 		}
@@ -2214,7 +2317,7 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 
 		memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
 
-		while( ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket)))
+		while( RTSP_SOCKET_RECV_SENT_SUCCESS == ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket)))
 		{
 			socket_buffer.clear();
 			socket_buffer = rtsp_message_socket;
@@ -2249,10 +2352,17 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 		MIRACASTLOG_INFO("Msg to SessionMgr Action[%#04X]\n",session_mgr_buffer.action);
 		m_session_manager_thread->send_message( &session_mgr_buffer , sizeof(session_mgr_buffer));
 
+		if ( SESSION_MGR_RTSP_MSG_RECEIVED_PROPERLY != session_mgr_buffer.action ){
+			continue;
+		}
+
+		RTSP_CTRL_SOCKET_STATES socket_state;
+
 		while( true == start_monitor_keep_alive_msg )
 		{
 			memset( &rtsp_message_socket , 0x00 , sizeof(rtsp_message_socket));
-			if ( ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket))){
+			socket_state = ReceiveBufferTimedOut(  m_tcpSockfd , rtsp_message_socket , sizeof(rtsp_message_socket));
+			if ( RTSP_SOCKET_RECV_SENT_SUCCESS == socket_state ){
 				socket_buffer.clear();
 				socket_buffer = rtsp_message_socket;
 				MIRACASTLOG_INFO("\n #### RTSP Message [%s] #### \n",socket_buffer.c_str());
@@ -2269,16 +2379,39 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 					break;
 				}
 			}
+			else if ( RTSP_SOCKET_RECV_SENT_FAILURE == socket_state ){
+				session_mgr_buffer.action = SESSION_MGR_RTSP_TEARDOWN_REQ_RECEIVED;
+				break;
+			}
 
 			MIRACASTLOG_INFO("[%s] Waiting for Event .....\n",__FUNCTION__);
 			if ( true == m_rtsp_msg_handler_thread->receive_message( &message_data , sizeof(message_data) , 1 )){
 				MIRACASTLOG_INFO("[%s] Received Action[%#04X]\n",__FUNCTION__,message_data.action);
-				if (( RTSP_SELF_ABORT == message_data.action )||( RTSP_RESTART == message_data.action )){
-					MIRACASTLOG_INFO("RTSP_SELF_ABORT/RTSP_RESTART ACTION Received\n");
+				switch (message_data.action)
+				{
+					case RTSP_SELF_ABORT:
+					case RTSP_RESTART:
+					{
+						MIRACASTLOG_INFO("[RTSP_SELF_ABORT/RTSP_RESTART] ACTION Received\n");
+						start_monitor_keep_alive_msg = false;
+					}
 					break;
-				}
-				else if (( RTSP_PLAY_FROM_SINK2SRC == message_data.action )||( RTSP_PAUSE_FROM_SINK2SRC == message_data.action )){
-					handle_rtsp_msg_play_pause( message_data.action );
+					case RTSP_PLAY_FROM_SINK2SRC:
+					case RTSP_PAUSE_FROM_SINK2SRC:
+					case RTSP_TEARDOWN_FROM_SINK2SRC:
+					{
+						MIRACASTLOG_INFO("[RTSP_PLAY/RTSP_PAUSE/RTSP_TEARDOWN] ACTION Received\n");
+						if (( RTSP_SEND_REQ_RESPONSE_NOK == rtsp_sink2src_request_msg_handling( message_data.action )||
+							( RTSP_TEARDOWN_FROM_SINK2SRC == message_data.action ))){
+							start_monitor_keep_alive_msg = false;
+						}
+					}
+					break;
+					default:
+					{
+						//
+					}
+					break;
 				}
 			}
 		}
@@ -2287,6 +2420,11 @@ void MiracastPrivate::RTSPMessageHandlerThread( void* args )
 		if ( RTSP_SELF_ABORT == message_data.action ){
 			MIRACASTLOG_INFO("RTSP_SELF_ABORT ACTION Received\n");
 			break;
+		}
+		else{
+			session_mgr_buffer.action = SESSION_MGR_RESTART_DISCOVERING;
+			MIRACASTLOG_INFO("Msg to SessionMgr Action[%#04X]\n",session_mgr_buffer.action);
+			m_session_manager_thread->send_message( &session_mgr_buffer , sizeof(session_mgr_buffer));
 		}
 	}
 }
@@ -2327,6 +2465,7 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 
 				send_message = true;
 				MIRACASTLOG_INFO("\n################# GO DEVICE[%s - %s] wants to connect: #################\n",device_name.c_str(),MAC.c_str());
+				m_eventCallback->onMiracastServiceClientConnectionRequest( MAC , device_name );
 #ifndef ENABLE_AUTO_CONNECT
 				if ( true == m_client_req_handler_thread->receive_message( &client_req_hldr_msg_data , sizeof(client_req_hldr_msg_data) , CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME )){
 					MIRACASTLOG_INFO("ClientReqHandler Msg Received [%#04X]\n",client_req_hldr_msg_data.action);
@@ -2337,7 +2476,7 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 					else if ( CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED == client_req_hldr_msg_data.action ){
 						session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
 					}
-					else if ( CLIENT_REQ_HLDR_STOP_APPLICATION == client_req_hldr_msg_data.action ){
+					else if ( CLIENT_REQ_HLDR_SHUTDOWN_APP == client_req_hldr_msg_data.action ){
 						session_mgr_msg_data.action = SESSION_MGR_SELF_ABORT;
 					}
 					else if ( CLIENT_REQ_HLDR_STOP_DISCOVER == client_req_hldr_msg_data.action ){
@@ -2356,9 +2495,14 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 #endif
 			}
 			break;
-			case CLIENT_REQ_HLDR_STOP_APPLICATION:
+			case CLIENT_REQ_HLDR_SHUTDOWN_APP:
 			{
 				session_mgr_msg_data.action = SESSION_MGR_SELF_ABORT;
+			}
+			break;
+			case CLIENT_REQ_HLDR_TEARDOWN_CONNECTION:
+			{
+				session_mgr_msg_data.action = SESSION_MGR_TEARDOWN_REQ_FROM_HANDLER;
 			}
 			break;
 			default:
@@ -2371,14 +2515,14 @@ void MiracastPrivate::ClientRequestHandlerThread( void* args )
 		if ( true == send_message ){
 			MIRACASTLOG_INFO("Msg to SessionMgr Action[%#04X]\n",session_mgr_msg_data.action);
 			m_session_manager_thread->send_message( &session_mgr_msg_data , SESSION_MGR_MSGQ_SIZE );
-			if ( CLIENT_REQ_HLDR_STOP_APPLICATION == client_req_hldr_msg_data.action ){
+			if ( CLIENT_REQ_HLDR_SHUTDOWN_APP == client_req_hldr_msg_data.action ){
 				break;
 			}
 		}
 	}
 }
 
-void MiracastPrivate::SendMessageToClientReqHandler( size_t action )
+void MiracastPrivate::SendMessageToClientReqHandler( size_t action , std::string action_buffer , std::string user_data )
 {
 	ClientReqHldrMsg client_message_data = {0};
 	bool valid_mesage = true;
@@ -2397,7 +2541,13 @@ void MiracastPrivate::SendMessageToClientReqHandler( size_t action )
 		break;
 		case Stop_Miracast_Service:
 		{
-			client_message_data.action = CLIENT_REQ_HLDR_STOP_APPLICATION;
+			client_message_data.action = CLIENT_REQ_HLDR_SHUTDOWN_APP;
+		}
+		break;
+		case Stop_Client_Connection:
+		{
+			client_message_data.action = CLIENT_REQ_HLDR_TEARDOWN_CONNECTION;
+			memcpy( client_message_data.action_buffer , user_data.c_str() , user_data.length());
 		}
 		break;
 #ifndef ENABLE_AUTO_CONNECT
@@ -2523,4 +2673,8 @@ void HDCPHandlerCallback( void* args )
 
 std::string MiracastSingleton::getP2PGOLocalIP(){
 	return g_miracastPrivate->getP2PGroupLocalIP();
+}
+
+std::string MiracastSingleton::getStreamingPort(){
+	return g_miracastPrivate->getWFDStreamingPortNumber();
 }

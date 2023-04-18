@@ -114,6 +114,8 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_M6_REQ_SINK2SRC_SEQ_NO		"12"
 #define RTSP_M7_REQ_SINK2SRC_SEQ_NO		"13"
 
+#define MIRACAST_DEFAULT_NAME			"Miracast-Generic"
+
 #ifdef ENABLE_HDCP2X_SUPPORT
 #define HDCP2X_SOCKET_BUF_MAX 80
 #define HDCP2X_PORT 40001
@@ -121,6 +123,7 @@ typedef enum rtsp_send_response_code_e
 
 #define HDCP2X_AKE_THREAD_NAME			"HDCP2X_AKE_HLDR"
 #define HDCP2X_AKE_THREAD_STACK			(256 * 1024)
+
 #define RTSP_DFLT_CONTENT_PROTECTION		"HDCP2.0 port=40001"
 #else
 #define RTSP_DFLT_CONTENT_PROTECTION		"none"
@@ -160,6 +163,7 @@ typedef enum session_manager_actions_e
 {
 	SESSION_MGR_START_DISCOVERING = 0x01,
 	SESSION_MGR_STOP_DISCOVERING,
+	SESSION_MGR_RESTART_DISCOVERING,
 	SESSION_MGR_GO_DEVICE_FOUND,
 	SESSION_MGR_GO_DEVICE_LOST,
 	SESSION_MGR_GO_DEVICE_PROVISION,
@@ -169,6 +173,7 @@ typedef enum session_manager_actions_e
 	SESSION_MGR_GO_NEG_FAILURE,
 	SESSION_MGR_CONNECT_REQ_FROM_HANDLER,
 	SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT,
+	SESSION_MGR_TEARDOWN_REQ_FROM_HANDLER,
 	SESSION_MGR_GO_GROUP_STARTED,
 	SESSION_MGR_GO_GROUP_REMOVED,
 	SESSION_MGR_GO_GROUP_FORMATION_SUCCESS,
@@ -198,6 +203,7 @@ typedef enum rtsp_msg_handler_actions_e
 	RTSP_M7_REQUEST_ACK,
 	RTSP_MSG_POST_M1_M7_XCHANGE,
 	RTSP_START_RECEIVE_MSGS,
+	RTSP_TEARDOWN_FROM_SINK2SRC,
 	RTSP_RESTART,
 	RTSP_PAUSE_FROM_SINK2SRC,
 	RTSP_PLAY_FROM_SINK2SRC,
@@ -212,9 +218,18 @@ typedef enum client_req_handler_actions_e
 	CLIENT_REQ_HLDR_CONNECT_DEVICE_FROM_SESSION_MGR,
 	CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED,
 	CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED,
-	CLIENT_REQ_HLDR_STOP_APPLICATION
+	CLIENT_REQ_HLDR_TEARDOWN_CONNECTION,
+	CLIENT_REQ_HLDR_SHUTDOWN_APP
 }
 CLIENT_MSG_HANDLER_ACTIONS;
+
+typedef enum rtsp_ctrl_socket_states
+{
+	RTSP_SOCKET_RECV_SENT_SUCCESS,
+	RTSP_SOCKET_RECV_SENT_TIMEDOUT,
+	RTSP_SOCKET_RECV_SENT_FAILURE
+}
+RTSP_CTRL_SOCKET_STATES;
 
 typedef struct group_info 
 {
@@ -310,6 +325,13 @@ class MiracastRTSPMessages
 		std::string GenerateRequestResponseFormat( RTSP_MSG_FMT_SINK2SRC msg_fmt_needed , std::string received_session_no, std::string append_data1 );
 		std::string GetRequestSequenceNumber(void);
 
+		void SetWFDSourceMACAddress( std::string MAC_Addr );
+		void SetWFDSourceName( std::string device_name );
+		std::string GetWFDSourceName(void);
+		std::string GetWFDSourceMACAddress(void);
+		void ResetWFDSourceMACAddress( void );
+		void ResetWFDSourceName( void );
+
 		static std::string format_string(const char* fmt, const std::vector<const char*>& args ) {
 			std::string result = fmt;
 			size_t arg_index = 0;
@@ -325,6 +347,8 @@ class MiracastRTSPMessages
 		};
 
 	private:
+		std::string connected_mac_addr;
+		std::string connected_device_name;
 		std::string wfd_video_formats;
 		std::string wfd_audio_codecs;
 		std::string wfd_client_rtp_ports;
@@ -377,6 +401,7 @@ public:
     }
 
     std::string getP2PGOLocalIP();
+	std::string getStreamingPort();
 
 private:
     MiracastSingleton() {}
@@ -393,7 +418,7 @@ class MiracastPrivate
 
 		MiracastPrivate();
 		~MiracastPrivate();
-		MiracastPrivate(MiracastCallback* xreCallback);
+		MiracastPrivate(MiracastServiceNotifier* xreCallback);
 
 		void CommonThreadCallBack( void* args );
 
@@ -403,6 +428,7 @@ class MiracastPrivate
 		MiracastError connectDevice(std::string MAC);
 		MiracastError startStreaming();
 		std::string getP2PGroupLocalIP();
+		std::string getWFDStreamingPortNumber();
 		string getConnectedMAC();
 		vector<DeviceInfo*> getAllPeers();
 		bool getConnectionStatus();
@@ -416,7 +442,7 @@ class MiracastPrivate
 		/*members for interacting with wpa_supplicant*/
 		void p2pCtrlMonitorThread();
 
-		void SendMessageToClientReqHandler( size_t action );
+		void SendMessageToClientReqHandler( size_t action , std::string action_buffer , std::string user_data );
 		//Session Manager
 		void SessionManagerThread(void* args);
 		//RTSP Message Handler
@@ -426,7 +452,7 @@ class MiracastPrivate
 		void HDCPTCPServerHandlerThread(void* args);
 		void DumpBuffer( char* buffer , int length );
 		
-		bool ReceiveBufferTimedOut( int sockfd , void* buffer , size_t buffer_len );
+		RTSP_CTRL_SOCKET_STATES ReceiveBufferTimedOut( int sockfd , void* buffer , size_t buffer_len );
 		bool waitDataTimeout( int m_Sockfd , unsigned ms);
 		bool SendBufferTimedOut( int sockfd , std::string rtsp_response_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_msg_response_back(std::string rtsp_msg_buffer , RTSP_MSG_HANDLER_ACTIONS action_id );
@@ -438,13 +464,17 @@ class MiracastPrivate
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer );
 		RTSP_SEND_RESPONSE_CODE validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer );
-		RTSP_SEND_RESPONSE_CODE handle_rtsp_msg_play_pause( RTSP_MSG_HANDLER_ACTIONS action_id );
+		RTSP_SEND_RESPONSE_CODE rtsp_sink2src_request_msg_handling( RTSP_MSG_HANDLER_ACTIONS action_id );
 		SESSION_MANAGER_ACTIONS convertP2PtoSessionActions( enum P2P_EVENTS eventId );
 		MiracastError stopDiscoverDevices();
 		void setWiFiDisplayParams(void);
 		void resetWiFiDisplayParams(void);
+		void applyWFDSinkDeviceName(void);
 		void RestartSession( void );
 		void StopSession( void );
+		std::string GetDeviceNameByMAC(std::string mac_address );
+		void setFriendlyName(std::string friendly_name);
+		std::string getFriendlyName(void);
 
 	private:
 
@@ -453,9 +483,10 @@ class MiracastPrivate
 		std::string startDHCPClient(std::string interface ,  std::string& default_gw_ip_addr );
 		bool initiateTCP(std::string goIP );
 		bool connectSink();
-		void wfdInit(MiracastCallback* Callback);
+		void wfdInit(MiracastServiceNotifier* Callback);
 
-		MiracastCallback* m_eventCallback;
+		std::string m_friendly_name;
+		MiracastServiceNotifier* m_eventCallback;
 		vector<DeviceInfo*> m_deviceInfo;
 		GroupInfo* m_groupInfo;
 		std::string m_authType;
