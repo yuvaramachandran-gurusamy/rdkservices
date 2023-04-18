@@ -327,8 +327,12 @@ bool createPipeline()
     //    unsigned flagVideo = getGstPlayFlag("video");
     //    unsigned flagBuffering = getGstPlayFlag("buffering");
 
-    std::string localip = MiracastSingleton::getInstance().getP2PGOLocalIP();
-    string uri = "udp://"+ localip +":1990";
+    MiracastSingleton& miracast_obj = MiracastSingleton::getInstance();
+    std::string localip = miracast_obj.getP2PGOLocalIP();
+    std::string streaming_port = miracast_obj.getStreamingPort();
+
+    string uri = "udp://"+ localip + ":" + streaming_port;
+
     MIRACASTLOG_INFO("Miracast playbin uri [ %s ]", uri.c_str()); 
     g_object_set(source, "uri", (const gchar*)uri.c_str(), NULL);
 

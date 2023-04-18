@@ -33,7 +33,8 @@ enum
 	Start_WiFi_Display,
 	Stop_WiFi_Display,
 	Accept_ConnectDevice_Request,
-	Reject_ConnectDevice_Request
+	Reject_ConnectDevice_Request,
+	Stop_Client_Connection
 };
 
 enum DEVICEROLE
@@ -53,26 +54,17 @@ typedef struct d_info
     enum DEVICEROLE deviceRole; 
 }DeviceInfo;
 
-class MiracastCallback
+/**
+* Abstract class for Notification.
+*/
+using namespace std;
+class MiracastServiceNotifier
 {
 public:
-    MiracastCallback() {}
-    virtual ~MiracastCallback() {}
-    virtual void onMiracastDisabled() = 0;
-    virtual void onDeviceDiscovery(DeviceInfo* device) = 0;
-    virtual void onDeviceLost(std::string MAC) = 0;
-    virtual void onGroupRemoved(std::string reason) = 0;
-    virtual void onProvisionReq(std::string authType, std::string MAC) = 0;
-    virtual void onGoNegReq(std::string MAC) = 0;
-    virtual void onGroupFormationSuccess() = 0;
-    virtual void onGroupStarted() = 0;
-    virtual void onConnected() = 0; 
-    virtual void onStreamingStarted() = 0; 
-    virtual void onSessionEstablished() = 0;
-    virtual void onWFDTimeout() = 0;
-    virtual void onDeviceOff() = 0;
-    virtual void HDCPStatus(bool status) = 0;
-    virtual void stopService() = 0;
+	virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
+	virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
+	virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
+	virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
 };
 
 class MiracastPrivate;
@@ -80,14 +72,18 @@ class MiracastPrivate;
 class MiracastServiceImplementation
 {
 	public:
-		static MiracastServiceImplementation *create(MiracastCallback* Callback);
+		static MiracastServiceImplementation *create(MiracastServiceNotifier* Callback);
 		static void Destroy( MiracastServiceImplementation* object );
 		void setEnable( std::string is_enabled );
 		void acceptClientConnectionRequest( std::string is_accepted );
+		bool StopClientConnection( std::string mac_address );
+
+		void setFriendlyName( std::string friendly_name );
+		std::string getFriendlyName( void );
 		
 		bool enableMiracast(bool flag = false);
 
-		void StopApplication( void );
+		void Shutdown( void );
 		//Global APIs
 		MiracastError discoverDevices(); 
 		MiracastError selectDevice();
@@ -106,11 +102,12 @@ class MiracastServiceImplementation
 
 	private:
 
-		MiracastServiceImplementation(MiracastCallback* Callback);
+		MiracastServiceImplementation(MiracastServiceNotifier* Callback);
 		MiracastServiceImplementation();
 		MiracastServiceImplementation(MiracastServiceImplementation&);
 		~MiracastServiceImplementation();
 		MiracastPrivate* m_impl;
+		std::string m_friendly_name;
 };
 
 #endif

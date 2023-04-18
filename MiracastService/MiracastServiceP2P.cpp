@@ -308,7 +308,7 @@ MiracastError MiracastPrivate::executeCommand(std::string command, int interface
 }
 
 
-void MiracastPrivate::wfdInit(MiracastCallback* Callback)
+void MiracastPrivate::wfdInit(MiracastServiceNotifier* Callback)
 {
     if(getenv("ENABLE_MIRACAST_IARM") != NULL)
         m_isIARMEnabled = true;
@@ -376,6 +376,12 @@ void MiracastPrivate::setWiFiDisplayParams(void)
 		executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 		command = "WFD_SUBELEM_SET 0 000600111c4400c8";
 		executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        command = "SET config_methods pbc";
+        executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+
+        applyWFDSinkDeviceName();
+
 		m_isWiFiDisplayParamsEnabled = true;
 	}
 }
@@ -383,4 +389,11 @@ void MiracastPrivate::setWiFiDisplayParams(void)
 void MiracastPrivate::resetWiFiDisplayParams(void)
 {
 	m_isWiFiDisplayParamsEnabled = false;
+}
+
+void MiracastPrivate::applyWFDSinkDeviceName(void)
+{
+	std::string command, retBuffer;
+    command = "SET device_name " + getFriendlyName();
+    executeCommand(command, GLOBAL_INTERFACE, retBuffer);
 }
