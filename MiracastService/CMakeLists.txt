@@ -27,7 +27,7 @@ find_package(GSTREAMER REQUIRED)
 
 find_library(GLIB_LIBRARY NAMES glib-2.0 )
 
-add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastServicePrivate.cpp MiracastServiceP2P.cpp MiracastServiceStream.cpp MiracastLogger.cpp)
+add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastServicePrivate.cpp MiracastServiceP2P.cpp MiracastLogger.cpp MiracastPlayer.cpp)
 
 set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 11

@@ -15,7 +15,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 
 #ifndef _MIRACAST_SERVICE_H_
 #define _MIRACAST_SERVICE_H_
@@ -29,12 +29,12 @@ using namespace MIRACAST;
 
 enum
 {
-	Stop_Miracast_Service=1,
-	Start_WiFi_Display,
-	Stop_WiFi_Display,
-	Accept_ConnectDevice_Request,
-	Reject_ConnectDevice_Request,
-	Stop_Client_Connection
+    Stop_Miracast_Service = 1,
+    Start_WiFi_Display,
+    Stop_WiFi_Display,
+    Accept_ConnectDevice_Request,
+    Reject_ConnectDevice_Request,
+    Stop_Client_Connection
 };
 
 enum DEVICEROLE
@@ -51,63 +51,62 @@ typedef struct d_info
     string deviceType;
     string modelName;
     bool isCPSupported;
-    enum DEVICEROLE deviceRole; 
-}DeviceInfo;
+    enum DEVICEROLE deviceRole;
+} DeviceInfo;
 
 /**
-* Abstract class for Notification.
-*/
+ * Abstract class for Notification.
+ */
 using namespace std;
 class MiracastServiceNotifier
 {
 public:
-	virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
-	virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
-	virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
-	virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
 };
 
 class MiracastPrivate;
 
 class MiracastServiceImplementation
 {
-	public:
-		static MiracastServiceImplementation *create(MiracastServiceNotifier* Callback);
-		static void Destroy( MiracastServiceImplementation* object );
-		void setEnable( std::string is_enabled );
-		void acceptClientConnectionRequest( std::string is_accepted );
-		bool StopClientConnection( std::string mac_address );
+public:
+    static MiracastServiceImplementation *create(MiracastServiceNotifier *Callback);
+    static void Destroy(MiracastServiceImplementation *object);
+    void setEnable(std::string is_enabled);
+    void acceptClientConnectionRequest(std::string is_accepted);
+    bool StopClientConnection(std::string mac_address);
 
-		void setFriendlyName( std::string friendly_name );
-		std::string getFriendlyName( void );
-		
-		bool enableMiracast(bool flag = false);
+    void setFriendlyName(std::string friendly_name);
+    std::string getFriendlyName(void);
 
-		void Shutdown( void );
-		//Global APIs
-		MiracastError discoverDevices(); 
-		MiracastError selectDevice();
-		MiracastError connectDevice(std::string MAC);
-		MiracastError startStreaming();
+    bool enableMiracast(bool flag = false);
 
-		//APIs to request for device/connection related details
-		std::string getConnectedMAC();
-		std::vector<DeviceInfo*> getAllPeers();
-		bool getConnectionStatus();
-		DeviceInfo* getDeviceDetails(std::string MAC);
+    void Shutdown(void);
+    // Global APIs
+    MiracastError discoverDevices();
+    MiracastError selectDevice();
+    MiracastError connectDevice(std::string MAC);
+    MiracastError startStreaming();
 
-		//APIs to disconnect
-		bool stopStreaming();
-		bool disconnectDevice();
+    // APIs to request for device/connection related details
+    std::string getConnectedMAC();
+    std::vector<DeviceInfo *> getAllPeers();
+    bool getConnectionStatus();
+    DeviceInfo *getDeviceDetails(std::string MAC);
 
-	private:
+    // APIs to disconnect
+    bool stopStreaming();
+    bool disconnectDevice();
 
-		MiracastServiceImplementation(MiracastServiceNotifier* Callback);
-		MiracastServiceImplementation();
-		MiracastServiceImplementation(MiracastServiceImplementation&);
-		~MiracastServiceImplementation();
-		MiracastPrivate* m_impl;
-		std::string m_friendly_name;
+private:
+    MiracastServiceImplementation(MiracastServiceNotifier *Callback);
+    MiracastServiceImplementation();
+    MiracastServiceImplementation(MiracastServiceImplementation &);
+    ~MiracastServiceImplementation();
+    MiracastPrivate *m_impl;
+    std::string m_friendly_name;
 };
 
 #endif
