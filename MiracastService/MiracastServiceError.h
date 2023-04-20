@@ -15,25 +15,27 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 #ifndef _MIRACAST_ERRORS_H_
 #define _MIRACAST_ERRORS_H_
 
 #ifndef RETURN_OK
-#define RETURN_OK   0
+#define RETURN_OK 0
 #endif
 
 #ifndef RETURN_ERR
-#define RETURN_ERR   -1
+#define RETURN_ERR -1
 #endif
 
-namespace MIRACAST {
+namespace MIRACAST
+{
 
-enum MiracastError {
-    MIRACAST_OK = 0,
-    MIRACAST_FAIL,
-    MIRACAST_NOT_ENABLED,
-    MIRACAST_INVALID_CONFIGURATION
-};
+    enum MiracastError
+    {
+        MIRACAST_OK = 0,
+        MIRACAST_FAIL,
+        MIRACAST_NOT_ENABLED,
+        MIRACAST_INVALID_CONFIGURATION
+    };
 }
 #endif
