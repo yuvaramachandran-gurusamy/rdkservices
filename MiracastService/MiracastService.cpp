@@ -254,7 +254,7 @@ namespace WPEFramework
 				else
 				{
 					response["message"] = "Supported 'requestStatus' parameter values are Accept or Reject";
-					LOGERR("Unsupported param passed [%s].\n", requestedStatus);
+					LOGERR("Unsupported param passed [%s].\n", requestedStatus.c_str());
 				}
 			}
 			else
