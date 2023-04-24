@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's Licenses.txt file the
  * following copyright and licenses apply:
  *
- * Copyright 2019 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ enum P2P_EVENTS
     EVENT_ERROR
 };
 
+/* RTSP : Starts */
 typedef enum rtsp_send_response_code_e
 {
     RTSP_SEND_REQ_RESPONSE_NOK = 0x01,

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's Licenses.txt file the
  * following copyright and licenses apply:
  *
- * Copyright 2019 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 using namespace std;
 using namespace MIRACAST;
 
+/*@TODO: RENAME and CAPS*/
 enum
 {
     Stop_Miracast_Service = 1,
@@ -39,10 +40,10 @@ enum
 
 enum DEVICEROLE
 {
-    SOURCE = 0,
-    PRIMARY_SINK,
-    SECONDARY_SINK,
-    DUAL_ROLE
+    DEVICEROLE_SOURCE = 0,
+    DEVICEROLE_PRIMARY_SINK,
+    DEVICEROLE_SECONDARY_SINK,
+    DEVICEROLE_DUAL_ROLE
 };
 
 typedef struct d_info

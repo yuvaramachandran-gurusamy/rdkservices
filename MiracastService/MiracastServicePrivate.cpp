@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's Licenses.txt file the
  * following copyright and licenses apply:
  *
- * Copyright 2019 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2547,7 +2547,12 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
             send_message = true;
             MIRACASTLOG_INFO("\n################# GO DEVICE[%s - %s] wants to connect: #################\n", device_name.c_str(), MAC.c_str());
             m_eventCallback->onMiracastServiceClientConnectionRequest(MAC, device_name);
-#ifndef ENABLE_AUTO_CONNECT
+
+#ifdef ENABLE_AUTO_CONNECT
+            strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
+            session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
+#else
+            /*@TODO: Chnage the client_req_hldr_msg_data to client_req_hdlr_msg_data*/
             if (true == m_client_req_handler_thread->receive_message(&client_req_hldr_msg_data, sizeof(client_req_hldr_msg_data), CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME))
             {
                 MIRACASTLOG_INFO("ClientReqHandler Msg Received [%#04X]\n", client_req_hldr_msg_data.action);
@@ -2556,6 +2561,7 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
                     strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
                     session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
                 }
+                /* @TODO: Seperate REJECT and TIMEOUT*/
                 else if (CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED == client_req_hldr_msg_data.action)
                 {
                     session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
@@ -2577,9 +2583,6 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
             {
                 session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
             }
-#else
-                strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
-                session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
 #endif
         }
         break;
