@@ -248,7 +248,7 @@ namespace WPEFramework
 				requestedStatus = parameters["requestStatus"].String();
 				if (("Accept" == requestedStatus) || ("Reject" == requestedStatus))
 				{
-					m_miracast_service_impl->acceptClientConnection(requestedStatus);
+					m_miracast_service_impl->acceptClientConnectionRequest (requestedStatus);
 					success = true;
 				}
 				else
