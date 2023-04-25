@@ -82,38 +82,20 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_SPACE_STR " "
 #define RTSP_SEMI_COLON_STR ";"
 
-#define RTSP_STD_RESPONSE_STR "RTSP/1.0 200 OK" RTSP_CRLF_STR
+/* It will be used to parse the data from WFD Source */
 #define RTSP_STD_REQUEST_STR "RTSP/1.0" RTSP_CRLF_STR
-
-#define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
-
-#define RTSP_STD_PUBLIC_FIELD "Public: "
+#define RTSP_REQ_OPTIONS "OPTIONS * " RTSP_STD_REQUEST_STR
+#define RTSP_REQ_TEARDOWN_MODE "wfd_trigger_method: TEARDOWN"
 #define RTSP_STD_SEQUENCE_FIELD "CSeq: "
 #define RTSP_STD_REQUIRE_FIELD "Require: "
 #define RTSP_STD_SESSION_FIELD "Session: "
-#define RTSP_STD_TRANSPORT_FIELD "Transport: "
 #define RTSP_STD_UNICAST_FIELD "unicast"
-#define RTSP_STD_CLIENT_PORT_FIELD "client_port="
-
-#define RTSP_STD_CONTENT_LEN_FIELD "Content-Length: "
-#define RTSP_STD_CONTENT_TYPE_FIELD "Content-Type: "
-#define RTSP_DFLT_CONTENT_TYPE "text/parameters"
 #define RTSP_STD_WFD_CONTENT_PROTECT_FIELD "wfd_content_protection: "
 #define RTSP_STD_WFD_VIDEO_FMT_FIELD "wfd_video_formats: "
 #define RTSP_STD_WFD_AUDIO_FMT_FIELD "wfd_audio_codecs: "
 #define RTSP_STD_WFD_CLIENT_PORTS_FIELD "wfd_client_rtp_ports: "
 #define RTSP_STD_WFD_PRESENTATION_URL_FIELD "wfd_presentation_URL: "
-
-#define RTSP_REQ_OPTIONS "OPTIONS * " RTSP_STD_REQUEST_STR
-#define RTSP_REQ_GET_PARAMETER ", GET_PARAMETER"
-#define RTSP_REQ_SET_PARAMETER ", SET_PARAMETER"
-#define RTSP_REQ_SETUP_MODE "SETUP"
-#define RTSP_REQ_PLAY_MODE "PLAY"
-#define RTSP_REQ_TEARDOWN_MODE "TEARDOWN"
-
-#define RTSP_M2_REQ_SINK2SRC_SEQ_NO "11"
-#define RTSP_M6_REQ_SINK2SRC_SEQ_NO "12"
-#define RTSP_M7_REQ_SINK2SRC_SEQ_NO "13"
+#define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
 
 #define MIRACAST_DEFAULT_NAME "Miracast-Generic"
 
@@ -171,7 +153,8 @@ typedef enum session_manager_actions_e
     SESSION_MGR_GO_NEG_SUCCESS,
     SESSION_MGR_GO_NEG_FAILURE,
     SESSION_MGR_CONNECT_REQ_FROM_HANDLER,
-    SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT,
+    SESSION_MGR_CONNECT_REQ_REJECT,
+    SESSION_MGR_CONNECT_REQ_TIMEOUT,
     SESSION_MGR_TEARDOWN_REQ_FROM_HANDLER,
     SESSION_MGR_GO_GROUP_STARTED,
     SESSION_MGR_GO_GROUP_REMOVED,
@@ -418,7 +401,7 @@ class MiracastPrivate
 public:
     MiracastPrivate();
     ~MiracastPrivate();
-    MiracastPrivate(MiracastServiceNotifier *xreCallback);
+    MiracastPrivate(MiracastServiceNotifier *notifier);
 
     void CommonThreadCallBack(void *args);
 
@@ -483,7 +466,7 @@ private:
     std::string startDHCPClient(std::string interface, std::string &default_gw_ip_addr);
     bool initiateTCP(std::string goIP);
     bool connectSink();
-    void wfdInit(MiracastServiceNotifier *Callback);
+    void wfdInit(MiracastServiceNotifier *notifier);
 
     std::string m_friendly_name;
     MiracastServiceNotifier *m_eventCallback;

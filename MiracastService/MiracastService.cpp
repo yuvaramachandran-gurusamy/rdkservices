@@ -20,9 +20,9 @@
 #include <algorithm>
 #include <regex>
 #include "rdk/iarmmgrs-hal/pwrMgr.h"
+#include "MiracastService.h"
 #include "UtilsJsonRpc.h"
 #include "UtilsIarm.h"
-#include "MiracastService.h"
 
 const short WPEFramework::Plugin::MiracastService::API_VERSION_NUMBER_MAJOR = 1;
 const short WPEFramework::Plugin::MiracastService::API_VERSION_NUMBER_MINOR = 0;
@@ -38,7 +38,9 @@ using namespace std;
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
 
-#define XCAST_CALLSIGN "org.rdk.Xcast.1"
+#define SERVER_DETAILS  "127.0.0.1:9998"
+#define XCAST_CALLSIGN "org.rdk.Xcast"
+#define XCAST_CALLSIGN_VER XCAST_CALLSIGN".1"
 #define SECURITY_TOKEN_LEN_MAX 1024
 #define THUNDER_RPC_TIMEOUT 2000
 
@@ -51,7 +53,6 @@ namespace WPEFramework
 {
 	namespace
 	{
-
 		static Plugin::Metadata<Plugin::MiracastService> metadata(
 			// Version (Major, Minor, Patch)
 			API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
@@ -75,31 +76,9 @@ namespace WPEFramework
 			  m_isServiceInitialized(false),
 			  m_isServiceEnabled(false)
 		{
-			LOGINFO("MiracastService::ctor");
+			LOGINFO("Entering..!!!");
 			MiracastService::_instance = this;
-			/* Create Thunder Security token */
-			std::string sToken;
-			std::string query;
 
-			/* If we're in a container, get the token from the Dobby env var */
-
-			/* @TODO: Compare with other thunder plugin, like DisplaySetting */
-			Core::SystemInfo::GetEnvironment(_T("THUNDER_SECURITY_TOKEN"), sToken);
-			if (sToken.empty())
-			{
-				unsigned char buffer[SECURITY_TOKEN_LEN_MAX] = {0};
-				int ret = GetSecurityToken(SECURITY_TOKEN_LEN_MAX, buffer);
-
-				if (ret > 0)
-				{
-					sToken = (char *)buffer;
-				}
-			}
-			query = "token=" + sToken;
-
-			LOGINFO("Instantiating remote object of rdkservices plugins\n");
-
-			remoteObjectXCast = new WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>(XCAST_CALLSIGN, "", false, query);
 			Register(METHOD_MIRACAST_SET_ENABLE, &MiracastService::setEnable, this);
 			Register(METHOD_MIRACAST_GET_ENABLE, &MiracastService::getEnable, this);
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
@@ -108,39 +87,86 @@ namespace WPEFramework
 
 		MiracastService::~MiracastService()
 		{
-			LOGINFO("MiracastService::~MiracastService");
-			if (nullptr != remoteObjectXCast)
+			LOGINFO("Entering..!!!");
+			if (nullptr != m_remoteXCastObj)
 			{
-				delete remoteObjectXCast;
-				remoteObjectXCast = nullptr;
+				delete m_remoteXCastObj;
+				m_remoteXCastObj = nullptr;
 			}
 		}
 
+		// Thunder plugins communication
+        void MiracastService::getXCastPlugin()
+        {
+			LOGINFO("Entering..!!!");
+
+            if(nullptr == m_remoteXCastObj)
+            {
+				string token;
+
+                // TODO: use interfaces and remove token
+                auto security = m_CurrentService->QueryInterfaceByCallsign<PluginHost::IAuthenticate>("SecurityAgent");
+                if (nullptr != security) {
+                    string payload = "http://localhost";
+                    if (security->CreateToken(
+                            static_cast<uint16_t>(payload.length()),
+                            reinterpret_cast<const uint8_t*>(payload.c_str()),
+                            token)
+                        == Core::ERROR_NONE) {
+						LOGINFO("got security token\n");
+                    }
+					else{
+						LOGERR("failed to get security token\n");
+                    }
+                    security->Release();
+                } else {
+					LOGERR("No security agent\n");
+                }
+
+                string query = "token=" + token;
+                Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
+                m_remoteXCastObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(XCAST_CALLSIGN_VER), (_T(XCAST_CALLSIGN_VER)), false, query);
+				if (nullptr == m_remoteXCastObj) {
+					LOGERR("JSONRPC: %s: initialization failed", XCAST_CALLSIGN_VER);
+				}
+				else{
+					LOGINFO("JSONRPC: %s: initialization ok", XCAST_CALLSIGN_VER);
+				}
+            }
+        }
+
 		const string MiracastService::Initialize(PluginHost::IShell *service)
 		{
-			LOGINFO("MiracastService::Initialize");
+			string msg;
+			LOGINFO("Entering..!!!");
 			if (!m_isServiceInitialized)
 			{
-				std::string friendlyname = "";
-
-				m_CurrentService = service;
 				m_miracast_service_impl = MiracastServiceImplementation::create(this);
-				if (Core::ERROR_NONE == get_XCastFriendlyName(friendlyname))
-				{
-					m_miracast_service_impl->setFriendlyName(friendlyname);
+
+				if ( nullptr != m_miracast_service_impl ){
+					std::string friendlyname = "";
+
+					m_CurrentService = service;
+					getXCastPlugin();		
+					if (Core::ERROR_NONE == get_XCastFriendlyName(friendlyname))
+					{
+						m_miracast_service_impl->setFriendlyName(friendlyname);
+					}
+					m_isServiceInitialized = true;
 				}
-				m_isServiceInitialized = true;
+				else{
+					msg = "Failed to obtain MiracastServiceImpl Object";
+				}
 			}
 
 			// On success return empty, to indicate there is no error text.
-			/* @TODO: Check return type on success*/
-			return (string());
+			return msg;
 		}
 
 		void MiracastService::Deinitialize(PluginHost::IShell * /* service */)
 		{
 			MiracastService::_instance = nullptr;
-			LOGINFO("MiracastService::Deinitialize");
+			LOGINFO("Entering..!!!");
 
 			if (m_isServiceInitialized)
 			{
@@ -167,23 +193,20 @@ namespace WPEFramework
 		uint32_t MiracastService::setEnable(const JsonObject &parameters, JsonObject &response)
 		{
 			bool success = false;
-			std::string is_enabled = "";
-            //bool is_enabled = true;
+			bool is_enabled = true;
 
-			LOGINFO("MiracastService::setEnable");
+			LOGINFO("Entering..!!!");
 			if (parameters.HasLabel("enabled"))
 			{
-				/*@TODO : Fix to bool*/
-				/* getBoolParameter("true") */
-				/* @todo: Fix log*/
-				//is_enabled = getBoolParameter("true", is_enabled);
-				if ("true" == is_enabled)
+				getBoolParameter("enabled", is_enabled);
+
+				if ( true == is_enabled )
 				{
 					if (!m_isServiceEnabled)
 					{
 						m_miracast_service_impl->setEnable(is_enabled);
 						success = true;
-						m_isServiceEnabled = true;
+						m_isServiceEnabled = is_enabled;
 						response["message"] = "Successfully enabled the WFD Discovery";
 					}
 					else
@@ -191,23 +214,19 @@ namespace WPEFramework
 						response["message"] = "WFD Discovery already enabled.";
 					}
 				}
-				else if ("false" == is_enabled)
+				else
 				{
 					if (m_isServiceEnabled)
 					{
 						m_miracast_service_impl->setEnable(is_enabled);
 						success = true;
-						m_isServiceEnabled = false;
+						m_isServiceEnabled = is_enabled;
 						response["message"] = "Successfully disabled the WFD Discovery";
 					}
 					else
 					{
 						response["message"] = "WFD Discovery already disabled.";
 					}
-				}
-				else
-				{
-					response["message"] = "Supported 'enabled' parameter values are true or false";
 				}
 			}
 			else
@@ -225,7 +244,7 @@ namespace WPEFramework
 		 */
 		uint32_t MiracastService::getEnable(const JsonObject &parameters, JsonObject &response)
 		{
-			LOGINFO("MiracastService::getEnable");
+			LOGINFO("Entering..!!!");
 			response["enabled"] = m_isServiceEnabled;
 			returnResponse(true);
 		}
@@ -241,7 +260,7 @@ namespace WPEFramework
 			bool success = false;
 			std::string requestedStatus = "";
 
-			LOGINFO("MiracastService::acceptClientConnection");
+			LOGINFO("Entering..!!!");
 
 			if (parameters.HasLabel("requestStatus"))
 			{
@@ -272,13 +291,12 @@ namespace WPEFramework
 		 * @param: None.
 		 * @return Returns the success code of underlying method.
 		 */
-		/*@TODO: Add Log messages*/
 		uint32_t MiracastService::stopClientConnection(const JsonObject &parameters, JsonObject &response)
 		{
 			bool success = false;
 			std::string mac_addr = "";
 
-			LOGINFO("MiracastService::stopClientConnection");
+			LOGINFO("Entering..!!!");
 
 			if (parameters.HasLabel("clientMac"))
 			{
@@ -291,19 +309,23 @@ namespace WPEFramework
 					{
 						success = true;
 						response["message"] = "Successfully Initiated the Stop WFD Client Connection";
+						LOGINFO("Successfully Initiated the Stop WFD Client Connection");
 					}
 					else
 					{
+						LOGERR("MAC Address[%s] not connected yet",mac_addr.c_str());
 						response["message"] = "MAC Address not connected yet.";
 					}
 				}
 				else
 				{
+					LOGERR("Invalid MAC Address[%s] passed",mac_addr.c_str());
 					response["message"] = "Invalid MAC Address";
 				}
 			}
 			else
 			{
+				LOGERR("Invalid parameter passed");
 				response["message"] = "Invalid parameter passed";
 			}
 
@@ -312,7 +334,7 @@ namespace WPEFramework
 
 		void MiracastService::onMiracastServiceClientConnectionRequest(string client_mac, string client_name)
 		{
-			LOGINFO("MiracastService::onMiracastServiceClientConnectionRequest ");
+			LOGINFO("Entering..!!!");
 
 			JsonObject params;
 			params["clientMac"] = client_mac;
@@ -322,7 +344,7 @@ namespace WPEFramework
 
 		void MiracastService::onMiracastServiceClientStopRequest(string client_mac, string client_name)
 		{
-			LOGINFO("MiracastService::onMiracastServiceClientStopRequest ");
+			LOGINFO("Entering..!!!");
 
 			JsonObject params;
 			params["clientMac"] = client_mac;
@@ -332,7 +354,7 @@ namespace WPEFramework
 
 		void MiracastService::onMiracastServiceClientConnectionStarted(string client_mac, string client_name)
 		{
-			LOGINFO("MiracastService::onMiracastServiceClientConnectionStarted ");
+			LOGINFO("Entering..!!!");
 
 			JsonObject params;
 			params["clientMac"] = client_mac;
@@ -342,7 +364,7 @@ namespace WPEFramework
 
 		void MiracastService::onMiracastServiceClientConnectionError(string client_mac, string client_name)
 		{
-			LOGINFO("MiracastService::onMiracastServiceClientConnectionError ");
+			LOGINFO("Entering..!!!");
 
 			JsonObject params;
 			params["clientMac"] = client_mac;
@@ -355,13 +377,13 @@ namespace WPEFramework
 			JsonObject params, Result;
 			LOGINFO("Entering..!!!");
 
-			if (nullptr == remoteObjectXCast)
+			if (nullptr == m_remoteXCastObj)
 			{
-				LOGINFO("remoteObjectXCast not yet instantiated");
+				LOGERR("m_remoteXCastObj not yet instantiated");
 				return Core::ERROR_GENERAL;
 			}
 
-			uint32_t ret = remoteObjectXCast->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("getFriendlyName"), params, Result);
+			uint32_t ret = m_remoteXCastObj->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("getFriendlyName"), params, Result);
 
 			if (Core::ERROR_NONE == ret)
 			{
@@ -373,12 +395,12 @@ namespace WPEFramework
 				else
 				{
 					ret = Core::ERROR_GENERAL;
-					LOGINFO("get_XCastFriendlyName call failed");
+					LOGERR("get_XCastFriendlyName call failed");
 				}
 			}
 			else
 			{
-				LOGINFO("get_XCastFriendlyName call failed E[%u]", ret);
+				LOGERR("get_XCastFriendlyName call failed E[%u]", ret);
 			}
 			return ret;
 		}

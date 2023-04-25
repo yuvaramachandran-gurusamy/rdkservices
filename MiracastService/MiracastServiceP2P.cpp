@@ -165,9 +165,19 @@ int MiracastPrivate::p2pUninit()
 
     stop_p2p_monitor = true;
     pthread_join(p2p_ctrl_monitor_thread_id, NULL);
-    wpa_ctrl_close(wpa_p2p_cmd_global_ctrl_iface);
-    wpa_ctrl_close(wpa_p2p_cmd_ctrl_iface);
-    wpa_ctrl_close(wpa_p2p_ctrl_monitor);
+
+    if (NULL!=wpa_p2p_cmd_global_ctrl_iface){
+        wpa_ctrl_close(wpa_p2p_cmd_global_ctrl_iface);
+        wpa_p2p_cmd_global_ctrl_iface = NULL;
+    }
+    if (NULL!=wpa_p2p_cmd_ctrl_iface){
+        wpa_ctrl_close(wpa_p2p_cmd_ctrl_iface);
+        wpa_p2p_cmd_ctrl_iface = NULL;
+    }
+    if (NULL!=wpa_p2p_ctrl_monitor){
+        wpa_ctrl_close(wpa_p2p_ctrl_monitor);
+        wpa_p2p_ctrl_monitor = NULL;
+    }
 
     p2p_init_done = false;
     return RETURN_OK;
@@ -311,7 +321,7 @@ MiracastError MiracastPrivate::executeCommand(std::string command, int interface
     return MIRACAST_OK;
 }
 
-void MiracastPrivate::wfdInit(MiracastServiceNotifier *Callback)
+void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
 {
     if (getenv("ENABLE_MIRACAST_IARM") != NULL)
         m_isIARMEnabled = true;
@@ -340,7 +350,7 @@ void MiracastPrivate::wfdInit(MiracastServiceNotifier *Callback)
             MIRACASTLOG_INFO("P2P Init succeeded");
     }
 
-    m_eventCallback = Callback;
+    m_eventCallback = notifier;
 #if 0
     std::string command, retBuffer;
     command = "STATUS";

@@ -81,11 +81,12 @@ namespace WPEFramework
         private:
             bool m_isServiceInitialized;
             bool m_isServiceEnabled;
-            WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *remoteObjectXCast = NULL;
+            WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *m_remoteXCastObj = NULL;
             uint32_t setEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t getEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
+            void getXCastPlugin();
             int get_XCastFriendlyName(std::string &friendlyname);
 
             // We do not allow this plugin to be copied !!
