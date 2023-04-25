@@ -23,25 +23,11 @@
 
 using namespace MIRACAST;
 
-MiracastServiceImplementation *MiracastServiceImplementation::create(MiracastServiceNotifier *xrecallback)
+MiracastServiceImplementation *MiracastServiceImplementation::create(MiracastServiceNotifier *notifier)
 {
-    std::cout << "MiracastServiceImplementation::create\n";
     MIRACASTLOG_VERBOSE("Service created\n");
 
-    if (!(access("/opt/disableMiracast", F_OK) != -1))
-    {
-        return new MiracastServiceImplementation(xrecallback);
-    }
-#if 0
-	else
-	{
-		if(xrecallback)
-			xrecallback->onMiracastDisabled();
-		MIRACASTLOG_VERBOSE("Service cannot be created. Disabled\n");
-		return NULL;
-	}
-#endif
-    return NULL;
+    return new MiracastServiceImplementation(notifier);
 }
 
 void MiracastServiceImplementation::Destroy(MiracastServiceImplementation *object)
@@ -52,10 +38,10 @@ void MiracastServiceImplementation::Destroy(MiracastServiceImplementation *objec
     }
 }
 
-MiracastServiceImplementation::MiracastServiceImplementation(MiracastServiceNotifier *xrecallback)
+MiracastServiceImplementation::MiracastServiceImplementation(MiracastServiceNotifier *notifier)
 {
-    std::cout << "MiracastServiceImplementation::ctor\n";
-    m_impl = new MiracastPrivate(xrecallback);
+    MIRACASTLOG_VERBOSE("MiracastServiceImplementation::ctor...\n");
+    m_impl = new MiracastPrivate(notifier);
 }
 
 MiracastServiceImplementation::MiracastServiceImplementation()
@@ -64,18 +50,8 @@ MiracastServiceImplementation::MiracastServiceImplementation()
 
 MiracastServiceImplementation::~MiracastServiceImplementation()
 {
-    MIRACASTLOG_INFO("Destructor...\n");
+    MIRACASTLOG_VERBOSE("Destructor...\n");
     delete m_impl;
-}
-
-MiracastError MiracastServiceImplementation::discoverDevices()
-{
-    return m_impl->discoverDevices();
-}
-
-MiracastError MiracastServiceImplementation::connectDevice(std::string MAC)
-{
-    return m_impl->connectDevice(MAC);
 }
 
 void MiracastServiceImplementation::setFriendlyName(std::string friendly_name)
@@ -118,44 +94,31 @@ bool MiracastServiceImplementation::stopStreaming()
     return m_impl->stopStreaming();
 }
 
-bool MiracastServiceImplementation::disconnectDevice()
-{
-    return m_impl->disconnectDevice();
-}
-
 void MiracastServiceImplementation::Shutdown(void)
 {
     std::string action_buffer;
     std::string user_data;
 
-    m_impl->SendMessageToClientReqHandler(Stop_Miracast_Service, action_buffer, user_data);
+    m_impl->SendMessageToClientReqHandler(MIRACAST_SERVICE_SHUTDOWN, action_buffer, user_data);
 }
 
-void MiracastServiceImplementation::setEnable(std::string is_enabled)
+void MiracastServiceImplementation::setEnable(bool is_enabled)
 {
     std::string action_buffer;
     std::string user_data;
     size_t action;
     bool status = true;
 
-    std::cout << "MiracastServiceImplementation::setEnable\n";
-    if ("true" == is_enabled)
+    if ( true == is_enabled)
     {
-        action = Start_WiFi_Display;
-    }
-    else if ("false" == is_enabled)
-    {
-        action = Stop_WiFi_Display;
+        action = MIRACAST_SERVICE_WFD_START;
     }
     else
     {
-        status = false;
+        action = MIRACAST_SERVICE_WFD_STOP;
     }
 
-    if (true == status)
-    {
-        m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
-    }
+    m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
 }
 
 void MiracastServiceImplementation::acceptClientConnectionRequest(std::string is_accepted)
@@ -164,16 +127,15 @@ void MiracastServiceImplementation::acceptClientConnectionRequest(std::string is
     std::string user_data;
     size_t action;
 
-    std::cout << "MiracastServiceImplementation::acceptClientConnectionRequest\n";
     if ("Accept" == is_accepted)
     {
         MIRACASTLOG_VERBOSE("Client Connection Request accepted\n");
-        action = Accept_ConnectDevice_Request;
+        action = MIRACAST_SERVICE_ACCEPT_CLIENT;
     }
     else
     {
         MIRACASTLOG_VERBOSE("Client Connection Request Rejected\n");
-        action = Reject_ConnectDevice_Request;
+        action = MIRACAST_SERVICE_REJECT_CLIENT;
     }
     m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
 }
@@ -186,6 +148,6 @@ bool MiracastServiceImplementation::StopClientConnection(std::string mac_address
     {
         return false;
     }
-    m_impl->SendMessageToClientReqHandler(Stop_Client_Connection, action_buffer, mac_address);
+    m_impl->SendMessageToClientReqHandler(MIRACAST_SERVICE_STOP_CLIENT_CONNECTION, action_buffer, mac_address);
     return true;
 }

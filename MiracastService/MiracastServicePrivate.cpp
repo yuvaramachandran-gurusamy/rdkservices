@@ -977,7 +977,6 @@ MiracastPrivate::MiracastPrivate(MiracastServiceNotifier *notifier)
     m_hdcp_handler_thread = new MiracastThread(HDCP2X_AKE_THREAD_NAME, HDCP2X_AKE_THREAD_STACK, 0, 0, reinterpret_cast<void (*)(void *)>(&HDCPHandlerCallback), NULL);
     m_hdcp_handler_thread->start();
 #endif /*ENABLE_HDCP2X_SUPPORT*/
-
     wfdInit(notifier);
 }
 
@@ -1473,7 +1472,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::s
     {
         rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat(RTSP_MSG_FMT_M16_RESPONSE, seq_str, dummy);
     }
-    else if (rtsp_post_m1_m7_xchange_buffer.find("wfd_trigger_method: TEARDOWN") != std::string::npos)
+    else if (rtsp_post_m1_m7_xchange_buffer.find(RTSP_REQ_TEARDOWN_MODE) != std::string::npos)
     {
         MIRACASTLOG_INFO("TEARDOWN request from Source received\n");
         rtsp_resp_sink2src = m_rtsp_msg->GenerateRequestResponseFormat(RTSP_MSG_FMT_TEARDOWN_RESPONSE, seq_str, dummy);
@@ -2324,7 +2323,8 @@ void MiracastPrivate::SessionManagerThread(void *args)
             RestartSession();
         }
         break;
-        case SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT:
+        case SESSION_MGR_CONNECT_REQ_REJECT:
+        case SESSION_MGR_CONNECT_REQ_TIMEOUT:
         {
             client_req_client_connection_sent = false;
         }
@@ -2564,7 +2564,7 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
                 /* @TODO: Seperate REJECT and TIMEOUT*/
                 else if (CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED == client_req_hldr_msg_data.action)
                 {
-                    session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
+                    session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT;
                 }
                 else if (CLIENT_REQ_HLDR_SHUTDOWN_APP == client_req_hldr_msg_data.action)
                 {
@@ -2581,7 +2581,7 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
             }
             else
             {
-                session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT_OR_TIMEOUT;
+                session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_TIMEOUT;
             }
 #endif
         }
@@ -2622,44 +2622,44 @@ void MiracastPrivate::SendMessageToClientReqHandler(size_t action, std::string a
 
     switch (action)
     {
-    case Start_WiFi_Display:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_START_DISCOVER;
-    }
-    break;
-    case Stop_WiFi_Display:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_STOP_DISCOVER;
-    }
-    break;
-    case Stop_Miracast_Service:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_SHUTDOWN_APP;
-    }
-    break;
-    case Stop_Client_Connection:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_TEARDOWN_CONNECTION;
-        memcpy(client_message_data.action_buffer, user_data.c_str(), user_data.length());
-    }
-    break;
+        case MIRACAST_SERVICE_WFD_START:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_START_DISCOVER;
+        }
+        break;
+        case MIRACAST_SERVICE_WFD_STOP:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_STOP_DISCOVER;
+        }
+        break;
+        case MIRACAST_SERVICE_SHUTDOWN:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_SHUTDOWN_APP;
+        }
+        break;
+        case MIRACAST_SERVICE_STOP_CLIENT_CONNECTION:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_TEARDOWN_CONNECTION;
+            memcpy(client_message_data.action_buffer, user_data.c_str(), user_data.length());
+        }
+        break;
 #ifndef ENABLE_AUTO_CONNECT
-    case Accept_ConnectDevice_Request:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED;
-    }
-    break;
-    case Reject_ConnectDevice_Request:
-    {
-        client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED;
-    }
-    break;
+        case MIRACAST_SERVICE_ACCEPT_CLIENT:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED;
+        }
+        break;
+        case MIRACAST_SERVICE_REJECT_CLIENT:
+        {
+            client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED;
+        }
+        break;
 #endif
-    default:
-    {
-        valid_mesage = false;
-    }
-    break;
+        default:
+        {
+            valid_mesage = false;
+        }
+        break;
     }
 
     MIRACASTLOG_VERBOSE("MiracastPrivate::SendMessageToClientReqHandler received Action[%#04X]\n", action);
