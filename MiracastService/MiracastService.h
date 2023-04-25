@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE
  * file the following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,12 +46,18 @@ namespace WPEFramework
         // will receive a JSONRPC message as a notification, in case this method is called.
         class MiracastService : public PluginHost::IPlugin, public PluginHost::JSONRPC, public MiracastServiceNotifier
         {
-        private:
-            // We do not allow this plugin to be copied !!
-            MiracastService(const MiracastService &) = delete;
-            MiracastService &operator=(const MiracastService &) = delete;
-
         public:
+            // constants
+            static const short API_VERSION_NUMBER_MAJOR;
+            static const short API_VERSION_NUMBER_MINOR;
+            static const string SERVICE_NAME;
+
+            // methods
+            static const string METHOD_MIRACAST_SET_ENABLE;
+            static const string METHOD_MIRACAST_GET_ENABLE;
+            static const string METHOD_MIRACAST_CLIENT_CONNECT;
+            static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
+
             MiracastService();
             virtual ~MiracastService();
             virtual const string Initialize(PluginHost::IShell *shell) override;
@@ -67,32 +73,24 @@ namespace WPEFramework
             INTERFACE_ENTRY(PluginHost::IPlugin)
             INTERFACE_ENTRY(PluginHost::IDispatcher)
             END_INTERFACE_MAP
-        public:
-            // constants
-            static const short API_VERSION_NUMBER_MAJOR;
-            static const short API_VERSION_NUMBER_MINOR;
-            static const string SERVICE_NAME;
 
-            // methods
-            static const string METHOD_MIRACAST_SET_ENABLE;
-            static const string METHOD_MIRACAST_GET_ENABLE;
-            static const string METHOD_MIRACAST_CLIENT_CONNECT_REQUEST;
-            static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
+            PluginHost::IShell *m_CurrentService;
+            static MiracastService *_instance;
+            static MiracastServiceImplementation *m_miracast_service_impl;
 
         private:
-            bool m_isPlatInitialized;
-            bool m_isDiscoverEnabled;
+            bool m_isServiceInitialized;
+            bool m_isServiceEnabled;
             WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *remoteObjectXCast = NULL;
             uint32_t setEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t getEnable(const JsonObject &parameters, JsonObject &response);
-            uint32_t acceptClientConnectionRequest(const JsonObject &parameters, JsonObject &response);
+            uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
             int get_XCastFriendlyName(std::string &friendlyname);
 
-        public:
-            PluginHost::IShell *mCurrentService;
-            static MiracastService *_instance;
-            static MiracastServiceImplementation *m_miracast_service_impl;
+            // We do not allow this plugin to be copied !!
+            MiracastService(const MiracastService &) = delete;
+            MiracastService &operator=(const MiracastService &) = delete;
         };
     } // namespace Plugin
 } // namespace WPEFramework
