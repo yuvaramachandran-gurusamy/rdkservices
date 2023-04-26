@@ -93,14 +93,14 @@ public:
 
     // APIs to disconnect
     bool stopStreaming();
-    bool disconnectDevice();
+    bool disconnectDevice(); // @TODO: Remove if not needed
 
 private:
     MiracastServiceImplementation(MiracastServiceNotifier *notifier);
     MiracastServiceImplementation();
     MiracastServiceImplementation(MiracastServiceImplementation &);
     ~MiracastServiceImplementation();
-    MiracastPrivate *m_impl;
+    MiracastPrivate *m_impl; // @TODO: change to relevant name
 };
 
 #endif

@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include "libIBus.h"
 
+/* @TODO: Make a provision to read dynamic i/f files */
 #define WPA_SUP_CTRL "/var/run/wpa_supplicant/p2p-dev-wlan0"
 #define WPA_SUP_GLOBAL_CTRL "/opt/wpa_supplicant/wlan0-3.global"
 

@@ -396,6 +396,8 @@ private:
 class MiracastThread;
 class MiracastRTSPMessages;
 
+/*@TODO: Make singleton class. 
+ * Change class name */
 class MiracastPrivate
 {
 public:

@@ -104,6 +104,7 @@ void MiracastServiceImplementation::Shutdown(void)
 
 void MiracastServiceImplementation::setEnable(bool is_enabled)
 {
+    /*@TODO : initialized the varriables*/
     std::string action_buffer;
     std::string user_data;
     size_t action;
@@ -117,7 +118,7 @@ void MiracastServiceImplementation::setEnable(bool is_enabled)
     {
         action = MIRACAST_SERVICE_WFD_STOP;
     }
-
+    /*Check for polimorphism to default value in defination*/
     m_impl->SendMessageToClientReqHandler(action, action_buffer, user_data);
 }
 
