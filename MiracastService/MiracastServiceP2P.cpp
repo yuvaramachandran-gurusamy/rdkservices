@@ -121,7 +121,7 @@ int MiracastPrivate::p2pInit()
         return RETURN_ERR;
     }
     MIRACASTLOG_INFO("WIFI_HAL: wpa_p2p_ctrl_monitor attached successfully.");
-
+#if 0
     retry = 0;
     while (retry++ < 10)
     {
@@ -137,7 +137,7 @@ int MiracastPrivate::p2pInit()
         return RETURN_ERR;
     }
     MIRACASTLOG_INFO("WIFI_HAL: wpa_p2p_cmd_global_ctrl_iface created successfully.");
-
+#endif
     pthread_attr_init(&thread_attr);
     pthread_attr_setstacksize(&thread_attr, 256 * 1024);
 
@@ -166,11 +166,12 @@ int MiracastPrivate::p2pUninit()
 
     stop_p2p_monitor = true;
     pthread_join(p2p_ctrl_monitor_thread_id, NULL);
-
+#if 0
     if (NULL!=wpa_p2p_cmd_global_ctrl_iface){
         wpa_ctrl_close(wpa_p2p_cmd_global_ctrl_iface);
         wpa_p2p_cmd_global_ctrl_iface = NULL;
     }
+#endif
     if (NULL!=wpa_p2p_cmd_ctrl_iface){
         wpa_ctrl_close(wpa_p2p_cmd_ctrl_iface);
         wpa_p2p_cmd_ctrl_iface = NULL;
@@ -285,10 +286,10 @@ int MiracastPrivate::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 {
     int ret;
     MIRACASTLOG_INFO("WIFI_HAL: Command to execute - %s", cmd);
-    if (iface == NON_GLOBAL_INTERFACE)
+   // if (iface == NON_GLOBAL_INTERFACE)
         ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_ctrl_iface, ret_buf);
-    else
-        ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_global_ctrl_iface, ret_buf);
+    //else
+    //    ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_global_ctrl_iface, ret_buf);
 
     return ret;
 }
@@ -352,25 +353,6 @@ void MiracastPrivate::wfdInit(MiracastServiceNotifier *notifier)
     }
 
     m_eventCallback = notifier;
-#if 0
-    std::string command, retBuffer;
-    command = "STATUS";
-    executeCommand(command, GLOBAL_INTERFACE, retBuffer);
-    command = "SET wifi_display 1";
-    executeCommand(command, GLOBAL_INTERFACE, retBuffer);
-    command = "P2P_PEER FIRST";
-    executeCommand(command, GLOBAL_INTERFACE, retBuffer);
-    command = "P2P_SET disallow_freq 5180-5900";
-    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
-    command = "WFD_SUBELEM_SET 0";
-    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
-    command = "WFD_SUBELEM_SET 0 000600111c4400c8";
-    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-    command = "P2P_FLUSH";
-    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer); 
-    command = "P2P_FIND";
-    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-#endif
 }
 
 void MiracastPrivate::setWiFiDisplayParams(void)
@@ -379,11 +361,11 @@ void MiracastPrivate::setWiFiDisplayParams(void)
     {
         std::string command, retBuffer;
         command = "STATUS";
-        executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         command = "SET wifi_display 1";
-        executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         command = "P2P_PEER FIRST";
-        executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         command = "P2P_SET disallow_freq 5180-5900";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         command = "WFD_SUBELEM_SET 0";
@@ -392,7 +374,7 @@ void MiracastPrivate::setWiFiDisplayParams(void)
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         command = "SET config_methods pbc";
-        executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         applyWFDSinkDeviceName();
 
@@ -409,5 +391,5 @@ void MiracastPrivate::applyWFDSinkDeviceName(void)
 {
     std::string command, retBuffer;
     command = "SET device_name " + getFriendlyName();
-    executeCommand(command, GLOBAL_INTERFACE, retBuffer);
+    executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 }

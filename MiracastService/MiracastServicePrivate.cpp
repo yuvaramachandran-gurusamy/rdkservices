@@ -115,6 +115,7 @@ std::string MiracastPrivate::getFriendlyName(void)
 
 std::string MiracastPrivate::startDHCPClient(std::string interface, std::string &default_gw_ip_addr)
 {
+    MIRACASTLOG_TRACE("Entering...");
     FILE *fp;
     std::string IP;
     char command[128] = {0};
@@ -162,7 +163,7 @@ std::string MiracastPrivate::startDHCPClient(std::string interface, std::string 
 
         free(ln);
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return local_addr;
 }
 
@@ -510,6 +511,7 @@ RTSP_CTRL_SOCKET_STATES MiracastPrivate::ReceiveBufferTimedOut(int socket_fd, vo
 
 bool MiracastPrivate::initiateTCP(std::string goIP)
 {
+    MIRACASTLOG_TRACE("Entering...");
     int r, i, num_ready = 0;
     size_t addr_size;
     struct epoll_event events[MAX_EPOLL_EVENTS];
@@ -606,6 +608,7 @@ bool MiracastPrivate::initiateTCP(std::string goIP)
             return true;
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return true;
 }
 
@@ -919,6 +922,7 @@ void MiracastPrivate::evtHandler(enum P2P_EVENTS eventId, void *data, size_t len
 
 MiracastError MiracastPrivate::discoverDevices()
 {
+    MIRACASTLOG_TRACE("Entering...");
     MiracastError ret = MIRACAST_FAIL;
     MIRACASTLOG_INFO("Discovering Devices");
     std::string command, retBuffer;
@@ -929,11 +933,13 @@ MiracastError MiracastPrivate::discoverDevices()
     {
         MIRACASTLOG_ERROR("Unable to discover devices");
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
 
 MiracastError MiracastPrivate::stopDiscoverDevices()
 {
+    MIRACASTLOG_TRACE("Entering...");
     MiracastError ret = MIRACAST_FAIL;
     MIRACASTLOG_INFO("Stop Discovering Devices");
     std::string command, retBuffer;
@@ -944,6 +950,7 @@ MiracastError MiracastPrivate::stopDiscoverDevices()
     {
         MIRACASTLOG_ERROR("Failed to Stop discovering devices");
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
 
@@ -1012,6 +1019,7 @@ MiracastPrivate::~MiracastPrivate()
 
 MiracastError MiracastPrivate::connectDevice(std::string MAC)
 {
+    MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_VERBOSE("Connecting to the MAC - %s", MAC.c_str());
     MiracastError ret = MIRACAST_FAIL;
     std::string command("P2P_CONNECT"), retBuffer;
@@ -1023,11 +1031,13 @@ MiracastError MiracastPrivate::connectDevice(std::string MAC)
     ret = (MiracastError)executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     MIRACASTLOG_VERBOSE("Establishing P2P connection with authType - %s", m_authType.c_str());
     // m_eventCallback->onConnected();
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
 
 MiracastError MiracastPrivate::startStreaming()
 {
+    MIRACASTLOG_TRACE("Entering...");
     const char *mcastIptableFile = "/opt/mcast_iptable.txt";
     std::ifstream mIpfile(mcastIptableFile);
     std::string mcast_iptable;
@@ -1086,6 +1096,7 @@ MiracastError MiracastPrivate::startStreaming()
     std::string device_name = m_rtsp_msg->GetWFDSourceName();
 
     m_eventCallback->onMiracastServiceClientConnectionStarted(MAC, device_name);
+    MIRACASTLOG_TRACE("Exiting...");
     return MIRACAST_OK;
 }
 
@@ -1171,7 +1182,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m1_msg_m2_send_request(st
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
     size_t found = rtsp_m1_msg_buffer.find(RTSP_REQ_OPTIONS);
-
+    MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_INFO("M1 request received");
     if (found != std::string::npos)
     {
@@ -1232,6 +1243,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m1_msg_m2_send_request(st
             response_code = RTSP_SEND_REQ_RESPONSE_NOK;
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return (response_code);
 }
 
@@ -1244,7 +1256,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m2_request_ack(std::strin
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer)
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
-
+    MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_INFO("M3 request received");
 
     if (rtsp_m3_msg_buffer.find("wfd_video_formats") != std::string::npos)
@@ -1287,14 +1299,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m3_response_back(std::str
             response_code = RTSP_SEND_REQ_RESPONSE_NOK;
         }
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return (response_code);
 }
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer)
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
-
+    MIRACASTLOG_TRACE("Entering...");
     if (rtsp_m4_msg_buffer.find("SET_PARAMETER") != std::string::npos)
     {
         std::string seq_str = "";
@@ -1340,14 +1352,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m4_response_back(std::str
             MIRACASTLOG_INFO("Failed to sent M4 response\n");
         }
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return (response_code);
 }
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer)
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
-
+    MIRACASTLOG_TRACE("Entering...");
     if (rtsp_m5_msg_buffer.find("wfd_trigger_method: SETUP") != std::string::npos)
     {
         std::string seq_str = "";
@@ -1399,13 +1411,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m5_msg_m6_send_request(st
             MIRACASTLOG_ERROR("Failed to Send the M5 response\n");
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return (response_code);
 }
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer)
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
-
+    MIRACASTLOG_TRACE("Entering...");
     if (!rtsp_m6_ack_buffer.empty())
     {
         m_rtsp_msg->m6_msg_req_ack_src2sink.clear();
@@ -1436,7 +1449,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m6_ack_m7_send_request(st
             }
         }
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return (response_code);
 }
 
@@ -1448,6 +1461,7 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_m7_request_ack(std::strin
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer)
 {
+    MIRACASTLOG_TRACE("Entering...");
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
     RTSP_SEND_RESPONSE_CODE sub_response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
     std::string rtsp_resp_sink2src = "";
@@ -1493,12 +1507,13 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_post_m1_m7_xchange(std::s
             MIRACASTLOG_INFO("Failed to sent Response\n");
         }
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return response_code;
 }
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::rtsp_sink2src_request_msg_handling(RTSP_MSG_HANDLER_ACTIONS action_id)
 {
+    MIRACASTLOG_TRACE("Entering...");
     RTSP_MSG_FMT_SINK2SRC request_mode = RTSP_MSG_FMT_INVALID;
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_VALID_MSG_OR_SEND_REQ_RESPONSE_OK;
 
@@ -1546,14 +1561,14 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::rtsp_sink2src_request_msg_handling(RTSP
             }
         }
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return response_code;
 }
 
 RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, RTSP_MSG_HANDLER_ACTIONS action_id)
 {
     RTSP_SEND_RESPONSE_CODE response_code = RTSP_INVALID_MSG_RECEIVED;
-
+    MIRACASTLOG_TRACE("Entering...");
     switch (action_id)
     {
     case RTSP_M1_REQUEST_RECEIVED:
@@ -1602,12 +1617,13 @@ RTSP_SEND_RESPONSE_CODE MiracastPrivate::validate_rtsp_msg_response_back(std::st
     }
     }
     MIRACASTLOG_INFO("Validating RTSP Msg => ACTION[%#04X] Resp[%#04X]\n", action_id, response_code);
-
+    MIRACASTLOG_TRACE("Exiting...");
     return response_code;
 }
 
 MiracastRTSPMessages::MiracastRTSPMessages()
 {
+    MIRACASTLOG_TRACE("Entering...");
     std::string default_configuration;
 
     m_current_sequence_number.clear();
@@ -1631,6 +1647,7 @@ MiracastRTSPMessages::MiracastRTSPMessages()
 
     default_configuration = RTSP_DFLT_CLIENT_RTP_PORTS;
     SetWFDClientRTPPorts(default_configuration);
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 MiracastRTSPMessages::~MiracastRTSPMessages()
@@ -1656,6 +1673,7 @@ const char *MiracastRTSPMessages::GetRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC
 
 std::string MiracastRTSPMessages::GenerateRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1)
 {
+    MIRACASTLOG_TRACE("Entering...");
     std::vector<const char *> sprintf_args;
     const char *template_str = GetRequestResponseFormat(msg_fmt_needed);
     std::string content_buffer = "";
@@ -1760,7 +1778,7 @@ std::string MiracastRTSPMessages::GenerateRequestResponseFormat(RTSP_MSG_FMT_SIN
     {
         result = MiracastRTSPMessages::format_string(template_str, sprintf_args);
     }
-
+    MIRACASTLOG_TRACE("Exiting...");
     return result;
 }
 
@@ -2006,7 +2024,7 @@ void MiracastThread::send_message(void *message, size_t msg_size)
 int8_t MiracastThread::receive_message(void *message, size_t msg_size, int sem_wait_timedout)
 {
     int8_t status = false;
-
+    MIRACASTLOG_TRACE("Entering...");
     if (MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT == sem_wait_timedout)
     {
         sem_wait(&this->sem_object);
@@ -2037,6 +2055,7 @@ int8_t MiracastThread::receive_message(void *message, size_t msg_size, int sem_w
             free(data_ptr);
         }
     }
+    MIRACASTLOG_TRACE("Exiting...");
     return status;
 }
 
@@ -2552,37 +2571,37 @@ void MiracastPrivate::ClientRequestHandlerThread(void *args)
             strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
             session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
 #else
-            /*@TODO: Chnage the client_req_hldr_msg_data to client_req_hdlr_msg_data*/
-            if (true == m_client_req_handler_thread->receive_message(&client_req_hldr_msg_data, sizeof(client_req_hldr_msg_data), CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME))
-            {
-                MIRACASTLOG_INFO("ClientReqHandler Msg Received [%#04X]\n", client_req_hldr_msg_data.action);
-                if (CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED == client_req_hldr_msg_data.action)
+                /*@TODO: Chnage the client_req_hldr_msg_data to client_req_hdlr_msg_data*/
+                if (true == m_client_req_handler_thread->receive_message(&client_req_hldr_msg_data, sizeof(client_req_hldr_msg_data), CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME))
                 {
-                    strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
-                    session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
-                }
-                /* @TODO: Seperate REJECT and TIMEOUT*/
-                else if (CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED == client_req_hldr_msg_data.action)
-                {
-                    session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT;
-                }
-                else if (CLIENT_REQ_HLDR_SHUTDOWN_APP == client_req_hldr_msg_data.action)
-                {
-                    session_mgr_msg_data.action = SESSION_MGR_SELF_ABORT;
-                }
-                else if (CLIENT_REQ_HLDR_STOP_DISCOVER == client_req_hldr_msg_data.action)
-                {
-                    session_mgr_msg_data.action = SESSION_MGR_STOP_DISCOVERING;
+                    MIRACASTLOG_INFO("ClientReqHandler Msg Received [%#04X]\n", client_req_hldr_msg_data.action);
+                    if (CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED == client_req_hldr_msg_data.action)
+                    {
+                        strcpy(session_mgr_msg_data.event_buffer, MAC.c_str());
+                        session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_FROM_HANDLER;
+                    }
+                    /* @TODO: Seperate REJECT and TIMEOUT*/
+                    else if (CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED == client_req_hldr_msg_data.action)
+                    {
+                        session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_REJECT;
+                    }
+                    else if (CLIENT_REQ_HLDR_SHUTDOWN_APP == client_req_hldr_msg_data.action)
+                    {
+                        session_mgr_msg_data.action = SESSION_MGR_SELF_ABORT;
+                    }
+                    else if (CLIENT_REQ_HLDR_STOP_DISCOVER == client_req_hldr_msg_data.action)
+                    {
+                        session_mgr_msg_data.action = SESSION_MGR_STOP_DISCOVERING;
+                    }
+                    else
+                    {
+                        session_mgr_msg_data.action = SESSION_MGR_INVALID_ACTION;
+                    }
                 }
                 else
                 {
-                    session_mgr_msg_data.action = SESSION_MGR_INVALID_ACTION;
+                    session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_TIMEOUT;
                 }
-            }
-            else
-            {
-                session_mgr_msg_data.action = SESSION_MGR_CONNECT_REQ_TIMEOUT;
-            }
 #endif
         }
         break;
@@ -2619,47 +2638,47 @@ void MiracastPrivate::SendMessageToClientReqHandler(size_t action, std::string a
 {
     ClientReqHldrMsg client_message_data = {0};
     bool valid_mesage = true;
-
+    MIRACASTLOG_TRACE("Entering...");
     switch (action)
     {
-        case MIRACAST_SERVICE_WFD_START:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_START_DISCOVER;
-        }
-        break;
-        case MIRACAST_SERVICE_WFD_STOP:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_STOP_DISCOVER;
-        }
-        break;
-        case MIRACAST_SERVICE_SHUTDOWN:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_SHUTDOWN_APP;
-        }
-        break;
-        case MIRACAST_SERVICE_STOP_CLIENT_CONNECTION:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_TEARDOWN_CONNECTION;
-            memcpy(client_message_data.action_buffer, user_data.c_str(), user_data.length());
-        }
-        break;
+    case MIRACAST_SERVICE_WFD_START:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_START_DISCOVER;
+    }
+    break;
+    case MIRACAST_SERVICE_WFD_STOP:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_STOP_DISCOVER;
+    }
+    break;
+    case MIRACAST_SERVICE_SHUTDOWN:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_SHUTDOWN_APP;
+    }
+    break;
+    case MIRACAST_SERVICE_STOP_CLIENT_CONNECTION:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_TEARDOWN_CONNECTION;
+        memcpy(client_message_data.action_buffer, user_data.c_str(), user_data.length());
+    }
+    break;
 #ifndef ENABLE_AUTO_CONNECT
-        case MIRACAST_SERVICE_ACCEPT_CLIENT:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED;
-        }
-        break;
-        case MIRACAST_SERVICE_REJECT_CLIENT:
-        {
-            client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED;
-        }
-        break;
+    case MIRACAST_SERVICE_ACCEPT_CLIENT:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_ACCEPTED;
+    }
+    break;
+    case MIRACAST_SERVICE_REJECT_CLIENT:
+    {
+        client_message_data.action = CLIENT_REQ_HLDR_CONNECT_DEVICE_REJECTED;
+    }
+    break;
 #endif
-        default:
-        {
-            valid_mesage = false;
-        }
-        break;
+    default:
+    {
+        valid_mesage = false;
+    }
+    break;
     }
 
     MIRACASTLOG_VERBOSE("MiracastPrivate::SendMessageToClientReqHandler received Action[%#04X]\n", action);
@@ -2669,6 +2688,7 @@ void MiracastPrivate::SendMessageToClientReqHandler(size_t action, std::string a
         MIRACASTLOG_VERBOSE("Msg to ClientReqHldr Action[%#04X]\n", client_message_data.action);
         m_client_req_handler_thread->send_message(&client_message_data, sizeof(client_message_data));
     }
+    MIRACASTLOG_TRACE("Exiting...");
 }
 
 void ClientRequestHandlerCallback(void *args)
