@@ -283,6 +283,10 @@ if(PLUGIN_XCAST)
     add_subdirectory(XCast)
 endif()
 
+if(PLUGIN_MIRACAST)
+    add_subdirectory(MiracastService)
+endif()
+
 if(PLUGIN_VIDEOAPPLICATIONEVENTS)
     add_subdirectory(VideoApplicationEvents)
 endif()
