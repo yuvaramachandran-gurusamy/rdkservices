@@ -29,7 +29,7 @@ typedef enum rtsp_status_e
     RTSP_INVALID_MSG_RECEIVED,
     RTSP_MSG_TEARDOWN_REQUEST,
     RTSP_TIMEDOUT
-} RTSP_SOCKET_STATUS;
+} RTSP_STATUS;
 
 #define RTSP_HANDLER_THREAD_NAME ("MIRA_RTSP_MSG_HLDR")
 #define RTSP_HANDLER_THREAD_STACK (256 * 1024)
@@ -65,7 +65,6 @@ typedef enum rtsp_status_e
 #define RTSP_DFLT_TRANSPORT_PROFILE "RTP/AVP/UDP"
 #define RTSP_DFLT_STREAMING_PORT "1990"
 #define RTSP_DFLT_CLIENT_RTP_PORTS RTSP_DFLT_TRANSPORT_PROFILE RTSP_SEMI_COLON_STR RTSP_STD_UNICAST_FIELD RTSP_SPACE_STR RTSP_DFLT_STREAMING_PORT RTSP_SPACE_STR "0 mode=play"
-
 
 typedef enum rtsp_message_format_sink2src_e
 {
@@ -109,12 +108,11 @@ typedef enum rtsp_msg_handler_actions_e
     RTSP_INVALID_ACTION
 } RTSP_MSG_HANDLER_ACTIONS;
 
-
-class MiracastRTSPMessages
+class MiracastRTSPMsg
 {
 public:
-    MiracastRTSPMessages();
-    ~MiracastRTSPMessages();
+    MiracastRTSPMsg();
+    ~MiracastRTSPMsg();
 
     std::string get_WFDVideoFormat(void);
     std::string get_WFDAudioCodecs(void);
@@ -146,8 +144,8 @@ public:
     bool set_WFDTransportProfile(std::string profile);
     bool set_WFDStreamingPortNumber(std::string port_number);
     bool set_WFDEnableDisableUnicast(bool enable_disable_unicast);
-    bool SetCurrentWFDSessionNumber(std::string session);
-    
+    bool set_current_WFDSessionNumber(std::string session);
+
     const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
     std::string generateRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
     std::string get_RequestSequenceNumber(void);
@@ -156,8 +154,8 @@ public:
     void set_WFDSourceName(std::string device_name);
     std::string get_WFDSourceName(void);
     std::string get_WFDSourceMACAddress(void);
-    void Reset_WFDSourceMACAddress(void);
-    void Reset_WFDSourceName(void);
+    void reset_WFDSourceMACAddress(void);
+    void reset_WFDSourceName(void);
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
     {

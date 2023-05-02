@@ -54,7 +54,7 @@ enum P2P_EVENTS
 
 class MiracastP2P
 {
-    private:
+private:
     std::string m_friendly_name;
     std::string m_authType;
     struct wpa_ctrl *wpa_p2p_cmd_ctrl_iface;
@@ -66,7 +66,7 @@ class MiracastP2P
     bool m_isWiFiDisplayParamsEnabled;
     pthread_t p2p_ctrl_monitor_thread_id;
 
-    public:
+public:
     /*members for interacting with wpa_supplicant*/
     void Init();
     int p2pInit();
@@ -76,7 +76,6 @@ class MiracastP2P
     void applyWFDSinkDeviceName();
     int p2pExecute(char *cmd, enum INTERFACE iface, char *status);
     int p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_iface, char *ret_buf);
-
 };
 
 #endif

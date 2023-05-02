@@ -24,6 +24,8 @@
 #include "MiracastP2P.h"
 #include "MiracastRtspMsg.h"
 
+using namespace MIRACAST;
+
 typedef enum session_manager_actions_e
 {
     SESSION_MGR_START_DISCOVERING = 0x01,
@@ -58,14 +60,13 @@ typedef enum session_manager_actions_e
     SESSION_MGR_INVALID_ACTION
 } SESSION_MANAGER_ACTIONS;
 
-
-class MiracastCore
+class MiracastController
 {
 public:
-    MiracastCore();
-    ~MiracastCore();
-    MiracastCore(MiracastServiceNotifier *notifier);
- 
+    MiracastController();
+    ~MiracastController();
+    MiracastController(MiracastServiceNotifier *notifier);
+
     MiracastError discover_devices();
     MiracastError connect_device(std::string mac);
     MiracastError start_streaming();
@@ -77,19 +78,19 @@ public:
 
     bool get_connection_status();
     DeviceInfo *get_device_details(std::string mac);
-    MiracastError stop_Streaming();
-    bool disconnect_Device();
-    
+    MiracastError stop_streaming();
+    MiracastError disconnect_device();
+
     MiracastError stop_discover_devices();
     void restart_session(void);
-    void StopSession(void);
+    void stop_session(void);
     std::string get_device_name(std::string mac);
 
-    void evtHandler(enum P2P_EVENTS eventId, void *data, size_t len);
+    void evtent_handler(enum P2P_EVENTS eventId, void *data, size_t len);
 
     /*Rename*/
     void SendMessageToClientReqHandlerThread(size_t action, std::string action_buffer, std::string user_data);
-    
+
     // Session Manager
     void SessionManager_Thread(void *args);
     // RTSP Message Handler
@@ -97,23 +98,27 @@ public:
 
     // Client Request Handler
     void ClientRequestHandler_Thread(void *args);
-    //void HDCPTCPServerHandlerThread(void *args);
-    //void DumpBuffer(char *buffer, int length);
+    // void HDCPTCPServerHandlerThread(void *args);
+    // void DumpBuffer(char *buffer, int length);
 
     RTSP_CTRL_SOCKET_STATES receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len);
-    
+
     bool send_buffer_timedOut(int sockfd, std::string rtsp_response_buffer);
- 
+
 private:
     MiracastError executeCommand(std::string command, int interface, std::string &retBuffer);
-    std::string storeData(const char *tmpBuff, const char *lookup_data);
-    std::string startDHCPClient(std::string interface, std::string &default_gw_ip_addr);
-    bool initiateTCP(std::string goIP);
-    bool connectSink();
+    std::string store_data(const char *tmpBuff, const char *lookup_data);
+    std::string start_DHCPClient(std::string interface, std::string &default_gw_ip_addr);
+    MiracastError initiate_TCP(std::string go_ip);
+    MiracastError connect_Sink();
+
+    /*Rename or add to constructor */
     void wfdInit(MiracastServiceNotifier *notifier);
+    void set_localIp(std::string ipAddr);
 
     MiracastP2P *m_miracastP2pObj;
     std::string m_friendly_name;
+    std::string m_localIp;
     MiracastServiceNotifier *m_eventCallback;
     vector<DeviceInfo *> m_deviceInfo;
     GroupInfo *m_groupInfo;
@@ -123,26 +128,25 @@ private:
     int m_tcpSockfd;
     int m_hdcptcpSockfd;
 
-    MiracastRTSPMessages *m_rtsp_msg;
+    MiracastRTSPMsg *m_rtsp_msg;
     MiracastThread *m_client_req_handler_thread;
     MiracastThread *m_session_manager_thread;
     MiracastThread *m_rtsp_msg_handler_thread;
     MiracastThread *m_hdcp_handler_thread;
 
-    bool wait_data_timeout(int m_Sockfd, unsigned ms);
+    MiracastError wait_data_timeout(int m_Sockfd, unsigned ms);
 
-    RTSP_CODE validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, RTSP_MSG_HANDLER_ACTIONS action_id);
-    RTSP_CODE validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer);
-    RTSP_CODE validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer);
-    RTSP_CODE validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer);
-    RTSP_CODE validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer);
-    RTSP_CODE validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer);
-    RTSP_CODE validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer);
-    RTSP_CODE validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer);
-    RTSP_CODE validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer);
-    RTSP_CODE rtsp_sink2src_request_msg_handling(RTSP_MSG_HANDLER_ACTIONS action_id);
+    RTSP_STATUS validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, RTSP_MSG_HANDLER_ACTIONS action_id);
+    RTSP_STATUS validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer);
+    RTSP_STATUS validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer);
+    RTSP_STATUS validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer);
+    RTSP_STATUS validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer);
+    RTSP_STATUS validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer);
+    RTSP_STATUS validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer);
+    RTSP_STATUS validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer);
+    RTSP_STATUS validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer);
+    RTSP_STATUS rtsp_sink2src_request_msg_handling(RTSP_MSG_HANDLER_ACTIONS action_id);
     SESSION_MANAGER_ACTIONS convertP2PtoSessionActions(enum P2P_EVENTS eventId);
-
 };
 
 #endif

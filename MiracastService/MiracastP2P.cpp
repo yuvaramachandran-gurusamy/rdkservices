@@ -47,7 +47,7 @@ static void iarmEvtHandler(const char *owner, IARM_EventId_t eventId, void *data
 }
 
 /* The control and monitoring interface is defined and initialized during the init phase */
-void monitor_thread(void *ptr);
+void p2p_monitor_thread(void *ptr);
 
 int MiracastP2P::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_iface, char *ret_buf)
 {
@@ -122,7 +122,7 @@ int MiracastP2P::p2pInit()
     pthread_attr_init(&thread_attr);
     pthread_attr_setstacksize(&thread_attr, 256 * 1024);
 
-    ret = pthread_create(&p2p_ctrl_monitor_thread_id, &thread_attr, reinterpret_cast<void *(*)(void *)>(monitor_thread), this);
+    ret = pthread_create(&p2p_ctrl_monitor_thread_id, &thread_attr, reinterpret_cast<void *(*)(void *)>(p2p_monitor_thread), this);
     if (ret != 0)
     {
         MIRACASTLOG_ERROR("WIFI_HAL: P2P Monitor thread creation failed ");
@@ -133,7 +133,7 @@ int MiracastP2P::p2pInit()
     return RETURN_OK;
 }
 
-void monitor_thread(void *ptr)
+void p2p_monitor_thread(void *ptr)
 {
     MiracastP2P *obj = (MiracastP2P *)ptr;
     obj->p2pCtrlMonitorThread();
@@ -148,12 +148,7 @@ int MiracastP2P::p2pUninit()
 
     stop_p2p_monitor = true;
     pthread_join(p2p_ctrl_monitor_thread_id, NULL);
-#if 0
-    if (NULL!=wpa_p2p_cmd_global_ctrl_iface){
-        wpa_ctrl_close(wpa_p2p_cmd_global_ctrl_iface);
-        wpa_p2p_cmd_global_ctrl_iface = NULL;
-    }
-#endif
+
     if (NULL!=wpa_p2p_cmd_ctrl_iface){
         wpa_ctrl_close(wpa_p2p_cmd_ctrl_iface);
         wpa_p2p_cmd_ctrl_iface = NULL;
@@ -270,11 +265,7 @@ int MiracastP2P::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 {
     int ret;
     MIRACASTLOG_INFO("WIFI_HAL: Command to execute - %s", cmd);
-   // if (iface == NON_GLOBAL_INTERFACE)
-        ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_ctrl_iface, ret_buf);
-    //else
-    //    ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_global_ctrl_iface, ret_buf);
-
+    ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_ctrl_iface, ret_buf);
     return ret;
 }
 
