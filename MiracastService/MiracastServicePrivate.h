@@ -31,6 +31,7 @@
 using namespace std;
 using namespace MIRACAST;
 
+/* Seperate the p2p related to p2p c/h group. */
 typedef enum INTERFACE
 {
     NON_GLOBAL_INTERFACE = 0,
@@ -117,6 +118,7 @@ typedef enum rtsp_send_response_code_e
 #define RTSP_DFLT_STREAMING_PORT "1990"
 #define RTSP_DFLT_CLIENT_RTP_PORTS RTSP_DFLT_TRANSPORT_PROFILE RTSP_SEMI_COLON_STR RTSP_STD_UNICAST_FIELD RTSP_SPACE_STR RTSP_DFLT_STREAMING_PORT RTSP_SPACE_STR "0 mode=play"
 
+/* Part of RTSP header*/
 typedef enum rtsp_message_format_sink2src_e
 {
     RTSP_MSG_FMT_M1_RESPONSE = 0x00,
@@ -134,12 +136,14 @@ typedef enum rtsp_message_format_sink2src_e
     RTSP_MSG_FMT_INVALID
 } RTSP_MSG_FMT_SINK2SRC;
 
+/* Part of RTSP header*/
 typedef struct rtsp_msg_template_info
 {
     RTSP_MSG_FMT_SINK2SRC rtsp_msg_fmt_e;
     const char *template_name;
 } RTSP_MSG_TEMPLATE_INFO;
 
+/* Part of Core header*/
 typedef enum session_manager_actions_e
 {
     SESSION_MGR_START_DISCOVERING = 0x01,
@@ -174,6 +178,7 @@ typedef enum session_manager_actions_e
     SESSION_MGR_INVALID_ACTION
 } SESSION_MANAGER_ACTIONS;
 
+/* Part of RTSP header*/
 typedef enum rtsp_msg_handler_actions_e
 {
     RTSP_M1_REQUEST_RECEIVED = 0x01,
@@ -193,6 +198,7 @@ typedef enum rtsp_msg_handler_actions_e
     RTSP_INVALID_ACTION
 } RTSP_MSG_HANDLER_ACTIONS;
 
+/* Part of Core header*/
 typedef enum client_req_handler_actions_e
 {
     CLIENT_REQ_HLDR_START_DISCOVER = 0x01,
@@ -204,6 +210,7 @@ typedef enum client_req_handler_actions_e
     CLIENT_REQ_HLDR_SHUTDOWN_APP
 } CLIENT_MSG_HANDLER_ACTIONS;
 
+/* Part of RTSP header*/
 typedef enum rtsp_ctrl_socket_states
 {
     RTSP_SOCKET_RECV_SENT_SUCCESS,
@@ -211,6 +218,7 @@ typedef enum rtsp_ctrl_socket_states
     RTSP_SOCKET_RECV_SENT_FAILURE
 } RTSP_CTRL_SOCKET_STATES;
 
+/* Part of core header*/
 typedef struct group_info
 {
     std::string interface;
@@ -223,18 +231,21 @@ typedef struct group_info
     std::string localIPAddr;
 } GroupInfo;
 
+/* Part of Core header*/
 typedef struct session_mgr_msg
 {
     char event_buffer[2048];
     SESSION_MANAGER_ACTIONS action;
 } SessionMgrMsg;
 
+/* Part of Core header*/
 typedef struct rtsp_hldr_msg
 {
     RTSP_MSG_HANDLER_ACTIONS action;
     size_t userdata;
 } RTSPHldrMsg;
 
+/* Related to plugin method, rename*/
 typedef struct client_req_ldr_msg
 {
     char action_buffer[32];
@@ -242,6 +253,7 @@ typedef struct client_req_ldr_msg
     CLIENT_MSG_HANDLER_ACTIONS action;
 } ClientReqHldrMsg;
 
+/* Currently not used, remove and check*/
 typedef struct common_thread_msg
 {
     std::string event_data;
@@ -353,6 +365,7 @@ private:
 #define MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT (-1)
 #define CLIENT_REQ_THREAD_CLIENT_CONNECTION_WAITTIME (30)
 
+/* part of core header*/
 class MiracastThread
 {
 public:
@@ -375,6 +388,7 @@ private:
     void (*thread_callback)(void *);
 };
 
+/* No need, Merge to core and expose ipaddr part of core api.*/
 class MiracastSingleton
 {
 public:
