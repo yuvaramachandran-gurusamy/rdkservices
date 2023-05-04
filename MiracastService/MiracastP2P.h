@@ -20,22 +20,25 @@
 #ifndef _MIRACAST_P2P_H_
 #define _MIRACAST_P2P_H_
 
-#include <string>
+#include <string.h>
+#include <MiracastServiceError.h>
+#include <MiracastLogger.h>
 #include "wifiSrvMgrIarmIf.h"
 
 using namespace std;
 using namespace MIRACAST;
 
-/* Seperate the p2p related to p2p c/h group. */
+#define SPACE_CHAR " "
+
 typedef enum INTERFACE
 {
     NON_GLOBAL_INTERFACE = 0,
     GLOBAL_INTERFACE
-} P2P_INTERFACE;
+}P2P_INTERFACE;
 
-enum P2P_EVENTS
+typedef enum p2p_events_e
 {
-    EVENT_FOUND = 0,
+    EVENT_FOUND = 0x00,
     EVENT_PROVISION,
     EVENT_STOP,
     EVENT_GO_NEG_REQ,
@@ -48,34 +51,54 @@ enum P2P_EVENTS
     EVENT_GROUP_REMOVED,
     EVENT_SHOW_PIN,
     EVENT_ERROR
-};
+}
+P2P_EVENTS;
 
-#define MIRACAST_DEFAULT_NAME "Miracast-Generic"
+#define MIRACAST_DFLT_NAME "Miracast-Generic"
+#define MIRACAST_DFLT_CFG_METHOD "pbc"
 
 class MiracastP2P
 {
 private:
+    static MiracastP2P *m_miracast_p2p_obj;
+    MiracastP2P *m_ctrler_evt_hdlr;
+    MiracastP2P();
+    virtual ~MiracastP2P();
+    MiracastP2P &operator=(const MiracastP2P &) = delete;
+    MiracastP2P(const MiracastP2P &) = delete;
+    
     std::string m_friendly_name;
     std::string m_authType;
-    struct wpa_ctrl *wpa_p2p_cmd_ctrl_iface;
-    struct wpa_ctrl *wpa_p2p_ctrl_monitor;
-    bool stop_p2p_monitor;
-    char event_buffer[2048];
-    size_t event_buffer_len;
+    struct wpa_ctrl *m_wpa_p2p_cmd_ctrl_iface;
+    struct wpa_ctrl *m_wpa_p2p_ctrl_monitor;
+    bool m_stop_p2p_monitor;
+    char m_event_buffer[2048];
+    size_t m_event_buffer_len;
     bool m_isIARMEnabled;
     bool m_isWiFiDisplayParamsEnabled;
-    pthread_t p2p_ctrl_monitor_thread_id;
+    pthread_t m_p2p_ctrl_monitor_thread_id;
 
-public:
-    /*members for interacting with wpa_supplicant*/
-    void Init();
     int p2pInit();
     int p2pUninit();
-    void setWiFiDisplayParams();
-    void resetWiFiDisplayParams();
-    void applyWFDSinkDeviceName();
+    MiracastError executeCommand(std::string command, int interface, std::string &retBuffer);
     int p2pExecute(char *cmd, enum INTERFACE iface, char *status);
     int p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_iface, char *ret_buf);
+
+public:
+    static MiracastP2P *getInstance(void);
+    static void destroyInstance();
+
+    /*members for interacting with wpa_supplicant*/
+    void Init();
+    void p2pCtrlMonitorThread();
+    MiracastError set_WFDParameters(void);
+    void reset_WFDParameters();
+    MiracastError discover_devices(void);
+    MiracastError stop_discover_devices(void);
+    MiracastError connect_device(std::string MAC);
+
+    MiracastError set_FriendlyName(std::string friendly_name , bool apply=false );
+    std::string get_FriendlyName(void);
 };
 
 #endif

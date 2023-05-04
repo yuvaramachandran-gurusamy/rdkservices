@@ -67,7 +67,11 @@ class MiracastServiceNotifier
         virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
 };
 
+#ifdef WFD_V2
+class MiracastController;
+#else
 class MiracastPrivate;
+#endif
 
 class MiracastServiceImplementation
 {
@@ -100,7 +104,11 @@ private:
     MiracastServiceImplementation();
     MiracastServiceImplementation(MiracastServiceImplementation &);
     ~MiracastServiceImplementation();
+#ifdef WFD_V2
+    MiracastController *m_miracast_obj;
+#else
     MiracastPrivate *m_impl; // @TODO: change to relevant name
+#endif
 };
 
 #endif

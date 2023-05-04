@@ -32,7 +32,7 @@ class MiracastPlayer
 public:
     static MiracastPlayer *getInstance();
     static void destroyInstance();
-    bool launch();
+    bool launch(std::string localip , std::string streaming_port);
     bool stop();
     bool pause();
     int getPlayerstate();
