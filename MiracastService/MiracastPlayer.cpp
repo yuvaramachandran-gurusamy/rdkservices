@@ -26,11 +26,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include "MiracastLogger.h"
-#ifdef WFD_V2
 #include "MiracastController.h"
-#else
-#include "MiracastServicePrivate.h"
-#endif
 #include "MiracastPlayer.h"
 
 MiracastPlayer *MiracastPlayer::mMiracastPlayer{nullptr};

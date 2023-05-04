@@ -27,9 +27,6 @@ find_package(GSTREAMER REQUIRED)
 
 find_library(GLIB_LIBRARY NAMES glib-2.0 )
 
-# add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastServicePrivate.cpp MiracastServiceP2P.cpp MiracastLogger.cpp MiracastPlayer.cpp)
-# add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastCore.cpp MiracastP2P.cpp MiracastRtspMsg.cpp MiracastLogger.cpp MiracastPlayer.cpp)
-#add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastLogger.cpp MiracastServicePrivate.cpp MiracastServiceP2P.cpp MiracastPlayer.cpp MiracastController.cpp MiracastP2P.cpp MiracastRtspMsg.cpp)
 add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastServiceImplementation.cpp MiracastLogger.cpp MiracastPlayer.cpp MiracastController.cpp MiracastP2P.cpp MiracastRtspMsg.cpp)
 
 set_target_properties(${MODULE_NAME} PROPERTIES
@@ -41,7 +38,6 @@ target_include_directories(${MODULE_NAME} PRIVATE ./ ../helpers ${IARMBUS_INCLUD
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error -fpermissive -Os -pipe -g -feliminate-unused-debug-types -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed)
 target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_AUTO_CONNECT)
 #target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_HDCP2X_SUPPORT)
-target_compile_options(${MODULE_NAME} PRIVATE -DWFD_V2)
 
 target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins ${NAMESPACE}SecurityUtil ${IARMBUS_LIBRARIES} ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} -lwpa_client -lpthread -lrdkloggers)
 

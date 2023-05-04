@@ -30,9 +30,11 @@
 #include "libIBus.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <MiracastServiceImplementation.h>
-#include <MiracastP2P.h>
-#include <MiracastLogger.h>
+#include <sys/epoll.h>
+#include <fstream>
+#include "MiracastServiceImplementation.h"
+#include "MiracastP2P.h"
+#include "MiracastLogger.h"
 #include "MiracastRtspMsg.h"
 #include "wifiSrvMgrIarmIf.h"
 
@@ -46,18 +48,22 @@ using namespace MIRACAST;
 #define MAX_EPOLL_EVENTS 64
 #define SPACE " "
 
-#define ENABLE_NON_BLOCKING
+#define ENABLE_NON_BLOCKING /* @TODO: Remove and keep non blocking as default.*/
 #define ONE_SECOND_PER_MILLISEC (1000)
 #define SOCKET_WAIT_TIMEOUT_IN_MILLISEC (30 * ONE_SECOND_PER_MILLISEC)
 
-#define SESSION_MGR_NAME ("MIRA_SESSION_MGR")
+#define SESSION_MGR_NAME ("MIRA_SESSION_MGR") /*@TODO: Change name to Msg_handler_Thread*/
 #define SESSION_MGR_STACK (256 * 1024)
 #define SESSION_MGR_MSG_COUNT (5)
 #define SESSION_MGR_MSGQ_SIZE (sizeof(SESSION_MGR_MSG_STRUCT))
 
-#define PLUGIN_REQ_HANDLER_NAME ("MIRA_PLUGIN_REQ_HLDR")
+#define PLUGIN_REQ_HANDLER_NAME ("MIRA_PLUGIN_REQ_HLDR") /*@TODO: Change name to THUNDER_REQ_HANDLER_NAME */
 #define PLUGIN_REQ_HANDLER_STACK (256 * 1024)
 
+#define MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT (-1)
+#define PLUGIN_REQ_THREAD_CLIENT_CONNECTION_WAITTIME (30)
+
+/*@TODO: Change name to relavant to Msg_handler_Thread*/
 typedef enum session_manager_actions_e
 {
     SESSION_MGR_START_DISCOVERING = 0x01,
@@ -92,6 +98,7 @@ typedef enum session_manager_actions_e
     SESSION_MGR_INVALID_ACTION
 } SESSION_MANAGER_ACTIONS;
 
+/*@TODO: Move to same state/action enum group with name prefix*/
 typedef enum plugin_req_handler_actions_e
 {
     PLUGIN_REQ_HLDR_START_DISCOVER = 0x01,
@@ -115,12 +122,27 @@ typedef struct group_info
     std::string localIPAddr;
 } GroupInfo;
 
+/*
+typefed enum Msg_Type_e {
+    P2P_MSG,
+    RTSP_MSG
+} eMsg_Type
+//typedef struct con_mgr_str
+//{
+    char msg_buffer[2048];
+    MSG_HDLR_ACTIONS action;
+    eMsg_Type msg_type
+} SESSION_MGR_MSG_STRUCT;
+*/
+/* Move to top before using this.*/
+/*@TODO: Change name to p2p_event_msg*/
 typedef struct session_mgr_msg
 {
     char event_buffer[2048];
     SESSION_MANAGER_ACTIONS action;
 } SESSION_MGR_MSG_STRUCT;
 
+/*@TODO: Change name to rtsp_msg_hdler*/
 typedef struct rtsp_hldr_msg
 {
     RTSP_MSG_HANDLER_ACTIONS action;
@@ -135,9 +157,7 @@ typedef struct plugin_req_hldr_msg
     PLUGIN_REQ_HANDLER_ACTIONS action;
 } PLUGIN_REQ_HDLR_MSG_STRUCT;
 
-#define MIRACAST_THREAD_RECV_MSG_INDEFINITE_WAIT (-1)
-#define PLUGIN_REQ_THREAD_CLIENT_CONNECTION_WAITTIME (30)
-
+/*@TODO: Naming of memeber varibale (m_ )*/
 class MiracastThread
 {
 public:
@@ -160,18 +180,13 @@ private:
     void (*thread_callback)(void *);
 };
 
-class MiracastThread;
-class MiracastRTSPMsg;
-class MiracastP2P;
-
 class MiracastController
 {
 public:
-    // Global APIs
-    static MiracastController* getInstance(MiracastServiceNotifier *notifier = nullptr);
+    static MiracastController *getInstance(MiracastServiceNotifier *notifier = nullptr);
     static void destroyInstance();
 
-    void event_handler( P2P_EVENTS eventId, void *data, size_t len, bool isIARMEnabled = false );
+    void event_handler(P2P_EVENTS eventId, void *data, size_t len, bool isIARMEnabled = false);
 
     MiracastError discover_devices();
     MiracastError connect_device(std::string mac);
@@ -180,33 +195,33 @@ public:
     std::string get_localIp();
     std::string get_wfd_streaming_port_number();
     std::string get_connected_device_mac();
-    std::vector<DeviceInfo*> get_allPeers();
+    std::vector<DeviceInfo *> get_allPeers();
 
     bool get_connection_status();
     DeviceInfo *get_device_details(std::string mac);
 
-    // APIs to disconnect
     MiracastError stop_streaming();
     MiracastError disconnect_device();
-
+    /*@TODO: Change to send_msg_thunder_msg_hdler_thread()*/
     void SendMessageToPluginReqHandlerThread(size_t action, std::string action_buffer, std::string user_data);
-    // Session Manager
+
+    // @TODO: Session Manager, change controller_mgs_hdlr_thread()
     void SessionManager_Thread(void *args);
-    // RTSP Message Handler
+    // @TODO: RTSP Message Handler
     void RTSPMessageHandler_Thread(void *args);
-    // Plugin Request Handler
+    // @TODO: Plugin Request Handler
     void PluginReqHandler_Thread(void *args);
     // void HDCPTCPServerHandlerThread(void *args);
     // void DumpBuffer(char *buffer, int length);
 
     RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len);
-    RTSP_STATUS send_buffer_timedOut(int sockfd, std::string rtsp_response_buffer);
+    RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
     MiracastError stop_discover_devices();
     MiracastError set_WFDParameters(void);
     void restart_session(void);
     void stop_session(void);
     std::string get_device_name(std::string mac);
-    MiracastError set_FriendlyName(std::string friendly_name );
+    MiracastError set_FriendlyName(std::string friendly_name);
     std::string get_FriendlyName(void);
 
 private:
@@ -216,7 +231,7 @@ private:
     MiracastController &operator=(const MiracastController &) = delete;
     MiracastController(const MiracastController &) = delete;
 
-    std::string store_data(const char *tmpBuff, const char *lookup_data);
+    std::string parse_p2p_event_data(const char *tmpBuff, const char *lookup_data);
     std::string start_DHCPClient(std::string interface, std::string &default_gw_ip_addr);
     MiracastError initiate_TCP(std::string go_ip);
     MiracastError connect_Sink();
@@ -227,11 +242,11 @@ private:
 
     MiracastServiceNotifier *m_notify_handler;
     std::string m_localIp;
-    vector<DeviceInfo *> m_deviceInfo;
+    vector<DeviceInfo *> m_deviceInfoList;
     GroupInfo *m_groupInfo;
     bool m_connectionStatus;
     int m_tcpSockfd;
-    //int m_hdcptcpSockfd;
+    // int m_hdcptcpSockfd;
 
     /*members for interacting with wpa_supplicant*/
     MiracastP2P *m_p2p_ctrl_obj;

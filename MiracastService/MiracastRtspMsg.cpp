@@ -240,7 +240,7 @@ const char* MiracastRTSPMsg::get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC for
     return "";
 }
 
-std::string MiracastRTSPMsg::generateRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1)
+std::string MiracastRTSPMsg::generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1)
 {
     MIRACASTLOG_TRACE("Entering...");
     std::vector<const char *> sprintf_args;

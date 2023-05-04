@@ -150,7 +150,7 @@ public:
     bool set_WFDSessionNumber(std::string session);
 
     const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
-    std::string generateRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
+    std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
     std::string get_RequestSequenceNumber(void);
 
     void set_WFDSourceMACAddress(std::string MAC_Addr);

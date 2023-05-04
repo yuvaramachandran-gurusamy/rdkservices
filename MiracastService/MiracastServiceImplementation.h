@@ -35,7 +35,7 @@ typedef enum miracast_service_states_e
     MIRACAST_SERVICE_ACCEPT_CLIENT,
     MIRACAST_SERVICE_REJECT_CLIENT,
     MIRACAST_SERVICE_STOP_CLIENT_CONNECTION
-}MIRACAST_SERVICE_STATES;
+} MIRACAST_SERVICE_STATES;
 
 enum DEVICEROLE
 {
@@ -60,18 +60,14 @@ typedef struct d_info
 using namespace std;
 class MiracastServiceNotifier
 {
-    public:
-        virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
-        virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
-        virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
-        virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
+public:
+    virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
 };
 
-#ifdef WFD_V2
 class MiracastController;
-#else
-class MiracastPrivate;
-#endif
 
 class MiracastServiceImplementation
 {
@@ -104,11 +100,7 @@ private:
     MiracastServiceImplementation();
     MiracastServiceImplementation(MiracastServiceImplementation &);
     ~MiracastServiceImplementation();
-#ifdef WFD_V2
     MiracastController *m_miracast_obj;
-#else
-    MiracastPrivate *m_impl; // @TODO: change to relevant name
-#endif
 };
 
 #endif
