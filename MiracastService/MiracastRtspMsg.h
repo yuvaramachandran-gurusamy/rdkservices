@@ -21,6 +21,7 @@
 #define _MIRACAST_RTSP_MSG_H_
 
 #include <string>
+#include <vector>
 
 typedef enum rtsp_status_e
 {
@@ -34,10 +35,11 @@ typedef enum rtsp_status_e
 #define RTSP_HANDLER_THREAD_NAME ("MIRA_RTSP_MSG_HLDR")
 #define RTSP_HANDLER_THREAD_STACK (256 * 1024)
 #define RTSP_HANDLER_MSG_COUNT (2)
-#define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSPHldrMsg))
+#define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSP_HLDR_MSG_STRUCT))
 
-#define CLIENT_REQ_HANDLER_THREAD_NAME ("MIRA_CLIENT_REQ_HLDR")
-#define CLIENT_REQ_HANDLER_THREAD_STACK (256 * 1024)
+#define PLUGIN_REQ_HANDLER_THREAD_NAME ("MIRA_PLUGIN_REQ_HLDR")
+#define PLUGIN_REQ_HANDLER_THREAD_STACK (256 * 1024)
+#define PLUGIN_REQ_HANDLER_MSGQ_SIZE (sizeof(PLUGIN_REQ_HDLR_MSG_STRUCT))
 
 #define RTSP_CRLF_STR "\r\n"
 #define RTSP_DOUBLE_QUOTE_STR "\""
@@ -58,6 +60,7 @@ typedef enum rtsp_status_e
 #define RTSP_WFD_CLIENT_PORTS_FIELD "wfd_client_rtp_ports: "
 #define RTSP_WFD_PRESENTATION_URL_FIELD "wfd_presentation_URL: "
 #define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
+
 /* Default values*/
 #define RTSP_DFLT_CONTENT_PROTECTION "none"
 #define RTSP_DFLT_VIDEO_FORMATS "00 00 03 10 0001ffff 1fffffff 00001fff 00 0000 0000 10 none none"
@@ -144,7 +147,7 @@ public:
     bool set_WFDTransportProfile(std::string profile);
     bool set_WFDStreamingPortNumber(std::string port_number);
     bool set_WFDEnableDisableUnicast(bool enable_disable_unicast);
-    bool set_current_WFDSessionNumber(std::string session);
+    bool set_WFDSessionNumber(std::string session);
 
     const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
     std::string generateRequestResponseFormat(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
