@@ -81,7 +81,7 @@ void MiracastRTSPMsg::destroyInstance()
 MiracastRTSPMsg::MiracastRTSPMsg()
 {
     RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt = {0};
-    RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {0};
+    RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = { RTSP_UNSUPPORTED_AUDIO_FORMAT , 0 };
     std::string default_configuration;
 
     MIRACASTLOG_TRACE("Entering...");

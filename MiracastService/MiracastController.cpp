@@ -1123,16 +1123,17 @@ void MiracastController::Controller_Thread(void *args)
                         std::string mac_address = event_buffer;
                         std::string device_name = get_device_name(mac_address);
 
-                        connect_device(mac_address);
-                        if (nullptr != m_rtsp_msg){
+                        if ((MIRACAST_OK == connect_device(mac_address)) && (nullptr != m_rtsp_msg))
+                        {
                             m_rtsp_msg->set_WFDSourceMACAddress(mac_address);
                             m_rtsp_msg->set_WFDSourceName(device_name);
                         }
-                        thunder_req_client_connection_sent = false;
-
-                        if ( false == session_restart_required ){
-                            session_restart_required = true;
+                        else if ( nullptr != m_notify_handler ){
+                            m_notify_handler->onMiracastServiceClientConnectionError( mac_address , device_name);
                         }
+
+                        thunder_req_client_connection_sent = false;
+                        session_restart_required = true;
                     }
                     break;
                     case CONTROLLER_CONNECT_REQ_REJECT:

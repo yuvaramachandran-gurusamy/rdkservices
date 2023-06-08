@@ -102,10 +102,10 @@ std::string MiracastPlayer::getUri()
 
 unsigned getGstPlayFlag(const char *nick)
 {
-    MIRACASTLOG_INFO("Entering..!!!");
+    MIRACASTLOG_TRACE("Entering..!!!");
     static GFlagsClass *flagsClass = static_cast<GFlagsClass *>(g_type_class_ref(g_type_from_name("GstPlayFlags")));
     GFlagsValue *flag = g_flags_get_value_by_nick(flagsClass, nick);
-    MIRACASTLOG_INFO("Exiting..!!!");
+    MIRACASTLOG_TRACE("Exiting..!!!");
     return (flag ? flag->value : 0);
 }
 
@@ -198,7 +198,7 @@ bool MiracastPlayer::changePipelineState(GstState state) const
 
 bool MiracastPlayer::createPipeline()
 {
-    MIRACASTLOG_INFO("Entering..!!!");
+    MIRACASTLOG_TRACE("Entering..!!!");
 
     GstStateChangeReturn ret;
     GstBus *bus;
@@ -238,7 +238,7 @@ bool MiracastPlayer::createPipeline()
     g_main_context_pop_thread_default(m_main_loop_context);
     pthread_create(&m_playback_thread, NULL, MiracastPlayer::playbackThread, this);
 
-    MIRACASTLOG_INFO("Start Playing.");
+    MIRACASTLOG_TRACE("Start Playing.");
 
     /* Start playing */
     ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
@@ -255,18 +255,18 @@ bool MiracastPlayer::createPipeline()
         m_is_live = true;
     }
 
-    MIRACASTLOG_INFO("Exit..!!!");
+    MIRACASTLOG_TRACE("Exit..!!!");
     return true;
 }
 
 void *MiracastPlayer::playbackThread(void *ctx)
 {
-    MIRACASTLOG_INFO("Entering..!!!");
+    MIRACASTLOG_TRACE("Entering..!!!");
     MiracastPlayer *self = (MiracastPlayer *)ctx;
     g_main_context_push_thread_default(self->m_main_loop_context);
     g_main_loop_run(self->m_main_loop);
     self->m_playback_thread = 0;
-    MIRACASTLOG_INFO("Exiting..!!!");
+    MIRACASTLOG_TRACE("Exiting..!!!");
     pthread_exit(NULL);
 }
 
