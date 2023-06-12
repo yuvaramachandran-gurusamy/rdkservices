@@ -60,6 +60,8 @@ private:
     MiracastPlayer(const MiracastPlayer &) = delete;
 
     bool createPipeline();
+    double get_current_position();
+    bool get_player_statistics();
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
     bool changePipelineState(GstState state) const;
 
