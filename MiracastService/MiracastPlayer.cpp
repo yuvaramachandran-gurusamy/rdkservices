@@ -68,6 +68,7 @@ MiracastPlayer::MiracastPlayer()
     m_bReady = false;
     m_currentPosition = 0.0f;
     m_buffering_level = 100;
+    m_player_statistics_tid = 0;
     MIRACASTLOG_TRACE("Exiting...");
 }
 
@@ -228,8 +229,8 @@ bool MiracastPlayer::createPipeline()
 
     g_object_set(m_pipeline, "uri", (const gchar *)m_uri.c_str(), nullptr);
 
-    GstElement *videoSinkGst = gst_element_factory_make("westerossink", NULL);
-    g_object_set(m_pipeline, "video-sink", videoSinkGst, NULL);
+    m_video_sink = gst_element_factory_make("westerossink", NULL);
+    g_object_set(m_pipeline, "video-sink", m_video_sink, NULL);
 
     bus = gst_element_get_bus(m_pipeline);
     m_bus_watch_id = gst_bus_add_watch(bus, (GstBusFunc)busMessageCb, this);
@@ -436,31 +437,35 @@ bool MiracastPlayer::seekTo(double seconds)
     MIRACASTLOG_TRACE("Exiting..!!!");
     return ret;
 }
-
+/**
+ * @brief Gets the current playback time in seconds. 
+ * @return Returns the current playback position in seconds on success, otherwise it returns -1.
+ */
 double MiracastPlayer::get_current_position()
 {
     gint64 cur = 0;
     gint64 current_position = 0;
-	if (gst_element_query_position(m_pipeline, GST_FORMAT_TIME, &cur))
-	{
-		current_position = static_cast<double>(position) / GST_SECOND;
-	}
-	return current_position;
+    if (gst_element_query_position(m_pipeline, GST_FORMAT_TIME, &cur))
+    {
+        current_position = static_cast<double>(position) / GST_SECOND;
+    }
+    return current_position;
 }
 
 bool MiracastPlayer::get_player_statistics()
 {
+    MIRACASTLOG_TRACE("Entering..!!!");	
     GstStructure *stats = NULL;
     bool ret = true;
-    if(videoSinkGst == NULL)
+    if(m_video_sink == NULL)
     {
-        Airplay_log(LOG_INFO, "%s: videoSinkGst is NULL. Can't proceed with getPlayerStatistics(). \n", AIRPLAY_APP_LOG);
+        Airplay_log(LOG_INFO, "%s: video-sink is NULL. Can't proceed with getPlayerStatistics(). \n", AIRPLAY_APP_LOG);
         return playerstats;
     }
     
     double cur_position = get_current_position();
     
-    g_object_get( G_OBJECT(videoSinkGst), "stats", &stats, NULL ); 
+    g_object_get( G_OBJECT(m_video_sink), "stats", &stats, NULL ); 
     if ( stats )
     {
         guint64 render_frame = 0;
@@ -490,5 +495,26 @@ bool MiracastPlayer::get_player_statistics()
                             dropped_video_frames);
         MIRACASTLOG_VERBOSE("================================== ");
      }
+     MIRACASTLOG_TRACE("Exiting..!!!");	
      return ret;
+}
+
+// pthread_create(&m_player_statistics_tid, NULL, MiracastPlayer::monitor_player_statistics_thread, this);
+static void *monitor_player_statistics_thread(void *ctx)
+{
+    MIRACASTLOG_TRACE("Entering..!!!");
+    MiracastPlayer *self = (MiracastPlayer *)ctx;
+    
+    /* Read Player stats if this /opt/miracast_player_stats flag is present */
+    /* Read also confiurable timer from some file */
+    int time_interval_sec = 60;
+    while (true)
+    {
+	self->get_player_statistics();
+        sleep(time_interval_sec);
+    } 
+
+    self->m_player_statistics_tid = 0;
+    MIRACASTLOG_TRACE("Exiting..!!!");
+    pthread_exit(NULL);
 }
