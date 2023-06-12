@@ -436,3 +436,59 @@ bool MiracastPlayer::seekTo(double seconds)
     MIRACASTLOG_TRACE("Exiting..!!!");
     return ret;
 }
+
+double MiracastPlayer::get_current_position()
+{
+    gint64 cur = 0;
+    gint64 current_position = 0;
+	if (gst_element_query_position(m_pipeline, GST_FORMAT_TIME, &cur))
+	{
+		current_position = static_cast<double>(position) / GST_SECOND;
+	}
+	return current_position;
+}
+
+bool MiracastPlayer::get_player_statistics()
+{
+    GstStructure *stats = NULL;
+    bool ret = true;
+    if(videoSinkGst == NULL)
+    {
+        Airplay_log(LOG_INFO, "%s: videoSinkGst is NULL. Can't proceed with getPlayerStatistics(). \n", AIRPLAY_APP_LOG);
+        return playerstats;
+    }
+    
+    double cur_position = get_current_position();
+    
+    g_object_get( G_OBJECT(videoSinkGst), "stats", &stats, NULL ); 
+    if ( stats )
+    {
+        guint64 render_frame = 0;
+        guint64 dropped_frame = 0;
+        const GValue *val = NULL;
+        /* Get Rendered Frames*/
+        val = gst_structure_get_value( stats, (const gchar *)"rendered" );
+        if ( val )
+        {
+           render_frame = g_value_get_uint64( val );
+        }
+        /* Get Dropped Frames*/
+        val = gst_structure_get_value( stats, (const gchar *)"dropped" );
+        if ( value )
+        {
+           dropped_frame = g_value_get_uint64( val );
+        }
+        gst_structure_free( stats );
+        
+        guint64 total_video_frames = render_frame + dropped_frame;
+        guint64 dropped_video_frames = dropped_frame;
+        MIRACASTLOG_VERBOSE("========== Player Statistics ====== ");
+        MIRACASTLOG_VERBOSE(" Current PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu] 
+                            cur_position,
+                            total_video_frames,
+                            render_frame,
+                            dropped_video_frames);
+        MIRACASTLOG_VERBOSE("================================== ");
+     }
+     return ret;
+}
