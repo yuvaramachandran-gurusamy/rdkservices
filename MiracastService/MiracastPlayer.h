@@ -51,6 +51,7 @@ private:
     bool m_bReady;
     int m_buffering_level;
     double m_currentPosition;
+    GstElement *m_video_sink{nullptr};
     pthread_t m_playback_thread;
 
     static MiracastPlayer *mMiracastPlayer;
@@ -60,12 +61,17 @@ private:
     MiracastPlayer(const MiracastPlayer &) = delete;
 
     bool createPipeline();
+    double get_current_position();
+    bool get_player_statistics();
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
     bool changePipelineState(GstState state) const;
 
     static void *playbackThread(void *ctx);
     GMainLoop *m_main_loop{nullptr};
     GMainContext *m_main_loop_context{nullptr};
+    
+    pthread_t m_player_statistics_tid;
+    static void *monitor_player_statistics_thread(void *ctx);
 };
 
 #endif /* MiracastPlayer_hpp */
