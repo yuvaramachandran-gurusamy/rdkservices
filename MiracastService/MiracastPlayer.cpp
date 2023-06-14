@@ -135,6 +135,11 @@ bool MiracastPlayer::stop()
         MIRACASTLOG_WARNING("Pipeline is NULL");
         return false;
     }
+    if (m_player_statistics_tid){
+        pthread_cancel(m_player_statistics_tid);
+        m_player_statistics_tid = 0;
+    }
+
     if (m_playback_thread)
     {
         pthread_cancel(m_playback_thread);
@@ -238,6 +243,7 @@ bool MiracastPlayer::createPipeline()
 
     g_main_context_pop_thread_default(m_main_loop_context);
     pthread_create(&m_playback_thread, NULL, MiracastPlayer::playbackThread, this);
+    pthread_create(&m_player_statistics_tid, NULL, MiracastPlayer::monitor_player_statistics_thread, this);
 
     MIRACASTLOG_TRACE("Start Playing.");
 
@@ -267,6 +273,26 @@ void *MiracastPlayer::playbackThread(void *ctx)
     g_main_context_push_thread_default(self->m_main_loop_context);
     g_main_loop_run(self->m_main_loop);
     self->m_playback_thread = 0;
+    MIRACASTLOG_TRACE("Exiting..!!!");
+    pthread_exit(NULL);
+}
+
+void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
+{
+    MIRACASTLOG_TRACE("Entering..!!!");
+    MiracastPlayer *self = (MiracastPlayer *)ctx;
+    
+    /* Read Player stats if this /opt/miracast_player_stats flag is present */
+    /* Read also confiurable timer from some file */
+    int time_interval_sec = 300;
+    while (true)
+    {
+        if (0 == access("/opt/miracast_player_stats", F_OK)){
+            self->get_player_statistics();
+        }
+        sleep(time_interval_sec);
+    }
+    self->m_player_statistics_tid = 0;
     MIRACASTLOG_TRACE("Exiting..!!!");
     pthread_exit(NULL);
 }
@@ -437,20 +463,6 @@ bool MiracastPlayer::seekTo(double seconds)
     MIRACASTLOG_TRACE("Exiting..!!!");
     return ret;
 }
-/**
- * @brief Gets the current playback time in seconds. 
- * @return Returns the current playback position in seconds on success, otherwise it returns -1.
- */
-double MiracastPlayer::get_current_position()
-{
-    gint64 cur = 0;
-    gint64 current_position = 0;
-    if (gst_element_query_position(m_pipeline, GST_FORMAT_TIME, &cur))
-    {
-        current_position = static_cast<double>(position) / GST_SECOND;
-    }
-    return current_position;
-}
 
 bool MiracastPlayer::get_player_statistics()
 {
@@ -459,11 +471,11 @@ bool MiracastPlayer::get_player_statistics()
     bool ret = true;
     if(m_video_sink == NULL)
     {
-        Airplay_log(LOG_INFO, "%s: video-sink is NULL. Can't proceed with getPlayerStatistics(). \n", AIRPLAY_APP_LOG);
-        return playerstats;
+        MIRACASTLOG_VERBOSE("video-sink is NULL. Can't proceed with getPlayerStatistics(). \n");
+        return false;
     }
     
-    double cur_position = get_current_position();
+    double cur_position = getCurrentPosition();
     
     g_object_get( G_OBJECT(m_video_sink), "stats", &stats, NULL ); 
     if ( stats )
@@ -479,7 +491,7 @@ bool MiracastPlayer::get_player_statistics()
         }
         /* Get Dropped Frames*/
         val = gst_structure_get_value( stats, (const gchar *)"dropped" );
-        if ( value )
+        if ( val )
         {
            dropped_frame = g_value_get_uint64( val );
         }
@@ -488,7 +500,7 @@ bool MiracastPlayer::get_player_statistics()
         guint64 total_video_frames = render_frame + dropped_frame;
         guint64 dropped_video_frames = dropped_frame;
         MIRACASTLOG_VERBOSE("========== Player Statistics ====== ");
-        MIRACASTLOG_VERBOSE(" Current PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu] 
+        MIRACASTLOG_VERBOSE(" Current PTS: [ %f ], Total Frames: [ %lu], Rendered Frames : [ %lu ], Dropped Frames: [%lu]\n",
                             cur_position,
                             total_video_frames,
                             render_frame,
@@ -497,24 +509,4 @@ bool MiracastPlayer::get_player_statistics()
      }
      MIRACASTLOG_TRACE("Exiting..!!!");	
      return ret;
-}
-
-// pthread_create(&m_player_statistics_tid, NULL, MiracastPlayer::monitor_player_statistics_thread, this);
-static void *monitor_player_statistics_thread(void *ctx)
-{
-    MIRACASTLOG_TRACE("Entering..!!!");
-    MiracastPlayer *self = (MiracastPlayer *)ctx;
-    
-    /* Read Player stats if this /opt/miracast_player_stats flag is present */
-    /* Read also confiurable timer from some file */
-    int time_interval_sec = 60;
-    while (true)
-    {
-	self->get_player_statistics();
-        sleep(time_interval_sec);
-    } 
-
-    self->m_player_statistics_tid = 0;
-    MIRACASTLOG_TRACE("Exiting..!!!");
-    pthread_exit(NULL);
 }

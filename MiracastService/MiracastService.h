@@ -84,7 +84,7 @@ namespace WPEFramework
         private:
             bool m_isServiceInitialized;
             bool m_isServiceEnabled;
-            WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *m_remoteXCastObj = NULL;
+            WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *m_SystemPluginObj = NULL;
             uint32_t setEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t getEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
@@ -92,8 +92,9 @@ namespace WPEFramework
             uint32_t setVideoFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
-            void getXCastPlugin();
-            int get_XCastFriendlyName(std::string &friendlyname);
+            void getSystemPlugin();
+            int updateSystemFriendlyName();
+            void onFriendlyNameUpdateHandler(const JsonObject& parameters);
 
             // We do not allow this plugin to be copied !!
             MiracastService(const MiracastService &) = delete;

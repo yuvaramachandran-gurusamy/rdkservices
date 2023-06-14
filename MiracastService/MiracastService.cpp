@@ -43,8 +43,8 @@ using namespace std;
 #define API_VERSION_NUMBER_PATCH 0
 
 #define SERVER_DETAILS  "127.0.0.1:9998"
-#define XCAST_CALLSIGN "org.rdk.Xcast"
-#define XCAST_CALLSIGN_VER XCAST_CALLSIGN".1"
+#define SYSTEM_CALLSIGN "org.rdk.System"
+#define SYSTEM_CALLSIGN_VER SYSTEM_CALLSIGN".1"
 #define SECURITY_TOKEN_LEN_MAX 1024
 #define THUNDER_RPC_TIMEOUT 2000
 
@@ -99,10 +99,10 @@ namespace WPEFramework
 		MiracastService::~MiracastService()
 		{
 			LOGINFO("Entering..!!!");
-			if (nullptr != m_remoteXCastObj)
+			if (nullptr != m_SystemPluginObj)
 			{
-				delete m_remoteXCastObj;
-				m_remoteXCastObj = nullptr;
+				delete m_SystemPluginObj;
+				m_SystemPluginObj = nullptr;
 			}
 			Unregister(METHOD_MIRACAST_SET_ENABLE);
 			Unregister(METHOD_MIRACAST_GET_ENABLE);
@@ -113,11 +113,11 @@ namespace WPEFramework
 		}
 
 		// Thunder plugins communication
-        void MiracastService::getXCastPlugin()
+        void MiracastService::getSystemPlugin()
         {
 			LOGINFO("Entering..!!!");
 
-            if(nullptr == m_remoteXCastObj)
+            if(nullptr == m_SystemPluginObj)
             {
 				string token;
                 // TODO: use interfaces and remove token
@@ -144,14 +144,14 @@ namespace WPEFramework
 
                 string query = "token=" + token;
                 Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-                m_remoteXCastObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(XCAST_CALLSIGN_VER), (_T(XCAST_CALLSIGN_VER)), false, query);
-				if (nullptr == m_remoteXCastObj)
+                m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T(SYSTEM_CALLSIGN_VER)), false, query);
+				if (nullptr == m_SystemPluginObj)
 				{
-					LOGERR("JSONRPC: %s: initialization failed", XCAST_CALLSIGN_VER);
+					LOGERR("JSONRPC: %s: initialization failed", SYSTEM_CALLSIGN_VER);
 				}
 				else
 				{
-					LOGINFO("JSONRPC: %s: initialization ok", XCAST_CALLSIGN_VER);
+					LOGINFO("JSONRPC: %s: initialization ok", SYSTEM_CALLSIGN_VER);
 				}
             }
 			LOGINFO("Exiting..!!!");
@@ -166,14 +166,12 @@ namespace WPEFramework
 				MiracastError ret_code = MIRACAST_OK;
 				m_miracast_ctrler_obj = MiracastController::getInstance(ret_code,this);
 				if ( nullptr != m_miracast_ctrler_obj ){
-					std::string friendlyname = "";
-
 					m_CurrentService = service;
-					getXCastPlugin();		
-					if (Core::ERROR_NONE == get_XCastFriendlyName(friendlyname))
-					{
-						m_miracast_ctrler_obj->set_FriendlyName(friendlyname);
-					}
+					getSystemPlugin();
+					// subscribe for event
+					m_SystemPluginObj->Subscribe<JsonObject>(1000, "onFriendlyNameChanged"
+										, &MiracastService::onFriendlyNameUpdateHandler, this);
+					updateSystemFriendlyName();
 					m_isServiceInitialized = true;
 				}
 				else{
@@ -584,37 +582,53 @@ namespace WPEFramework
 			sendNotify(EVT_ON_CLIENT_CONNECTION_ERROR, params);
 		}
 
-		int MiracastService::get_XCastFriendlyName(std::string &friendlyname)
+		int MiracastService::updateSystemFriendlyName()
 		{
 			JsonObject params, Result;
 			LOGINFO("Entering..!!!");
 
-			if (nullptr == m_remoteXCastObj)
+			if (nullptr == m_SystemPluginObj)
 			{
-				LOGERR("m_remoteXCastObj not yet instantiated");
+				LOGERR("m_SystemPluginObj not yet instantiated");
 				return Core::ERROR_GENERAL;
 			}
 
-			uint32_t ret = m_remoteXCastObj->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("getFriendlyName"), params, Result);
+			uint32_t ret = m_SystemPluginObj->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("getFriendlyName"), params, Result);
 
 			if (Core::ERROR_NONE == ret)
 			{
 				if (Result["success"].Boolean())
 				{
-					friendlyname = Result["friendlyname"].String();
-					LOGINFO("XCAST FriendlyName=%s", friendlyname.c_str());
+					std::string friendlyName = "";
+					friendlyName = Result["friendlyName"].String();
+					m_miracast_ctrler_obj->set_FriendlyName(friendlyName);
+					LOGINFO("Miracast FriendlyName=%s", friendlyName.c_str());
 				}
 				else
 				{
 					ret = Core::ERROR_GENERAL;
-					LOGERR("get_XCastFriendlyName call failed");
+					LOGERR("updateSystemFriendlyName call failed");
 				}
 			}
 			else
 			{
-				LOGERR("get_XCastFriendlyName call failed E[%u]", ret);
+				LOGERR("updateSystemFriendlyName call failed E[%u]", ret);
 			}
 			return ret;
+		}
+
+		void MiracastService::onFriendlyNameUpdateHandler(const JsonObject& parameters)
+		{
+			string message;
+			string value;
+			parameters.ToString(message);
+			LOGINFO("[Friendly Name Event], %s : %s", __FUNCTION__,message.c_str());
+
+			if (parameters.HasLabel("friendlyName")) {
+				value = parameters["friendlyName"].String();
+				m_miracast_ctrler_obj->set_FriendlyName(value,m_isServiceEnabled);
+				LOGINFO("Miracast FriendlyName=%s", value.c_str());
+			}
 		}
 	} // namespace Plugin
 } // namespace WPEFramework
