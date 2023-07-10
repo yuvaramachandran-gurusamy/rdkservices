@@ -93,7 +93,12 @@ MiracastRTSPMsg::MiracastRTSPMsg()
     st_video_fmt.preferred_display_mode_supported = RTSP_PREFERED_DISPLAY_NOT_SUPPORTED;
     st_video_fmt.st_h264_codecs.profile = RTSP_PROFILE_BMP_CHP_SUPPORTED;
     st_video_fmt.st_h264_codecs.level = RTSP_H264_LEVEL_4_BITMAP;
-    st_video_fmt.st_h264_codecs.cea_mask = RTSP_CEA_RESOLUTION_1920x1080p30;
+    st_video_fmt.st_h264_codecs.cea_mask = RTSP_CEA_RESOLUTION_720x480p60
+                                            | RTSP_CEA_RESOLUTION_720x576p50
+                                            | RTSP_CEA_RESOLUTION_1280x720p30
+                                            | RTSP_CEA_RESOLUTION_1280x720p60
+                                            | RTSP_CEA_RESOLUTION_1920x1080p30
+                                            | RTSP_CEA_RESOLUTION_1920x1080p60;
     st_video_fmt.st_h264_codecs.video_frame_rate_change_support = true;
 
     st_audio_fmt.audio_format = RTSP_AAC_AUDIO_FORMAT;
