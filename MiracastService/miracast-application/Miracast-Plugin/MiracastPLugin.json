@@ -1,0 +1,13 @@
+{
+    "$schema": "https://raw.githubusercontent.com/rdkcentral/rdkservices/main/Tools/json_generator/schemas/plugin.schema.json",
+    "info": {
+      "title": "Miracast Plugin",
+      "callsign": "Miracast",
+      "locator": "libWPEFrameworkMiracast.so",
+      "status": "production",
+      "description": "The `Miracast` plugin controls user preference settings on a set-top device."
+    },
+    "interface": {
+      "$ref": "Miracast.json#"
+    }
+}
