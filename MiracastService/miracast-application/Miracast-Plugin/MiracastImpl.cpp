@@ -3,8 +3,8 @@
 
 #include "Module.h"
 #include <interfaces/IMiracast.h>
-#include "AirPlayAppInterface.hpp"
-#include "AirPlayLogging.hpp"
+#include "MiracastAppInterface.hpp"
+#include "MiracastLogging.hpp"
 
 const int kExceptionSignals[] = {
     SIGSEGV, SIGABRT, SIGFPE, SIGILL, SIGBUS, SIGTERM, SIGINT, SIGALRM};
@@ -43,11 +43,11 @@ namespace WPEFramework
             }
             virtual ~MiracastImpl()
             {
-                Miracast_log(LOG_INFO, "%s: Block MiracastImpl destructor call", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_INFO, "%s: Block MiracastImpl destructor call", MIRACAST_APP_LOG);
                 if (_isAppForceStopped != true)
                 {
                     const std::string str = "stopapp";
-                    Miracast_log(LOG_INFO, "%s: MiracastImpl destructor: Invoking App Stop() method\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: MiracastImpl destructor: Invoking App Stop() method\n", MIRACAST_APP_LOG);
                     this->StopApp(str);
                 }
                 Block();
@@ -62,7 +62,7 @@ namespace WPEFramework
 
             virtual void SetVisible(bool visibility)
             {
-                Miracast_log(LOG_INFO, "AirPlay::%s Invoked by RDKShell via SetVisibility\n", __func__);
+                Miracast_log(LOG_INFO, "Miracast::%s Invoked by RDKShell via SetVisibility\n", __func__);
                 appInterface_setAppVisibility(visibility);
             }
 
@@ -78,13 +78,13 @@ namespace WPEFramework
                 if (suspend == true)
                 {
                     appInterface_setAppVisibility(false);
-                    Miracast_log(LOG_INFO, "%s: Miracast plugin state is going to set as Suspend\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: Miracast plugin state is going to set as Suspend\n", MIRACAST_APP_LOG);
                     StateChange(PluginHost::IStateControl::SUSPENDED);
                 }
                 else
                 {
                     appInterface_setAppVisibility(true);
-                    Miracast_log(LOG_INFO, "%s: Miracast plugin state is going to set as Resumed\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: Miracast plugin state is going to set as Resumed\n", MIRACAST_APP_LOG);
                     StateChange(PluginHost::IStateControl::RESUMED);
                 }
             }
@@ -100,27 +100,27 @@ namespace WPEFramework
                 JsonObject parameters;
                 parameters.FromString(paramStr);
                 TRACE(Trace::Information, (_T("startMiracastApp: ")));
-                // SYSLOG(Trace::Information,(_T("Miracast Plugin: start AirPlay app via Miracast Plugin")));
-                Miracast_log(LOG_INFO, "%s:Miracast Plugin: start AirPlay app via Miracast Plugin", AIRPLAY_APP_LOG);
+                // SYSLOG(Trace::Information,(_T("Miracast Plugin: start Miracast app via Miracast Plugin")));
+                Miracast_log(LOG_INFO, "%s:Miracast Plugin: start Miracast app via Miracast Plugin", MIRACAST_APP_LOG);
                 if (parameters.HasLabel("argc"))
                 {
                     argc_str = parameters["argc"].String();
                     mArgc = stoi(argc_str);
                     mArgv = new const char *[mArgc];
                     string key;
-                    Miracast_log(LOG_INFO, "%s: Miracast Plugin: startMiracastApp\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: Miracast Plugin: startMiracastApp\n", MIRACAST_APP_LOG);
                     for (int i = 0; i < mArgc; i++)
                     {
                         key = "argv" + std::to_string(i);
-                        Miracast_log(LOG_INFO, "%s: Miracast Plugin: %s: %s\n", AIRPLAY_APP_LOG, key.c_str(), parameters.Get(key.c_str()).String().c_str());
+                        Miracast_log(LOG_INFO, "%s: Miracast Plugin: %s: %s\n", MIRACAST_APP_LOG, key.c_str(), parameters.Get(key.c_str()).String().c_str());
                         mArgv[i] = strdup(parameters.Get(key.c_str()).String().c_str());
                     }
-                    appInterface_startAirPlayApp(mArgc, mArgv);
+                    appInterface_startMiracastApp(mArgc, mArgv);
                     err = Core::ERROR_NONE;
                 }
                 else
                 {
-                    Miracast_log(LOG_INFO, "%s: Miracast Plugin: No argc parameter", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: Miracast Plugin: No argc parameter", MIRACAST_APP_LOG);
                     err = Core::ERROR_GENERAL;
                 }
                 return err;
@@ -128,16 +128,16 @@ namespace WPEFramework
 
             virtual uint32_t StopApp(const string &paramStr)
             {
-                Miracast_log(LOG_INFO, "%s: Miracast Plugin: StopApp \n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_INFO, "%s: Miracast Plugin: StopApp \n", MIRACAST_APP_LOG);
                 // Send notification to RA to deactivate Miracast Plugin
                 _adminLock.Lock();
-                appInterface_stopAirPlayApp();
+                appInterface_stopMiracastApp();
                 _adminLock.Unlock();
                 return Core::ERROR_NONE;
             }
             virtual void Unregister(PluginHost::IStateControl::INotification *sink)
             {
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Unregister IStateControl::INotification \n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Unregister IStateControl::INotification \n", MIRACAST_APP_LOG);
                 printf("Miracast Plugin: Unregister IStateControl::INotification\n");
                 fflush(stdout);
                 _adminLock.Lock();
@@ -156,7 +156,7 @@ namespace WPEFramework
             }
             virtual void Register(PluginHost::IStateControl::INotification *sink)
             {
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Register IStateControl::INotification \n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Register IStateControl::INotification \n", MIRACAST_APP_LOG);
                 _adminLock.Lock();
                 // Make sure a sink is not registered multiple times.
                 ASSERT(std::find(_stateControlClients.begin(), _stateControlClients.end(), sink) == _stateControlClients.end());
@@ -166,7 +166,7 @@ namespace WPEFramework
             }
             virtual void Register(Exchange::IMiracast::INotification *sink)
             {
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Register IMiracast::INotification\n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Register IMiracast::INotification\n", MIRACAST_APP_LOG);
                 _adminLock.Lock();
                 ASSERT(std::find(_miracastClients.begin(), _miracastClients.end(), sink) == _miracastClients.end());
                 _miracastClients.push_back(sink);
@@ -175,7 +175,7 @@ namespace WPEFramework
             }
             virtual void Unregister(Exchange::IMiracast::INotification *sink)
             {
-                Miracast_log(LOG_DEBUG, "%s:Miracast Plugin: Unregister IMiracast::INotification\n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s:Miracast Plugin: Unregister IMiracast::INotification\n", MIRACAST_APP_LOG);
                 _adminLock.Lock();
                 std::list<Exchange::IMiracast::INotification *>::iterator index(std::find(_miracastClients.begin(), _miracastClients.end(), sink));
                 ASSERT(index != _miracastClients.end());
@@ -200,7 +200,7 @@ namespace WPEFramework
 
                 _state = newState;
                 std::list<PluginHost::IStateControl::INotification *>::iterator index(_stateControlClients.begin());
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: StateChange() method with IStateControl:%d\n", AIRPLAY_APP_LOG, _stateControlClients.size());
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: StateChange() method with IStateControl:%d\n", MIRACAST_APP_LOG, _stateControlClients.size());
                 while (index != _stateControlClients.end())
                 {
                     (*index)->StateChange(newState);
@@ -215,7 +215,7 @@ namespace WPEFramework
                 _adminLock.Lock();
 
                 std::list<Exchange::IMiracast::INotification *>::iterator index(_miracastClients.begin());
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: StateChange() method with INotification:%d \n", AIRPLAY_APP_LOG, _miracastClients.size());
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: StateChange() method with INotification:%d \n", MIRACAST_APP_LOG, _miracastClients.size());
                 while (index != _miracastClients.end())
                 {
                     (*index)->StateChange(newState);
@@ -231,7 +231,7 @@ namespace WPEFramework
                 _adminLock.Lock();
                 if (State() == PluginHost::IStateControl::UNINITIALIZED || State() == PluginHost::IStateControl::EXITED)
                 {
-                    Miracast_log(LOG_INFO, "%s: Miracast Plugin state is UNINITIALIZED or EXITED.\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_INFO, "%s: Miracast Plugin state is UNINITIALIZED or EXITED.\n", MIRACAST_APP_LOG);
                     ASSERT(false);
                 }
                 else
@@ -241,7 +241,7 @@ namespace WPEFramework
                     case PluginHost::IStateControl::SUSPEND:
                         if (State() == PluginHost::IStateControl::RESUMED)
                         {
-                            Miracast_log(LOG_INFO, "%s: Miracast Plugin current state is Resumed.\n", AIRPLAY_APP_LOG);
+                            Miracast_log(LOG_INFO, "%s: Miracast Plugin current state is Resumed.\n", MIRACAST_APP_LOG);
                             SetSuspended(true);
                             result = Core::ERROR_NONE;
                         }
@@ -251,14 +251,14 @@ namespace WPEFramework
                              * second time SUSPEND request is not error if plugin is
                              * already suspended
                              */
-                            Miracast_log(LOG_INFO, "%s: Miracast suspend request in progress\n", AIRPLAY_APP_LOG);
+                            Miracast_log(LOG_INFO, "%s: Miracast suspend request in progress\n", MIRACAST_APP_LOG);
                             result = Core::ERROR_NONE;
                         }
                         break;
                     case PluginHost::IStateControl::RESUME:
                         if (State() == PluginHost::IStateControl::SUSPENDED)
                         {
-                            Miracast_log(LOG_INFO, "%s: Miracast Plugin current state is Suspended.\n", AIRPLAY_APP_LOG);
+                            Miracast_log(LOG_INFO, "%s: Miracast Plugin current state is Suspended.\n", MIRACAST_APP_LOG);
                             SetSuspended(false);
                             result = Core::ERROR_NONE;
                         }
@@ -268,12 +268,12 @@ namespace WPEFramework
                              * second time RESUME request is not error if plugin is
                              * already resumed
                              */
-                            Miracast_log(LOG_INFO, "%s: Miracast resume request in progress\n", AIRPLAY_APP_LOG);
+                            Miracast_log(LOG_INFO, "%s: Miracast resume request in progress\n", MIRACAST_APP_LOG);
                             result = Core::ERROR_NONE;
                         }
                         break;
                     default:
-                        Miracast_log(LOG_ERR, "%s: Miracast %s Unsupported request\n", AIRPLAY_APP_LOG, __func__);
+                        Miracast_log(LOG_ERR, "%s: Miracast %s Unsupported request\n", MIRACAST_APP_LOG, __func__);
                         break;
                     }
                 }
@@ -283,7 +283,7 @@ namespace WPEFramework
 
             void SignalHandler(int sig)
             {
-                Miracast_log(LOG_DEBUG, "%s:[SIG_HANDLER] Signal=%d caught by SignalHandler from callback!\n", AIRPLAY_APP_LOG, sig);
+                Miracast_log(LOG_DEBUG, "%s:[SIG_HANDLER] Signal=%d caught by SignalHandler from callback!\n", MIRACAST_APP_LOG, sig);
 
                 // allow signal to be processed normally for correct core dump
                 //  syslog(LOG_NOTICE,"Restore breakpad signal handlers\n");
@@ -298,7 +298,7 @@ namespace WPEFramework
 
                 if (sig == SIGTERM || sig == SIGINT || sig == SIGALRM)
                 {
-                    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] SIGTERM and SIGINT will be considerd normal shutdowns, shutting down immediately\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] SIGTERM and SIGINT will be considerd normal shutdowns, shutting down immediately\n", MIRACAST_APP_LOG);
                     _exit(0);
                 }
             }
@@ -326,7 +326,7 @@ namespace WPEFramework
 
             void RegisterSignalHandler()
             {
-                Miracast_log(LOG_DEBUG, "%s: Registering SignalHandler() \n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: Registering SignalHandler() \n", MIRACAST_APP_LOG);
                 // Backup breakpad signal handlers in old_handlers
                 for (int i = 0; i < kNumHandledSignals; ++i)
                 {
@@ -389,17 +389,17 @@ namespace WPEFramework
 
                 if (false == signal_attached)
                 {
-                    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] Cannot attach some signal... exiting Miracast Plugin\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] Cannot attach some signal... exiting Miracast Plugin\n", MIRACAST_APP_LOG);
                     return;
                 }
 
                 if (sigprocmask(SIG_UNBLOCK, &mask, &orig_mask) < 0)
                 {
-                    Miracast_log(LOG_DEBUG, "%s: sigprocmask() failed to unblock SIGTERM\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_DEBUG, "%s: sigprocmask() failed to unblock SIGTERM\n", MIRACAST_APP_LOG);
                     return;
                 }
 
-                Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] SIGTERM, SIGINT, and SIGALRM handlers installed...\n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER] SIGTERM, SIGINT, and SIGALRM handlers installed...\n", MIRACAST_APP_LOG);
             }
 
             virtual uint32_t Configure(PluginHost::IShell *service)
@@ -426,17 +426,17 @@ namespace WPEFramework
                     {
                         _state = PluginHost::IStateControl::RESUMED;
                     }
-                    Miracast_log(LOG_INFO, "%s: %s: launchAppInForeground set as %d _state %d\n", AIRPLAY_APP_LOG, __func__, MiracastAppConfiguration["launchAppInForeground"].Boolean(), _state);
+                    Miracast_log(LOG_INFO, "%s: %s: launchAppInForeground set as %d _state %d\n", MIRACAST_APP_LOG, __func__, MiracastAppConfiguration["launchAppInForeground"].Boolean(), _state);
                 }
 
-                Miracast_log(LOG_DEBUG, "%s: Miracast %s: argc=%d \n", AIRPLAY_APP_LOG, __func__, argc);
+                Miracast_log(LOG_DEBUG, "%s: Miracast %s: argc=%d \n", MIRACAST_APP_LOG, __func__, argc);
                 /*
                  * If subsequent launch command is called, then we may not have any args
                  * No need to configure again in such case
                  */
                 if (argc <= 0)
                 {
-                    Miracast_log(LOG_DEBUG, "%s: Miracast Plugin already configured, skip config again\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_DEBUG, "%s: Miracast Plugin already configured, skip config again\n", MIRACAST_APP_LOG);
                     return Core::ERROR_NONE;
                 }
 
@@ -482,13 +482,13 @@ namespace WPEFramework
                 // for us this could be startMiracastApp or jump to miracast daemon
                 // uint32_t result = gibbon_main(argc, reinterpret_cast<char**>(parameters));
 
-                uint32_t result = appInterface_startAirPlayApp(argc, reinterpret_cast<char **>(parameters));
+                uint32_t result = appInterface_startMiracastApp(argc, reinterpret_cast<char **>(parameters));
 
                 Block();
 
                 // uint32 result = 0;
                 //  Exit Plugin if not blocked anymore
-                Miracast_log(LOG_INFO, "%s: Miracast Plugin: Miracast App stopped\n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_INFO, "%s: Miracast Plugin: Miracast App stopped\n", MIRACAST_APP_LOG);
                 fflush(stdout);
                 Exit(result);
 
@@ -496,7 +496,7 @@ namespace WPEFramework
             }
             void Exit(const uint32_t exitCode)
             {
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: exitCode=%d\n", AIRPLAY_APP_LOG, exitCode);
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: exitCode=%d\n", MIRACAST_APP_LOG, exitCode);
                 fflush(stdout);
                 _adminLock.Lock();
                 if (exitCode == 0)
@@ -506,7 +506,7 @@ namespace WPEFramework
                 }
                 if (!_miracastClients.empty())
                 {
-                    Miracast_log(LOG_DEBUG, "%s:_miracastClients list not empty\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_DEBUG, "%s:_miracastClients list not empty\n", MIRACAST_APP_LOG);
                     std::list<Exchange::IMiracast::INotification *>::iterator index(_miracastClients.begin());
                     while (index != _miracastClients.end())
                     {
@@ -550,6 +550,6 @@ namespace WPEFramework
 
 void SignalHandler_callback(int sig)
 {
-    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER]  Signal=%d caught by SignalHandler_callback\n", AIRPLAY_APP_LOG, sig);
+    Miracast_log(LOG_DEBUG, "%s: [SIG_HANDLER]  Signal=%d caught by SignalHandler_callback\n", MIRACAST_APP_LOG, sig);
     WPEFramework::Plugin::implementation->SignalHandler(sig);
 }

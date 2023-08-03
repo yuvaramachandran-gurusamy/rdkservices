@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(PLUGIN_NAME MiracastService)
+set(PLUGIN_NAME MiracastApp)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
 set(PLUGIN_MIRACAST_STARTUPORDER "" CACHE STRING "To configure startup order of MiracastService plugin")
@@ -27,9 +27,11 @@ find_package(GSTREAMER REQUIRED)
 
 find_library(GLIB_LIBRARY NAMES glib-2.0 )
 
-add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp MiracastLogger.cpp MiracastPlayer.cpp MiracastController.cpp MiracastP2P.cpp MiracastRtspMsg.cpp)
-
-add_subdirectory(miracast-application)
+add_library(${MODULE_NAME} SHARED 
+                Miracast-Plugin/Module.cpp 
+                Miracast-Plugin/Miracast.cpp 
+                Miracast-Plugin/MiracastjsonRpc.cpp 
+                Miracast-Plugin/MiracastImpl.cpp)
 
 set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 11
@@ -38,8 +40,6 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 target_include_directories(${MODULE_NAME} PRIVATE ./ ../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDES})
 
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error -fpermissive -Os -pipe -g -feliminate-unused-debug-types -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed)
-#target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_HDCP2X_SUPPORT)
-target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_TEST_NOTIFIER)
 
 target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins ${NAMESPACE}SecurityUtil ${IARMBUS_LIBRARIES} ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} -lwpa_client -lpthread -lrdkloggers)
 

@@ -90,7 +90,7 @@ namespace WPEFramework
             {
                 TRACE(Trace::Information, (_T("Miracast Unregister the API Name " )));
                 UnregisterAll();
-                _Miracast = nullptr;
+                _miracast = nullptr;
                 _memory = nullptr;
             }
 
@@ -98,7 +98,7 @@ namespace WPEFramework
             // comRPC Interface, all are required.
             BEGIN_INTERFACE_MAP(Miracast)
             INTERFACE_ENTRY(PluginHost::IPlugin)
-            INTERFACE_AGGREGATE(PluginHost::IStateControl, _Miracast)
+            INTERFACE_AGGREGATE(PluginHost::IStateControl, _miracast)
             INTERFACE_AGGREGATE(Exchange::IMiracast, _miracast)
             INTERFACE_AGGREGATE(Exchange::IMemory, _memory)
             INTERFACE_ENTRY(PluginHost::IDispatcher)

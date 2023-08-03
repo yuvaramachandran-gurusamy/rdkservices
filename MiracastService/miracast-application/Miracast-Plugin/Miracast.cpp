@@ -21,11 +21,13 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <cstdio>
-// #include "MiracastLogging.hpp"
+#include "MiracastLogging.hpp"
 
 #define SETTINGS_FILE_NAME "/opt/user_preferences.conf"
 #define SETTINGS_FILE_KEY "ui_language"
 #define SETTINGS_FILE_GROUP "General"
+
+#define EXIT_APP_REQUESTED 79
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
@@ -115,7 +117,7 @@ namespace WPEFramework
                 PluginHost::IStateControl *stateControl(_miracast->QueryInterface<PluginHost::IStateControl>());
                 if (stateControl == nullptr)
                 {
-                    Miracast_log(LOG_ERR, "%s: Miracast can't find IStateControl\n", AIRPLAY_APP_LOG);
+                    Miracast_log(LOG_ERR, "%s: Miracast can't find IStateControl\n", MIRACAST_APP_LOG);
                     _miracast->Release();
                     _miracast = nullptr;
                     result = _T("Miracast can't find IStateControl instance");
@@ -140,7 +142,7 @@ namespace WPEFramework
         }
         void Miracast::Deinitialize(PluginHost::IShell *service)
         {
-            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Deinitialize() method invoked\n", AIRPLAY_APP_LOG);
+            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Deinitialize() method invoked\n", MIRACAST_APP_LOG);
             printf("Miracast Plugin: Deinitialize() method invoked\n");
             fflush(stdout);
             TRACE(Trace::Information, (_T("Miracast Deinitialize ")));
@@ -165,7 +167,7 @@ namespace WPEFramework
             {
                 ASSERT(_connectionId != 0);
                 TRACE(Trace::Error, (_T("Miracast Plugin is not destructed properly.")));
-                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin is not destructed properly.\n", AIRPLAY_APP_LOG);
+                Miracast_log(LOG_DEBUG, "%s: Miracast Plugin is not destructed properly.\n", MIRACAST_APP_LOG);
                 printf("Miracast Plugin is not destructed properly.\n");
                 fflush(stdout);
                 RPC::IRemoteConnection *connection(_service->RemoteConnection(_connectionId));
@@ -187,7 +189,7 @@ namespace WPEFramework
         void Miracast::Exit(const uint32_t exitCode)
         {
             TRACE(Trace::Information, (_T("Ariplay Plugin Exit code ")));
-            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Exit() method invoked\n", AIRPLAY_APP_LOG);
+            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Exit() method invoked\n", MIRACAST_APP_LOG);
             printf("Miracast Plugin: exitCode=%d\n", exitCode);
             fflush(stdout);
             if (exitCode == 0)
@@ -209,7 +211,7 @@ namespace WPEFramework
         }
         void Miracast::Deactivated(RPC::IRemoteConnection *connection)
         {
-            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Deactivated() method invoked\n", AIRPLAY_APP_LOG);
+            Miracast_log(LOG_DEBUG, "%s: Miracast Plugin: Deactivated() method invoked\n", MIRACAST_APP_LOG);
             if (connection->Id() == _connectionId)
             {
                 ASSERT(_service != nullptr);
