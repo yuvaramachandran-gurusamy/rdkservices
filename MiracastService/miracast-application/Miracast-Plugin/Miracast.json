@@ -1,0 +1,12 @@
+{
+    "locator":"libWPEFrameworkMiracast.so",
+    "classname":"Miracast",
+    "precondition":[
+     "Platform"
+    ],
+    "callsign":"Miracast",
+    "autostart":false,
+    "configuration":{
+    "clientidentifier":"wst-miracast"
+    }
+   }
