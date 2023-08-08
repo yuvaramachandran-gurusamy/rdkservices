@@ -23,7 +23,7 @@ set(PLUGIN_MIRACAST_STARTUPORDER "" CACHE STRING "To configure startup order of 
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(IARMBus)
 find_package(GLIB REQUIRED)
-find_package(GSTREAMER REQUIRED)
+find_package(GStreamer REQUIRED)
 
 find_library(GLIB_LIBRARY NAMES glib-2.0 )
 
