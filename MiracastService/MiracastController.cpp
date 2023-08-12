@@ -1363,6 +1363,7 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         MIRACASTLOG_TRACE("TEARDOWN request sent to RTSP handler\n");
                         stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
+                        restart_session(start_discovering_enabled);
                     }
                     break;
                     default:

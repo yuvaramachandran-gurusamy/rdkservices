@@ -27,9 +27,10 @@
 #include <fcntl.h>
 
 #define MAX_EPOLL_EVENTS 64
-#define SOCKET_DFLT_WAIT_TIMEOUT (30 * ONE_SECOND_IN_MILLISEC)
-#define RTSP_RECV_WAIT_TIMEOUT (6 * ONE_SECOND_IN_MILLISEC)
-#define RTSP_KEEP_ALIVE_WAIT_TIMEOUT    ( ONE_SECOND_IN_MILLISEC )
+#define RTSP_REQUEST_RECV_TIMEOUT   ( 6 * ONE_SECOND_IN_MILLISEC )
+#define RTSP_RESPONSE_RECV_TIMEOUT  ( 5 * ONE_SECOND_IN_MILLISEC )
+#define SOCKET_DFLT_WAIT_TIMEOUT    ( 30 * ONE_SECOND_IN_MILLISEC )
+#define RTSP_KEEP_ALIVE_POLL_WAIT_TIMEOUT   ( ONE_SECOND_IN_MILLISEC )
 
 typedef enum rtsp_status_e
 {
@@ -37,6 +38,7 @@ typedef enum rtsp_status_e
     RTSP_MSG_SUCCESS,
     RTSP_INVALID_MSG_RECEIVED,
     RTSP_MSG_TEARDOWN_REQUEST,
+    RTSP_KEEP_ALIVE_MSG_RECEIVED,
     RTSP_TIMEDOUT
 } RTSP_STATUS;
 
@@ -48,7 +50,10 @@ typedef enum rtsp_status_e
 /* It will be used to parse the data from WFD Source */
 #define RTSP_STD_REQUEST_STR "RTSP/1.0" RTSP_CRLF_STR
 #define RTSP_REQ_OPTIONS "OPTIONS * " RTSP_STD_REQUEST_STR
-#define RTSP_REQ_TEARDOWN_MODE "wfd_trigger_method: TEARDOWN"
+#define RTSP_TRIGGER_METHOD_FIELD   "wfd_trigger_method: "
+#define RTSP_REQ_PLAY_MODE "PLAY"
+#define RTSP_REQ_PAUSE_MODE "PAUSE"
+#define RTSP_REQ_TEARDOWN_MODE "TEARDOWN"
 #define RTSP_STD_SEQUENCE_FIELD "CSeq: "
 #define RTSP_STD_REQUIRE_FIELD "Require: "
 #define RTSP_STD_SESSION_FIELD "Session: "
@@ -59,6 +64,7 @@ typedef enum rtsp_status_e
 #define RTSP_WFD_CLIENT_PORTS_FIELD "wfd_client_rtp_ports: "
 #define RTSP_WFD_PRESENTATION_URL_FIELD "wfd_presentation_URL: "
 #define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
+#define RTSP_SET_PARAMETER_FIELD "SET_PARAMETER"
 
 /* Default values*/
 #define RTSP_DFLT_CONTENT_PROTECTION "none"
@@ -81,15 +87,83 @@ typedef enum rtsp_message_format_sink2src_e
     RTSP_MSG_FMT_PAUSE_REQUEST,
     RTSP_MSG_FMT_PLAY_REQUEST,
     RTSP_MSG_FMT_TEARDOWN_REQUEST,
-    RTSP_MSG_FMT_TEARDOWN_RESPONSE,
+    RTSP_MSG_FMT_TRIGGER_METHODS_RESPONSE,
     RTSP_MSG_FMT_INVALID
 } RTSP_MSG_FMT_SINK2SRC;
+
+typedef enum rtsp_error_codes_e
+{
+    RTSP_ERRORCODE_CONTINUE = 0x00,
+    RTSP_ERRORCODE_OK,
+    RTSP_ERRORCODE_CREATED,
+    RTSP_ERRORCODE_LOW_STORAGE,
+    RTSP_ERRORCODE_MULTI_CHOICES,
+    RTSP_ERRORCODE_MOVED_PERMANENTLY,
+    RTSP_ERRORCODE_MOVED_TEMPORARILY,
+    RTSP_ERRORCODE_SEE_OTHER,
+    RTSP_ERRORCODE_NOT_MODIFIED,
+    RTSP_ERRORCODE_USE_PROXY,
+    RTSP_ERRORCODE_BAD_REQUEST,
+    RTSP_ERRORCODE_UNAUTHORIZED,
+    RTSP_ERRORCODE_PAYMENT_REQUIRED,
+    RTSP_ERRORCODE_FORBIDDEN,
+    RTSP_ERRORCODE_NOT_FOUND,
+    RTSP_ERRORCODE_METHOD_NOT_ALLOWED,
+    RTSP_ERRORCODE_NOT_ACCEPTABLE,
+    RTSP_ERRORCODE_PROXY_AUTHENDICATION_REQUIRED,
+    RTSP_ERRORCODE_REQUEST_TIMEDOUT,
+    RTSP_ERRORCODE_GONE,
+    RTSP_ERRORCODE_LENGTH_REQUIRED,
+    RTSP_ERRORCODE_PRECONDITION_FAILED,
+    RTSP_ERRORCODE_REQUEST_ENTITY_TOO_LARGE,
+    RTSP_ERRORCODE_REQUEST_URI_TOO_LARGE,
+    RTSP_ERRORCODE_UNSUPPORTED_MEDIA_TYPE,
+    RTSP_ERRORCODE_PARAMETER_NOT_UNDERSTOOD,
+    RTSP_ERRORCODE_CONFERENCE_NOT_FOUND,
+    RTSP_ERRORCODE_NOT_ENOUGH_BANDWIDTH,
+    RTSP_ERRORCODE_SESSION_NOT_FOUND,
+    RTSP_ERRORCODE_METHOD_NOT_VALID,
+    RTSP_ERRORCODE_HEADER_FIELD_NOT_VALID,
+    RTSP_ERRORCODE_INVALID_RANGE,
+    RTSP_ERRORCODE_RO_PARAMETER,
+    RTSP_ERRORCODE_AGGREGATE_OPERATION_NOT_ALLOWED,
+    RTSP_ERRORCODE_ONLY_AGGREGATE_OPERATION_ALLOWED,
+    RTSP_ERRORCODE_UNSUPPORTED_TRANSPORT,
+    RTSP_ERRORCODE_DEST_UNREACHABLE,
+    RTSP_ERRORCODE_KEY_MGMNT_FAILURE,
+    RTSP_ERRORCODE_INTERNAL_SERVER_ERROR,
+    RTSP_ERRORCODE_NOT_IMPLEMENTED,
+    RTSP_ERRORCODE_BAD_GATEWAY,
+    RTSP_ERRORCODE_SERVICE_UNAVAILABLE,
+    RTSP_ERRORCODE_GATEWAY_TIMEOUT,
+    RTSP_ERRORCODE_VERSION_NOT_SUPPORTED,
+    RTSP_ERRORCODE_OPTION_NOT_SUPPORTED,
+    RTSP_ERRORCODE_INVALID
+}RTSP_ERRORCODES;
+
+typedef enum rtsp_states_e
+{
+    RTSP_STATE_INITIATED = 0x00,
+    RTSP_STATE_INPROGRESS,
+    RTSP_STATE_FAILED,
+    RTSP_STATE_M1_M7_EXCHANGE_DONE,
+    RTSP_STATE_PAUSE,
+    RTSP_STATE_RESUME,
+    RTSP_STATE_TEARDOWN,
+    RTSP_STATE_INVALID
+}RTSP_STATES;
 
 typedef struct rtsp_msg_template_info
 {
     RTSP_MSG_FMT_SINK2SRC rtsp_msg_fmt_e;
     const char *template_name;
 } RTSP_MSG_TEMPLATE_INFO;
+
+typedef struct rtsp_errorcode_template
+{
+    RTSP_ERRORCODES rtsp_errorcode_e;
+    const char *string_fmt;
+} RTSP_ERRORCODE_TEMPLATE;
 
 typedef enum rtsp_native_timing_options_e
 {
@@ -327,6 +401,8 @@ public:
     void reset_WFDSourceMACAddress(void);
     void reset_WFDSourceName(void);
 
+    RTSP_STATES get_state(void);
+
     void send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
     MiracastError initiate_TCP(std::string goIP);
     void RTSPMessageHandler_Thread(void *args);
@@ -356,6 +432,11 @@ private:
     MiracastRTSPMsg(const MiracastRTSPMsg &) = delete;
 
     int m_tcpSockfd;
+    unsigned int m_wfd_src_req_timeout;
+    unsigned int m_wfd_src_res_timeout;
+    int m_wfd_src_session_timeout;
+    RTSP_STATES m_current_state;
+
     std::string m_connected_mac_addr;
     std::string m_connected_device_name;
     std::string m_wfd_video_formats;
@@ -377,13 +458,15 @@ private:
     RTSP_WFD_VIDEO_FMT_STRUCT   m_wfd_video_formats_st;
     RTSP_WFD_AUDIO_FMT_STRUCT   m_wfd_audio_formats_st;
     static RTSP_MSG_TEMPLATE_INFO rtsp_msg_template_info[];
+    static RTSP_ERRORCODE_TEMPLATE rtsp_msg_error_codes[];
     MiracastThread *m_rtsp_msg_handler_thread;
     MiracastThread *m_controller_thread;
+
+    void set_state(RTSP_STATES state);
 
     void send_msgto_controller_thread(eCONTROLLER_FW_STATES state);
     MiracastError create_RTSPThread(void);
 
-    RTSP_STATUS validate_rtsp_msg_response_back(std::string rtsp_msg_buffer, eCONTROLLER_FW_STATES state);
     RTSP_STATUS validate_rtsp_m1_msg_m2_send_request(std::string rtsp_m1_msg_buffer);
     RTSP_STATUS validate_rtsp_m2_request_ack(std::string rtsp_m1_response_ack_buffer);
     RTSP_STATUS validate_rtsp_m3_response_back(std::string rtsp_m3_msg_buffer);
@@ -395,10 +478,11 @@ private:
     RTSP_STATUS rtsp_sink2src_request_msg_handling(eCONTROLLER_FW_STATES state);
 
     const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
-    std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no, std::string append_data1);
+    const char* get_errorcode_string(RTSP_ERRORCODES error_code);
+    std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no , std::string append_data1 , RTSP_ERRORCODES error_code = RTSP_ERRORCODE_OK );
     std::string get_RequestSequenceNumber(void);
 
-    RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len , unsigned int wait_time_ms = RTSP_RECV_WAIT_TIMEOUT );
+    RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len , unsigned int wait_time_ms = RTSP_REQUEST_RECV_TIMEOUT );
     bool wait_data_timeout(int m_Sockfd, unsigned int ms);
     RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
 };
