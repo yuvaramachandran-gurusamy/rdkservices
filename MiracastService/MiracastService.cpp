@@ -92,7 +92,7 @@ namespace WPEFramework
 #ifdef	ENABLE_TEST_NOTIFIER
 			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastService::testNotifier, this);
 #endif
-			MIRACAST::logger_init();
+			MIRACAST::logger_init(STR(MODULE_NAME));
 			LOGINFO("Exiting..!!!");
 		}
 
