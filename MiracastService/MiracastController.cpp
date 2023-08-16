@@ -510,7 +510,6 @@ void MiracastController::stop_session(bool stop_streaming_needed)
         stop_streaming(CONTROLLER_TEARDOWN_REQ_FROM_THUNDER);
     }
 #endif
-
     stop_discover_devices();
     if (m_groupInfo)
     {
