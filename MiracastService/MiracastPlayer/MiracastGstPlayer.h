@@ -27,10 +27,10 @@
 #include <pthread.h>
 #include <stdint.h>
 
-class MiracastPlayer
+class MiracastGstPlayer
 {
 public:
-    static MiracastPlayer *getInstance();
+    static MiracastGstPlayer *getInstance();
     static void destroyInstance();
     bool launch(std::string localip , std::string streaming_port);
     bool stop();
@@ -57,11 +57,11 @@ private:
     GstElement *m_video_sink{nullptr};
     pthread_t m_playback_thread;
 
-    static MiracastPlayer *mMiracastPlayer;
-    MiracastPlayer();
-    virtual ~MiracastPlayer();
-    MiracastPlayer &operator=(const MiracastPlayer &) = delete;
-    MiracastPlayer(const MiracastPlayer &) = delete;
+    static MiracastGstPlayer *mMiracastGstPlayer;
+    MiracastGstPlayer();
+    virtual ~MiracastGstPlayer();
+    MiracastGstPlayer &operator=(const MiracastGstPlayer &) = delete;
+    MiracastGstPlayer(const MiracastGstPlayer &) = delete;
 
     bool createPipeline();
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
@@ -75,4 +75,4 @@ private:
     static void *monitor_player_statistics_thread(void *ctx);
 };
 
-#endif /* MiracastPlayer_hpp */
+#endif /* MiracastGstPlayer_hpp */

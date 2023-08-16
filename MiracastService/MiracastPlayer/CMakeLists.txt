@@ -15,33 +15,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(PLUGIN_NAME MiracastService)
+set(PLUGIN_NAME MiracastPlayer)
 set(MODULE_NAME ${NAMESPACE}${PLUGIN_NAME})
 
-set(PLUGIN_MIRACAST_STARTUPORDER "" CACHE STRING "To configure startup order of MiracastService plugin")
+set(PLUGIN_MIRACAST_STARTUPORDER "" CACHE STRING "To configure startup order of MiracastPlayer plugin")
 
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(IARMBus)
 find_package(GLIB REQUIRED)
+find_package(GStreamer REQUIRED)
 
 find_library(GLIB_LIBRARY NAMES glib-2.0 )
 
-add_library(${MODULE_NAME} SHARED Module.cpp MiracastService.cpp common/MiracastCommon.cpp common/MiracastLogger.cpp MiracastController.cpp P2P/MiracastP2P.cpp)
+add_library(${MODULE_NAME} SHARED Module.cpp MiracastPlayer.cpp ../common/MiracastLogger.cpp ../RTSP/MiracastRtspMsg.cpp)
 
 set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES)
 
-target_include_directories(${MODULE_NAME} PRIVATE ./ ./include ../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS})
+target_include_directories(${MODULE_NAME} PRIVATE ./ ../include ../../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDES})
 
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error -fpermissive -Os -pipe -g -feliminate-unused-debug-types -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed)
-target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_TEST_NOTIFIER)
 
-target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins ${NAMESPACE}SecurityUtil ${IARMBUS_LIBRARIES} ${GLIB_LIBRARIES} -lwpa_client -lpthread -lrdkloggers)
+target_link_libraries(${MODULE_NAME} PRIVATE ${NAMESPACE}Plugins::${NAMESPACE}Plugins ${NAMESPACE}SecurityUtil ${GLIB_LIBRARIES} ${GSTREAMER_LIBRARIES} -lpthread -lrdkloggers)
 
 install(TARGETS ${MODULE_NAME}
         DESTINATION lib/${STORAGE_DIRECTORY}/plugins)
 
 write_config(${PLUGIN_NAME})
-
-add_subdirectory(MiracastPlayer)

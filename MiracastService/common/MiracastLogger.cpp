@@ -43,8 +43,9 @@ namespace MIRACAST
 
     static int gDefaultLogLevel = VERBOSE_LEVEL;
     static FILE *logger_file_ptr = nullptr;
+    static char* service_name = "NOT-DEFINED";
 
-    void logger_init()
+    void logger_init(const char* module_name)
     {
         sync_stdout();
         const char *level = getenv("MIRACAST_DEFAULT_LOG_LEVEL");
@@ -54,6 +55,9 @@ namespace MIRACAST
         const char *separate_logger = getenv("MIRACAST_SEPARATE_LOGGER_ENABLED");
         if ((nullptr != separate_logger)&&(std::string(separate_logger) == "Yes")){
             logger_file_ptr = fopen("/opt/logs/miracast.log", "a");
+        }
+        if ( nullptr != module_name ){
+            service_name = module_name;
         }
     }
 
@@ -126,7 +130,8 @@ namespace MIRACAST
             fflush(logger_file_ptr);
         }
         else{
-            fprintf(stderr, "[MiracastApp][%d] %s [%s:%d] %s: %s \n",
+            fprintf(stderr, "[%s][%d] %s [%s:%d] %s: %s \n",
+                    service_name,
                     (int)syscall(SYS_gettid),
                     levelMap[static_cast<int>(level)],
                     basename(file),

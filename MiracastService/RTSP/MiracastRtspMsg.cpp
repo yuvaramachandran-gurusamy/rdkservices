@@ -98,7 +98,7 @@ RTSP_ERRORCODE_TEMPLATE MiracastRTSPMsg::rtsp_msg_error_codes[] = {
     {RTSP_ERRORCODE_OPTION_NOT_SUPPORTED, "RTSP/1.0 551 Option not supported\r\n"}
 };
 
-MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastError &error_code , MiracastThread *controller_thread_id)
+MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastError &error_code , MiracastPlayerNotifier *player_notifier, MiracastThread *controller_thread_id)
 {
     MIRACASTLOG_TRACE("Entering...");
     error_code = MIRACAST_OK;
@@ -117,6 +117,10 @@ MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastError &error_code , Miraca
                 m_rtsp_msg_obj->m_controller_thread = controller_thread_id;
             }
         }
+    }
+    if ((nullptr != m_rtsp_msg_obj) && ( nullptr != player_notifier ))
+    {
+        m_rtsp_msg_obj->m_player_notify_handler = player_notifier;
     }
     MIRACASTLOG_TRACE("Exiting...");
     return m_rtsp_msg_obj;

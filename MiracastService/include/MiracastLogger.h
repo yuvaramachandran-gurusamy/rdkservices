@@ -26,6 +26,9 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 namespace MIRACAST {
 
 const char* methodName(const std::string& prettyFunction);
@@ -43,7 +46,7 @@ enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, VERBOSE_
  * @brief Init logging
  * Should be called once per program run before calling log-functions
  */
-void logger_init();
+void logger_init(const char* module_name);
 
 /**
  * @brief DeInit logging

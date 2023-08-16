@@ -201,7 +201,7 @@ TEST_NOTIFIER_STATES;
 #endif /*ENABLE_TEST_NOTIFIER*/
 
 /**
- * Abstract class for Notification.
+ * Abstract class for MiracastService Notification.
  */
 class MiracastServiceNotifier
 {
@@ -210,6 +210,18 @@ public:
     virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
     virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
     virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
+};
+
+/**
+ * Abstract class for MiracastPlayer Notification.
+ */
+class MiracastPlayerNotifier
+{
+public:
+    virtual void onMiracastPlayerClientConnectionRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastPlayerClientStopRequest(string client_mac, string client_name) = 0;
+    virtual void onMiracastPlayerClientConnectionStarted(string client_mac, string client_name) = 0;
+    virtual void onMiracastPlayerClientConnectionError(string client_mac, string client_name) = 0;
 };
 
 class MiracastThread

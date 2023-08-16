@@ -27,26 +27,26 @@
 #include <sys/syscall.h>
 #include "MiracastLogger.h"
 #include "MiracastController.h"
-#include "MiracastPlayer.h"
+#include "MiracastGstPlayer.h"
 
-MiracastPlayer *MiracastPlayer::mMiracastPlayer{nullptr};
+MiracastGstPlayer *MiracastGstPlayer::mMiracastGstPlayer{nullptr};
 
-MiracastPlayer *MiracastPlayer::getInstance()
+MiracastGstPlayer *MiracastGstPlayer::getInstance()
 {
-    if (mMiracastPlayer == nullptr)
+    if (mMiracastGstPlayer == nullptr)
     {
-        mMiracastPlayer = new MiracastPlayer();
+        mMiracastGstPlayer = new MiracastGstPlayer();
     }
-    return mMiracastPlayer;
+    return mMiracastGstPlayer;
 }
 
-void MiracastPlayer::destroyInstance()
+void MiracastGstPlayer::destroyInstance()
 {
     MIRACASTLOG_TRACE("Entering...");
-    if (mMiracastPlayer != nullptr)
+    if (mMiracastGstPlayer != nullptr)
     {
-        mMiracastPlayer->stop();
-        if (mMiracastPlayer->stop())
+        mMiracastGstPlayer->stop();
+        if (mMiracastGstPlayer->stop())
         {
             MIRACASTLOG_ERROR("Stop miracast player");
         }
@@ -54,13 +54,13 @@ void MiracastPlayer::destroyInstance()
         {
             MIRACASTLOG_ERROR("Failed to stop miracast player");
         }
-        delete mMiracastPlayer;
-        mMiracastPlayer = nullptr;
+        delete mMiracastGstPlayer;
+        mMiracastGstPlayer = nullptr;
     }
     MIRACASTLOG_TRACE("Exiting...");
 }
 
-MiracastPlayer::MiracastPlayer()
+MiracastGstPlayer::MiracastGstPlayer()
 {
     MIRACASTLOG_TRACE("Entering...");
     gst_init(nullptr, nullptr);
@@ -72,14 +72,14 @@ MiracastPlayer::MiracastPlayer()
     MIRACASTLOG_TRACE("Exiting...");
 }
 
-MiracastPlayer::~MiracastPlayer()
+MiracastGstPlayer::~MiracastGstPlayer()
 {
     MIRACASTLOG_TRACE("Entering...");
     stop();
     MIRACASTLOG_TRACE("Exiting...");
 }
 
-bool MiracastPlayer::setUri(const std::string ipaddr, const std::string port)
+bool MiracastGstPlayer::setUri(const std::string ipaddr, const std::string port)
 {
     if (ipaddr.empty())
     {
@@ -96,7 +96,7 @@ bool MiracastPlayer::setUri(const std::string ipaddr, const std::string port)
     return true;
 }
 
-std::string MiracastPlayer::getUri()
+std::string MiracastGstPlayer::getUri()
 {
     return m_uri;
 }
@@ -110,7 +110,7 @@ unsigned getGstPlayFlag(const char *nick)
     return (flag ? flag->value : 0);
 }
 
-bool MiracastPlayer::launch(std::string localip , std::string streaming_port)
+bool MiracastGstPlayer::launch(std::string localip , std::string streaming_port)
 {
     bool ret = false;
 
@@ -121,12 +121,12 @@ bool MiracastPlayer::launch(std::string localip , std::string streaming_port)
     return ret;
 }
 
-bool MiracastPlayer::pause()
+bool MiracastGstPlayer::pause()
 {
     return changePipelineState(GST_STATE_PAUSED);
 }
 
-bool MiracastPlayer::stop()
+bool MiracastGstPlayer::stop()
 {
     MIRACASTLOG_TRACE("Entering..");
 
@@ -176,7 +176,7 @@ bool MiracastPlayer::stop()
     return true;
 }
 
-bool MiracastPlayer::changePipelineState(GstState state) const
+bool MiracastGstPlayer::changePipelineState(GstState state) const
 {
     MIRACASTLOG_TRACE("Entering..!!!");
     GstStateChangeReturn ret;
@@ -202,7 +202,7 @@ bool MiracastPlayer::changePipelineState(GstState state) const
     return status;
 }
 
-bool MiracastPlayer::createPipeline()
+bool MiracastGstPlayer::createPipeline()
 {
     MIRACASTLOG_TRACE("Entering..!!!");
 
@@ -258,8 +258,8 @@ bool MiracastPlayer::createPipeline()
     gst_object_unref(bus);
 
     g_main_context_pop_thread_default(m_main_loop_context);
-    pthread_create(&m_playback_thread, nullptr, MiracastPlayer::playbackThread, this);
-    pthread_create(&m_player_statistics_tid, nullptr, MiracastPlayer::monitor_player_statistics_thread, this);
+    pthread_create(&m_playback_thread, nullptr, MiracastGstPlayer::playbackThread, this);
+    pthread_create(&m_player_statistics_tid, nullptr, MiracastGstPlayer::monitor_player_statistics_thread, this);
 
     MIRACASTLOG_TRACE("Start Playing.");
 
@@ -282,10 +282,10 @@ bool MiracastPlayer::createPipeline()
     return true;
 }
 
-void *MiracastPlayer::playbackThread(void *ctx)
+void *MiracastGstPlayer::playbackThread(void *ctx)
 {
     MIRACASTLOG_TRACE("Entering..!!!");
-    MiracastPlayer *self = (MiracastPlayer *)ctx;
+    MiracastGstPlayer *self = (MiracastGstPlayer *)ctx;
     g_main_context_push_thread_default(self->m_main_loop_context);
     g_main_loop_run(self->m_main_loop);
     self->m_playback_thread = 0;
@@ -293,11 +293,11 @@ void *MiracastPlayer::playbackThread(void *ctx)
     pthread_exit(nullptr);
 }
 
-void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
+void* MiracastGstPlayer::monitor_player_statistics_thread(void *ctx)
 {
     bool isInteger = true;
     MIRACASTLOG_TRACE("Entering..!!!");
-    MiracastPlayer *self = (MiracastPlayer *)ctx;
+    MiracastGstPlayer *self = (MiracastGstPlayer *)ctx;
     
     /* Read Player stats if this /opt/miracast_player_stats flag is present */
     /* Read also confiurable timer from some file */
@@ -346,10 +346,10 @@ void* MiracastPlayer::monitor_player_statistics_thread(void *ctx)
     pthread_exit(nullptr);
 }
 
-gboolean MiracastPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data)
+gboolean MiracastGstPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data)
 {
     MIRACASTLOG_TRACE("Entering..!!!");
-    MiracastPlayer *self = static_cast<MiracastPlayer *>(user_data);
+    MiracastGstPlayer *self = static_cast<MiracastGstPlayer *>(user_data);
 
     switch (GST_MESSAGE_TYPE(msg))
     {
@@ -465,7 +465,7 @@ gboolean MiracastPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer use
     return TRUE;
 }
 
-double MiracastPlayer::getDuration()
+double MiracastGstPlayer::getDuration()
 {
     MIRACASTLOG_TRACE("Entering..!!!");
     gint64 duration = 0;
@@ -478,7 +478,7 @@ double MiracastPlayer::getDuration()
     return ret;
 }
 
-double MiracastPlayer::getCurrentPosition()
+double MiracastGstPlayer::getCurrentPosition()
 {
     MIRACASTLOG_TRACE("Entering..!!!");
     gint64 position = 0;
@@ -491,7 +491,7 @@ double MiracastPlayer::getCurrentPosition()
     return m_currentPosition;
 }
 
-bool MiracastPlayer::seekTo(double seconds)
+bool MiracastGstPlayer::seekTo(double seconds)
 {
     MIRACASTLOG_TRACE("Entering..!!!");
     bool ret = false;
@@ -513,7 +513,7 @@ bool MiracastPlayer::seekTo(double seconds)
     return ret;
 }
 
-void MiracastPlayer::print_pipeline_state()
+void MiracastGstPlayer::print_pipeline_state()
 {
     MIRACASTLOG_TRACE("Entering..!!!");
     if ( nullptr == m_pipeline )
@@ -533,7 +533,7 @@ void MiracastPlayer::print_pipeline_state()
     MIRACASTLOG_TRACE("Exiting..!!!");
 }
 
-bool MiracastPlayer::get_player_statistics()
+bool MiracastGstPlayer::get_player_statistics()
 {
     MIRACASTLOG_TRACE("Entering..!!!");	
     GstStructure *stats = nullptr;

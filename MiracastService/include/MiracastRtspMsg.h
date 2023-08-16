@@ -359,7 +359,7 @@ RTSP_WFD_AUDIO_FMT_STRUCT;
 class MiracastRTSPMsg
 {
 public:
-    static MiracastRTSPMsg *getInstance(MiracastError &error_code , MiracastThread *controller_thread_id = nullptr);
+    static MiracastRTSPMsg *getInstance(MiracastError &error_code , MiracastPlayerNotifier *player_notifier = nullptr , MiracastThread *controller_thread_id = nullptr);
     static void destroyInstance();
 
     std::string get_WFDVideoFormat(void);
@@ -461,6 +461,8 @@ private:
     static RTSP_ERRORCODE_TEMPLATE rtsp_msg_error_codes[];
     MiracastThread *m_rtsp_msg_handler_thread;
     MiracastThread *m_controller_thread;
+
+    MiracastPlayerNotifier *m_player_notify_handler;
 
     void set_state(RTSP_STATES state);
 
