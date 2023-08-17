@@ -20,6 +20,7 @@
 #ifndef _MIRACAST_COMMON_H_
 #define _MIRACAST_COMMON_H_
 
+#include <iostream>
 #include <string>
 #include <regex>
 #include <sstream>
@@ -99,7 +100,7 @@ typedef enum controller_framework_states_e
     RTSP_PLAY_FROM_SINK2SRC = 0x000FF000C,
     RTSP_SELF_ABORT = 0x000FF000D,
     RTSP_INVALID_ACTION
-}eCONTROLLER_FW_STATES;
+} eCONTROLLER_FW_STATES;
 
 typedef struct group_info
 {
@@ -118,7 +119,7 @@ typedef enum msg_type_e
     P2P_MSG = 0x01,
     RTSP_MSG,
     CONTRLR_FW_MSG
-}eMSG_TYPE;
+} eMSG_TYPE;
 
 typedef enum miracast_service_states_e
 {
@@ -137,6 +138,34 @@ enum DEVICEROLE
     DEVICEROLE_SECONDARY_SINK,
     DEVICEROLE_DUAL_ROLE
 };
+
+typedef enum miracast_player_states_e
+{
+    MIRACAST_PLAYER_STATE_IDLE,
+    MIRACAST_PLAYER_STATE_INITIATED,
+    MIRACAST_PLAYER_STATE_INPROGRESS,
+    MIRACAST_PLAYER_STATE_PLAYING,
+    MIRACAST_PLAYER_STATE_STOPPED,
+} eMIRA_PLAYER_STATES;
+
+typedef enum miracast_service_error_code_e
+{
+    MIRACAST_SERVICE_ERR_CODE_SUCCESS = 100,
+    MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_NEGO_ERROR,
+    MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_FORMATION_ERROR,
+    MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE,
+    MIRACAST_SERVICE_ERR_CODE_MAX_ERROR
+} eMIRACAST_SERVICE_ERR_CODE;
+
+typedef enum miracast_player_reason_code_e
+{
+    MIRACAST_PLAYER_REASON_CODE_SUCCESS = 200,
+    MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP,
+    MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR,
+    MIRACAST_PLAYER_REASON_CODE_GST_ERROR,
+    MIRACAST_PLAYER_REASON_CODE_INT_FAILURE,
+    MIRACAST_PLAYER_REASON_CODE_MAX_ERROR
+} eM_PLAYER_REASON_CODE;
 
 typedef struct d_info
 {
@@ -165,7 +194,7 @@ typedef struct thunder_req_hldr_msg_st
     char msg_buffer[32];
     char buffer_user_data[32];
     eCONTROLLER_FW_STATES state;
-}THUNDER_REQ_HDLR_MSGQ_STRUCT;
+} THUNDER_REQ_HDLR_MSGQ_STRUCT;
 
 #define CONTROLLER_THREAD_NAME ("CONTROL_MSG_HANDLER")
 #define CONTROLLER_THREAD_STACK (256 * 1024)
@@ -183,15 +212,15 @@ typedef struct thunder_req_hldr_msg_st
 #define RTSP_HANDLER_MSGQ_SIZE (sizeof(RTSP_HLDR_MSGQ_STRUCT))
 
 #ifdef ENABLE_TEST_NOTIFIER
-typedef enum test_notifier_states_e{
+typedef enum test_notifier_states_e
+{
     TEST_NOTIFIER_INVALID_STATE = 0x00,
     TEST_NOTIFIER_CLIENT_CONNECTION_REQUESTED,
     TEST_NOTIFIER_CLIENT_STOP_REQUESTED,
     TEST_NOTIFIER_CLIENT_CONNECTION_STARTED,
     TEST_NOTIFIER_CLIENT_CONNECTION_ERROR,
     TEST_NOTIFIER_SHUTDOWN
-}
-TEST_NOTIFIER_STATES;
+} TEST_NOTIFIER_STATES;
 
 #define TEST_NOTIFIER_THREAD_NAME ("TEST_NOTIFIER")
 #define TEST_NOTIFIER_THREAD_STACK (20 * 1024)
@@ -218,10 +247,12 @@ public:
 class MiracastPlayerNotifier
 {
 public:
-    virtual void onMiracastPlayerClientConnectionRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastPlayerClientStopRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastPlayerClientConnectionStarted(string client_mac, string client_name) = 0;
-    virtual void onMiracastPlayerClientConnectionError(string client_mac, string client_name) = 0;
+    // virtual void onMiracastPlayerClientConnectionRequest(string client_mac, string client_name) = 0;
+    // virtual void onMiracastPlayerClientStopRequest(string client_mac, string client_name) = 0;
+    // virtual void onMiracastPlayerClientConnectionStarted(string client_mac, string client_name) = 0;
+    // virtual void onMiracastPlayerClientConnectionError(string client_mac, string client_name) = 0;
+    virtual void onStateChange(string client_mac, string client_name, string player_state, eM_PLAYER_REASON_CODE reason_code) = 0;
+    // string reason_code /*, string reason_desc*/ ) = 0;
 };
 
 class MiracastThread
@@ -243,7 +274,7 @@ private:
     size_t m_thread_stacksize;
     size_t m_thread_message_size;
     size_t m_thread_message_count;
-    void (*m_thread_callback)(void *);    
+    void (*m_thread_callback)(void *);
     void *m_thread_user_data;
 };
 #endif
