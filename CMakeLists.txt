@@ -289,7 +289,7 @@ if(PLUGIN_XCAST)
 endif()
 
 if(PLUGIN_MIRACAST)
-	add_subdirectory(MiracastService)
+	add_subdirectory(Miracast)
 endif()
 
 if(PLUGIN_VIDEOAPPLICATIONEVENTS)
