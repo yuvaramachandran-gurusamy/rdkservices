@@ -474,7 +474,7 @@ namespace WPEFramework
 		uint32_t MiracastService::setAudioFormats(const JsonObject &parameters, JsonObject &response)
 		{
 			JsonArray audio_codecs;
-			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {0};
+			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
 			bool success = false;
 
 			LOGINFO("Entering..!!!");
@@ -522,7 +522,7 @@ namespace WPEFramework
 		uint32_t MiracastService::updatePlayerState(const JsonObject &parameters, JsonObject &response)
 		{
 			JsonArray audio_codecs;
-			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {0};
+			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
 			bool success = false;
 
 			LOGINFO("Entering..!!!");
