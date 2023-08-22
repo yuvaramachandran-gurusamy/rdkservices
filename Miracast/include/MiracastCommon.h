@@ -239,6 +239,7 @@ public:
     virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
     virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
     virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceLaunchRequest(string src_dev_ip, string src_dev_mac, string src_dev_name, string sink_dev_ip) = 0;
 };
 
 /**

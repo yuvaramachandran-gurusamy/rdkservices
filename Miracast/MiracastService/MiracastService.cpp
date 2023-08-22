@@ -51,10 +51,11 @@ using namespace std;
 #define SECURITY_TOKEN_LEN_MAX 1024
 #define THUNDER_RPC_TIMEOUT 2000
 
-#define EVT_ON_CLIENT_CONNECTION_REQUEST "onClientConnectionRequest"
-#define EVT_ON_CLIENT_STOP_REQUEST "onClientStopRequest"
-#define EVT_ON_CLIENT_CONNECTION_STARTED "onClientConnectionStarted"
-#define EVT_ON_CLIENT_CONNECTION_ERROR "onClientConnectionError"
+#define EVT_ON_CLIENT_CONNECTION_REQUEST       "onClientConnectionRequest"
+#define EVT_ON_CLIENT_STOP_REQUEST             "onClientStopRequest"
+#define EVT_ON_CLIENT_CONNECTION_STARTED       "onClientConnectionStarted"
+#define EVT_ON_CLIENT_CONNECTION_ERROR         "onClientConnectionError"
+#define EVT_ON_LAUNCH_REQUEST                  "onLaunchRequest"
 
 namespace WPEFramework
 {
@@ -92,7 +93,7 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
 			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastService::setVideoFormats, this);
 			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastService::setAudioFormats, this);
-			Register(METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE, &MiracastService::setAudioFormats, this);
+			Register(METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE, &MiracastService::updatePlayerState, this);
 #ifdef ENABLE_TEST_NOTIFIER
 			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastService::testNotifier, this);
 #endif
@@ -664,6 +665,21 @@ namespace WPEFramework
 				m_miracast_ctrler_obj->set_FriendlyName(value, m_isServiceEnabled);
 				LOGINFO("Miracast FriendlyName=%s", value.c_str());
 			}
+		}
+
+		void MiracastService::onMiracastServiceLaunchRequest(string src_dev_ip, string src_dev_mac, string src_dev_name, string sink_dev_ip)
+		{
+			LOGINFO("Entering..!!!");
+
+			JsonObject params;
+			JsonObject device_params;
+			device_params["source_dev_ip"] = src_dev_ip;
+			device_params["source_dev_mac"] = src_dev_mac;
+			device_params["source_dev_name"] = src_dev_name;
+			device_params["sink_dev_ip"] = sink_dev_ip;
+			params["device_parameters"] = device_params;
+
+			sendNotify(EVT_ON_LAUNCH_REQUEST, params);
 		}
 	} // namespace Plugin
 } // namespace WPEFramework
