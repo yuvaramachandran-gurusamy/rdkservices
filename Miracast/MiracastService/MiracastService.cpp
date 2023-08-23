@@ -178,6 +178,7 @@ namespace WPEFramework
 					m_SystemPluginObj->Subscribe<JsonObject>(1000, "onFriendlyNameChanged", &MiracastService::onFriendlyNameUpdateHandler, this);
 					updateSystemFriendlyName();
 					m_isServiceInitialized = true;
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_IDLE;
 				}
 				else
 				{
@@ -522,16 +523,46 @@ namespace WPEFramework
 		 */
 		uint32_t MiracastService::updatePlayerState(const JsonObject &parameters, JsonObject &response)
 		{
-			JsonArray audio_codecs;
+			string mac;
+			string player_state;
 			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
-			bool success = false;
+			bool success = true;
 
 			LOGINFO("Entering..!!!");
 
+			returnIfStringParamNotFound(parameters, "mac");
+			returnIfStringParamNotFound(parameters, "state");
 			if (parameters.HasLabel("mac"))
 			{
-				/*@TODO*/
+				getStringParameter("mac", mac);
 			}
+			if (parameters.HasLabel("state"))
+			{
+				getStringParameter("state", player_state);
+				if (player_state == "PLAYING" || player_state == "playing")
+				{
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_PLAYING;
+				}
+				else if (player_state == "STOPPED" || player_state == "stopped")
+				{
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_STOPPED;
+				}
+				else if (player_state == "INITIATED" || player_state == "initiated")
+				{
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_INITIATED;
+				}
+				else if (player_state == "INPROGRESS" || player_state == "inprogress")
+				{
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_INPROGRESS;
+				}
+				else
+				{
+					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_IDLE;
+				}
+			}
+
+			LOGINFO("Player State set to [%s (%d)] for Source device [%s].", player_state.c_str(), (int)m_miracast_ctrler_obj->m_ePlayer_state, mac.c_str());
+			// @TODO: Need to check what to do next?
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
