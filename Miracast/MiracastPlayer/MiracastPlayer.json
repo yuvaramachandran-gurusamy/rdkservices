@@ -4,6 +4,6 @@
  "precondition":[
   "Platform"
  ],
- "callsign":"org.rdk.MiracastService",
+ "callsign":"org.rdk.MiracastPlayer",
  "autostart":false
 }

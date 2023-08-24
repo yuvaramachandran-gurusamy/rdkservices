@@ -59,6 +59,7 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
             static const string METHOD_MIRACAST_SET_VIDEO_FORMATS;
             static const string METHOD_MIRACAST_SET_AUDIO_FORMATS;
+            static const string METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE;
             static const string METHOD_MIRACAST_TEST_NOTIFIER;
 
             MiracastService();
@@ -71,6 +72,7 @@ namespace WPEFramework
             virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) override;
             virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) override;
             virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) override;
+            virtual void onMiracastServiceLaunchRequest(string src_dev_ip, string src_dev_mac, string src_dev_name, string sink_dev_ip) override;
 
             BEGIN_INTERFACE_MAP(MiracastService)
             INTERFACE_ENTRY(PluginHost::IPlugin)
@@ -91,10 +93,11 @@ namespace WPEFramework
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t setVideoFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
+            uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
             uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
             void getSystemPlugin();
             int updateSystemFriendlyName();
-            void onFriendlyNameUpdateHandler(const JsonObject& parameters);
+            void onFriendlyNameUpdateHandler(const JsonObject &parameters);
 
             // We do not allow this plugin to be copied !!
             MiracastService(const MiracastService &) = delete;

@@ -33,16 +33,18 @@ using namespace std;
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
 
-#define SERVER_DETAILS  "127.0.0.1:9998"
+#define SERVER_DETAILS "127.0.0.1:9998"
 #define SYSTEM_CALLSIGN "org.rdk.System"
-#define SYSTEM_CALLSIGN_VER SYSTEM_CALLSIGN".1"
+#define SYSTEM_CALLSIGN_VER SYSTEM_CALLSIGN ".1"
 #define SECURITY_TOKEN_LEN_MAX 1024
 #define THUNDER_RPC_TIMEOUT 2000
 
-#define EVT_ON_CLIENT_CONNECTION_REQUEST "onClientConnectionRequest"
-#define EVT_ON_CLIENT_STOP_REQUEST "onClientStopRequest"
-#define EVT_ON_CLIENT_CONNECTION_STARTED "onClientConnectionStarted"
-#define EVT_ON_CLIENT_CONNECTION_ERROR "onClientConnectionError"
+/*Methods*/
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_PlAY_REQUEST = "playRequest";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_STOP_REQUEST = "stopRequest";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE = "setVideoRectangle";
+
+#define EVT_ON_STATE_CHANGE "onStateChange"
 
 namespace WPEFramework
 {
@@ -73,7 +75,7 @@ namespace WPEFramework
 		{
 			LOGINFO("Entering..!!!");
 			MiracastPlayer::_instance = this;
-
+			m_GstPlayer = MiracastGstPlayer::getInstance();
 			MIRACAST::logger_init(STR(MODULE_NAME));
 			LOGINFO("Exiting..!!!");
 		}
@@ -91,38 +93,38 @@ namespace WPEFramework
 		}
 
 		// Thunder plugins communication
-        void MiracastPlayer::getSystemPlugin()
-        {
+		void MiracastPlayer::getSystemPlugin()
+		{
 			LOGINFO("Entering..!!!");
 
-            if(nullptr == m_SystemPluginObj)
-            {
+			if (nullptr == m_SystemPluginObj)
+			{
 				string token;
-                // TODO: use interfaces and remove token
-                auto security = m_CurrentService->QueryInterfaceByCallsign<PluginHost::IAuthenticate>("SecurityAgent");
-                if (nullptr != security)
+				// TODO: use interfaces and remove token
+				auto security = m_CurrentService->QueryInterfaceByCallsign<PluginHost::IAuthenticate>("SecurityAgent");
+				if (nullptr != security)
 				{
-                    string payload = "http://localhost";
-                    if (security->CreateToken( static_cast<uint16_t>(payload.length()),
-											reinterpret_cast<const uint8_t*>(payload.c_str()),
-                            				token) == Core::ERROR_NONE)
+					string payload = "http://localhost";
+					if (security->CreateToken(static_cast<uint16_t>(payload.length()),
+											  reinterpret_cast<const uint8_t *>(payload.c_str()),
+											  token) == Core::ERROR_NONE)
 					{
 						LOGINFO("got security token\n");
-                    }
+					}
 					else
 					{
 						LOGERR("failed to get security token\n");
-                    }
-                    security->Release();
-                }
+					}
+					security->Release();
+				}
 				else
 				{
 					LOGERR("No security agent\n");
-                }
+				}
 
-                string query = "token=" + token;
-                Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-                m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T("MiracastPlayer")), false, query);
+				string query = "token=" + token;
+				Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
+				m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T("MiracastPlayer")), false, query);
 				if (nullptr == m_SystemPluginObj)
 				{
 					LOGERR("JSONRPC: %s: initialization failed", SYSTEM_CALLSIGN_VER);
@@ -131,9 +133,9 @@ namespace WPEFramework
 				{
 					LOGINFO("JSONRPC: %s: initialization ok", SYSTEM_CALLSIGN_VER);
 				}
-            }
+			}
 			LOGINFO("Exiting..!!!");
-        }
+		}
 
 		const string MiracastPlayer::Initialize(PluginHost::IShell *service)
 		{
@@ -142,39 +144,42 @@ namespace WPEFramework
 			if (!m_isServiceInitialized)
 			{
 				MiracastError ret_code = MIRACAST_OK;
-				m_miracast_rtsp_obj = MiracastRTSPMsg::getInstance(ret_code,this);
-				if ( nullptr != m_miracast_rtsp_obj ){
+				m_miracast_rtsp_obj = MiracastRTSPMsg::getInstance(ret_code, this);
+				if (nullptr != m_miracast_rtsp_obj)
+				{
 					m_CurrentService = service;
 					getSystemPlugin();
 					m_isServiceInitialized = true;
 				}
-				else{
-					switch (ret_code){
-						case MIRACAST_INVALID_P2P_CTRL_IFACE:
-						{
-							msg = "Invalid P2P Ctrl iface configured";
-						}
-						break;
-						case MIRACAST_CONTROLLER_INIT_FAILED:
-						{
-							msg = "Controller Init Failed";
-						}
-						break;
-						case MIRACAST_P2P_INIT_FAILED:
-						{
-							msg = "P2P Init Failed";
-						}
-						break;
-						case MIRACAST_RTSP_INIT_FAILED:
-						{
-							msg = "RTSP msg handler Init Failed";
-						}
-						break;
-						default:
-						{
-							msg = "Unknown Error:Failed to obtain MiracastRTSPMsg Object";
-						}
-						break;
+				else
+				{
+					switch (ret_code)
+					{
+					case MIRACAST_INVALID_P2P_CTRL_IFACE:
+					{
+						msg = "Invalid P2P Ctrl iface configured";
+					}
+					break;
+					case MIRACAST_CONTROLLER_INIT_FAILED:
+					{
+						msg = "Controller Init Failed";
+					}
+					break;
+					case MIRACAST_P2P_INIT_FAILED:
+					{
+						msg = "P2P Init Failed";
+					}
+					break;
+					case MIRACAST_RTSP_INIT_FAILED:
+					{
+						msg = "RTSP msg handler Init Failed";
+					}
+					break;
+					default:
+					{
+						msg = "Unknown Error:Failed to obtain MiracastRTSPMsg Object";
+					}
+					break;
 					}
 				}
 			}
@@ -205,44 +210,67 @@ namespace WPEFramework
 			return (string("{\"service\": \"") + SERVICE_NAME + string("\"}"));
 		}
 
-		void MiracastPlayer::onMiracastPlayerClientConnectionRequest(string client_mac, string client_name)
+		uint32_t MiracastPlayer::playRequest(const JsonObject &parameters, JsonObject &response)
+		{
+			bool success = true;
+			LOGINFO("Entering..!!!");
+
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		uint32_t MiracastPlayer::stopRequest(const JsonObject &parameters, JsonObject &response)
+		{
+			bool success = true;
+			LOGINFO("Entering..!!!");
+			/*TODO: Stop RTSP and Player */
+			m_GstPlayer->stop();
+			m_miracast_rtsp_obj->destroyInstance();
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		uint32_t MiracastPlayer::setVideoRectangle(const JsonObject &parameters, JsonObject &response)
+		{
+			bool success = true;
+			LOGINFO("Entering..!!!");
+
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		void MiracastPlayer::onStateChange(string client_mac, string client_name, string player_state, eM_PLAYER_REASON_CODE reason_code)
 		{
 			LOGINFO("Entering..!!!");
 
 			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_CONNECTION_REQUEST, params);
+			params["mac"] = client_mac;
+			params["name"] = client_name;
+			params["state"] = player_state;
+			params["reason_code"] = std::to_string(reason_code);
+			params["reason"] = reasonDescription(reason_code);
+
+			sendNotify(EVT_ON_STATE_CHANGE, params);
 		}
 
-		void MiracastPlayer::onMiracastPlayerClientStopRequest(string client_mac, string client_name)
+		std::string MiracastPlayer::reasonDescription(eM_PLAYER_REASON_CODE e) throw()
 		{
-			LOGINFO("Entering..!!!");
-
-			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_STOP_REQUEST, params);
+			switch (e)
+			{
+			case MIRACAST_PLAYER_REASON_CODE_SUCCESS:
+				return "SUCCESS";
+			case MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP:
+				return "APP REQUESTED TO STOP.";
+			case MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR:
+				return "RTSP Failure.";
+			case MIRACAST_PLAYER_REASON_CODE_GST_ERROR:
+				return "GStreamer Failure.";
+			case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
+				return "Internal Failure.";
+			default:
+				throw std::invalid_argument("Unimplemented item");
+			}
 		}
 
-		void MiracastPlayer::onMiracastPlayerClientConnectionStarted(string client_mac, string client_name)
-		{
-			LOGINFO("Entering..!!!");
-
-			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_CONNECTION_STARTED, params);
-		}
-
-		void MiracastPlayer::onMiracastPlayerClientConnectionError(string client_mac, string client_name)
-		{
-			LOGINFO("Entering..!!!");
-
-			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_CONNECTION_ERROR, params);
-		}
 	} // namespace Plugin
 } // namespace WPEFramework

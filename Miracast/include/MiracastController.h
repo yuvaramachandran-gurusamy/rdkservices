@@ -88,6 +88,7 @@ public:
     bool stop_client_connection(std::string mac_address);
     bool set_WFDVideoFormat( RTSP_WFD_VIDEO_FMT_STRUCT video_fmt );
     bool set_WFDAudioCodecs( RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt );
+    eMIRA_PLAYER_STATES m_ePlayer_state;
 
 private:
     static MiracastController *m_miracast_ctrl_obj;
