@@ -25,7 +25,6 @@
 #include "Module.h"
 #include <securityagent/SecurityTokenUtil.h>
 #include <MiracastController.h>
-#include "libIARM.h"
 
 using std::vector;
 namespace WPEFramework
@@ -69,9 +68,7 @@ namespace WPEFramework
             virtual string Information() const override;
 
             virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) override;
-            virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) override;
-            virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) override;
-            virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) override;
+            virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name , eMIRACAST_SERVICE_ERR_CODE error_code ) override;
             virtual void onMiracastServiceLaunchRequest(string src_dev_ip, string src_dev_mac, string src_dev_name, string sink_dev_ip) override;
 
             BEGIN_INTERFACE_MAP(MiracastService)
@@ -95,6 +92,8 @@ namespace WPEFramework
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
             uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
+
+            std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw();
             void getSystemPlugin();
             int updateSystemFriendlyName();
             void onFriendlyNameUpdateHandler(const JsonObject &parameters);

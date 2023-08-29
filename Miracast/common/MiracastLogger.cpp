@@ -41,7 +41,7 @@ namespace MIRACAST
         return prettyFunction.substr(begin, end).c_str();
     }
 
-    static int gDefaultLogLevel = VERBOSE_LEVEL;
+    static int gDefaultLogLevel = TRACE_LEVEL;
     static FILE *logger_file_ptr = nullptr;
     static char* service_name = "NOT-DEFINED";
 

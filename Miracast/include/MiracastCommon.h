@@ -26,6 +26,7 @@
 #include <sstream>
 #include <algorithm>
 #include <vector>
+#include <fstream>
 #include <glib.h>
 #include <semaphore.h>
 #include <MiracastServiceError.h>
@@ -50,11 +51,12 @@ typedef enum controller_framework_states_e
 {
     THUNDER_REQ_HLDR_START_DISCOVER = 0x00000001,
     THUNDER_REQ_HLDR_STOP_DISCOVER = 0x00000002,
-    THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER = 0x00000003,
-    THUNDER_REQ_HLDR_CONNECT_DEVICE_ACCEPTED = 0x00000004,
-    THUNDER_REQ_HLDR_CONNECT_DEVICE_REJECTED = 0x00000005,
-    THUNDER_REQ_HLDR_TEARDOWN_CONNECTION = 0x00000006,
-    THUNDER_REQ_HLDR_SHUTDOWN_APP = 0x00000007,
+    THUNDER_REQ_HLDR_RESTART_DISCOVER = 0x00000003,
+    THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER = 0x00000004,
+    THUNDER_REQ_HLDR_CONNECT_DEVICE_ACCEPTED = 0x00000005,
+    THUNDER_REQ_HLDR_CONNECT_DEVICE_REJECTED = 0x00000006,
+    THUNDER_REQ_HLDR_TEARDOWN_CONNECTION = 0x00000007,
+    THUNDER_REQ_HLDR_SHUTDOWN_APP = 0x00000008,
     CONTROLLER_START_DISCOVERING = 0x0000FF00,
     CONTROLLER_STOP_DISCOVERING = 0x0000FF01,
     CONTROLLER_START_STREAMING = 0x0000FF02,
@@ -84,7 +86,8 @@ typedef enum controller_framework_states_e
     CONTROLLER_RTSP_TEARDOWN_REQ_RECEIVED = 0x0000FF1A,
     CONTROLLER_RTSP_RESTART_DISCOVERING = 0x0000FF1B,
     CONTROLLER_SELF_ABORT = 0x0000FF1C,
-    CONTROLLER_INVALID_STATE = 0x0000FF1D,
+    CONTROLLER_RESTART_DISCOVERING = 0x0000FF1D,
+    CONTROLLER_INVALID_STATE = 0x0000FF1E,
     RTSP_M1_REQUEST_RECEIVED = 0x000FF0000,
     RTSP_M2_REQUEST_ACK = 0x000FF0001,
     RTSP_M3_REQUEST_RECEIVED = 0x000FF0002,
@@ -126,6 +129,7 @@ typedef enum miracast_service_states_e
     MIRACAST_SERVICE_SHUTDOWN = 0x01,
     MIRACAST_SERVICE_WFD_START,
     MIRACAST_SERVICE_WFD_STOP,
+    MIRACAST_SERVICE_WFD_RESTART,
     MIRACAST_SERVICE_ACCEPT_CLIENT,
     MIRACAST_SERVICE_REJECT_CLIENT,
     MIRACAST_SERVICE_STOP_CLIENT_CONNECTION
@@ -146,11 +150,14 @@ typedef enum miracast_player_states_e
     MIRACAST_PLAYER_STATE_INPROGRESS,
     MIRACAST_PLAYER_STATE_PLAYING,
     MIRACAST_PLAYER_STATE_STOPPED,
+    MIRACAST_PLAYER_STATE_PAUSED,
+    MIRACAST_PLAYER_STATE_M1_M7_XCHANGE_DONE,
 } eMIRA_PLAYER_STATES;
 
 typedef enum miracast_service_error_code_e
 {
     MIRACAST_SERVICE_ERR_CODE_SUCCESS = 100,
+    MIRACAST_SERVICE_ERR_CODE_P2P_CONNECT_ERROR,
     MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_NEGO_ERROR,
     MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_FORMATION_ERROR,
     MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE,
@@ -176,6 +183,15 @@ typedef struct d_info
     enum DEVICEROLE deviceRole;
 } DeviceInfo;
 
+typedef struct video_rect_st
+{
+    int startX;
+    int startY;
+    int width;
+    int height;
+}
+VIDEO_RECT_STRUCT;
+
 typedef struct controller_msgq_st
 {
     char msg_buffer[2048];
@@ -185,6 +201,11 @@ typedef struct controller_msgq_st
 
 typedef struct rtsp_hldr_msgq_st
 {
+    char source_dev_ip[24];
+    char source_dev_mac[24];
+    char sink_dev_ip[24];
+    char source_dev_name[40];
+    VIDEO_RECT_STRUCT videorect;
     eCONTROLLER_FW_STATES state;
     size_t userdata;
 } RTSP_HLDR_MSGQ_STRUCT;
@@ -236,9 +257,7 @@ class MiracastServiceNotifier
 {
 public:
     virtual void onMiracastServiceClientConnectionRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientStopRequest(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientConnectionStarted(string client_mac, string client_name) = 0;
-    virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name) = 0;
+    virtual void onMiracastServiceClientConnectionError(string client_mac, string client_name , eMIRACAST_SERVICE_ERR_CODE error_code ) = 0;
     virtual void onMiracastServiceLaunchRequest(string src_dev_ip, string src_dev_mac, string src_dev_name, string sink_dev_ip) = 0;
 };
 
@@ -248,11 +267,7 @@ public:
 class MiracastPlayerNotifier
 {
 public:
-    // virtual void onMiracastPlayerClientConnectionRequest(string client_mac, string client_name) = 0;
-    // virtual void onMiracastPlayerClientStopRequest(string client_mac, string client_name) = 0;
-    // virtual void onMiracastPlayerClientConnectionStarted(string client_mac, string client_name) = 0;
-    // virtual void onMiracastPlayerClientConnectionError(string client_mac, string client_name) = 0;
-    virtual void onStateChange(string client_mac, string client_name, string player_state, eM_PLAYER_REASON_CODE reason_code) = 0;
+    virtual void onStateChange(string client_mac, string client_name, eMIRA_PLAYER_STATES player_state, eM_PLAYER_REASON_CODE reason_code) = 0;
     // string reason_code /*, string reason_desc*/ ) = 0;
 };
 

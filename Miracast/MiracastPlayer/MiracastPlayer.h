@@ -54,7 +54,7 @@ namespace WPEFramework
             static const string SERVICE_NAME;
 
             // methods
-            static const string METHOD_MIRACAST_PLAYER_PlAY_REQUEST;
+            static const string METHOD_MIRACAST_PLAYER_PLAY_REQUEST;
             static const string METHOD_MIRACAST_PLAYER_STOP_REQUEST;
             static const string METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE;
 
@@ -64,7 +64,7 @@ namespace WPEFramework
             virtual void Deinitialize(PluginHost::IShell *service) override;
             virtual string Information() const override;
 
-            void onStateChange(string client_mac, string client_name, string player_state, eM_PLAYER_REASON_CODE reason_code /*string reason_desc*/) override;
+            void onStateChange(string client_mac, string client_name, eMIRA_PLAYER_STATES player_state, eM_PLAYER_REASON_CODE reason_code /*string reason_desc*/) override;
 
             BEGIN_INTERFACE_MAP(MiracastPlayer)
             INTERFACE_ENTRY(PluginHost::IPlugin)
@@ -79,12 +79,14 @@ namespace WPEFramework
             bool m_isServiceInitialized;
             bool m_isServiceEnabled;
             MiracastGstPlayer *m_GstPlayer;
+            MiracastRTSPMsg *m_rtsp_msg;
             WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *m_SystemPluginObj = NULL;
 
             uint32_t playRequest(const JsonObject &parameters, JsonObject &response);
             uint32_t stopRequest(const JsonObject &parameters, JsonObject &response);
             uint32_t setVideoRectangle(const JsonObject &parameters, JsonObject &response);
             std::string reasonDescription(eM_PLAYER_REASON_CODE) throw();
+            std::string stateDescription(eMIRA_PLAYER_STATES) throw();
             void getSystemPlugin();
 
             // We do not allow this plugin to be copied !!

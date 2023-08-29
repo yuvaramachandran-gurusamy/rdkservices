@@ -36,9 +36,7 @@ const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_STOP_CLIENT_
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_VIDEO_FORMATS = "setVideoFormats";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_AUDIO_FORMATS = "setAudioFormats";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE = "updatePlayerState";
-#ifdef ENABLE_TEST_NOTIFIER
-const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
-#endif
+
 using namespace std;
 
 #define API_VERSION_NUMBER_MAJOR 1
@@ -52,8 +50,6 @@ using namespace std;
 #define THUNDER_RPC_TIMEOUT 2000
 
 #define EVT_ON_CLIENT_CONNECTION_REQUEST       "onClientConnectionRequest"
-#define EVT_ON_CLIENT_STOP_REQUEST             "onClientStopRequest"
-#define EVT_ON_CLIENT_CONNECTION_STARTED       "onClientConnectionStarted"
 #define EVT_ON_CLIENT_CONNECTION_ERROR         "onClientConnectionError"
 #define EVT_ON_LAUNCH_REQUEST                  "onLaunchRequest"
 
@@ -86,18 +82,17 @@ namespace WPEFramework
 		{
 			LOGINFO("Entering..!!!");
 			MiracastService::_instance = this;
+			MIRACAST::logger_init("MiracastService");
 
 			Register(METHOD_MIRACAST_SET_ENABLE, &MiracastService::setEnable, this);
 			Register(METHOD_MIRACAST_GET_ENABLE, &MiracastService::getEnable, this);
-			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
+#if 0
+			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastService::setVideoFormats, this);
 			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastService::setAudioFormats, this);
-			Register(METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE, &MiracastService::updatePlayerState, this);
-#ifdef ENABLE_TEST_NOTIFIER
-			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastService::testNotifier, this);
 #endif
-			MIRACAST::logger_init(STR(MODULE_NAME));
+			Register(METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE, &MiracastService::updatePlayerState, this);
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -111,7 +106,9 @@ namespace WPEFramework
 			}
 			Unregister(METHOD_MIRACAST_SET_ENABLE);
 			Unregister(METHOD_MIRACAST_GET_ENABLE);
+#if 0
 			Unregister(METHOD_MIRACAST_STOP_CLIENT_CONNECT);
+#endif
 			Unregister(METHOD_MIRACAST_CLIENT_CONNECT);
 			MIRACAST::logger_deinit();
 			LOGINFO("Exiting..!!!");
@@ -169,6 +166,7 @@ namespace WPEFramework
 			if (!m_isServiceInitialized)
 			{
 				MiracastError ret_code = MIRACAST_OK;
+		
 				m_miracast_ctrler_obj = MiracastController::getInstance(ret_code, this);
 				if (nullptr != m_miracast_ctrler_obj)
 				{
@@ -340,6 +338,7 @@ namespace WPEFramework
 			returnResponse(success);
 		}
 
+#if 0
 		/**
 		 * @brief This method used to stop the client connection.
 		 *
@@ -353,9 +352,9 @@ namespace WPEFramework
 
 			LOGINFO("Entering..!!!");
 
-			if (parameters.HasLabel("clientMac"))
+			if (parameters.HasLabel("mac"))
 			{
-				mac_addr = parameters["clientMac"].String();
+				mac_addr = parameters["mac"].String();
 				const std::regex mac_regex("^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$");
 
 				if (true == std::regex_match(mac_addr, mac_regex))
@@ -514,7 +513,7 @@ namespace WPEFramework
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
-
+#endif
 		/**
 		 * @brief This method used to update the Player State for MiracastService Plugin.
 		 *
@@ -561,91 +560,58 @@ namespace WPEFramework
 				}
 			}
 
+			if ( m_isServiceEnabled && ( MIRACAST_PLAYER_STATE_STOPPED == m_miracast_ctrler_obj->m_ePlayer_state ))
+			{
+				// It will restart the discovering
+				m_miracast_ctrler_obj->restart_session_discovery();
+			}
+
 			LOGINFO("Player State set to [%s (%d)] for Source device [%s].", player_state.c_str(), (int)m_miracast_ctrler_obj->m_ePlayer_state, mac.c_str());
 			// @TODO: Need to check what to do next?
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
-#ifdef ENABLE_TEST_NOTIFIER
-		/**
-		 * @brief This method used to stop the client connection.
-		 *
-		 * @param: None.
-		 * @return Returns the success code of underlying method.
-		 */
-		uint32_t MiracastService::testNotifier(const JsonObject &parameters, JsonObject &response)
-		{
-			bool success = false;
-			uint32_t state;
-
-			LOGINFO("Entering..!!!");
-
-			if (parameters.HasLabel("state"))
-			{
-				getNumberParameter("state", state);
-
-				if ((TEST_NOTIFIER_INVALID_STATE < state) &&
-					(TEST_NOTIFIER_SHUTDOWN > state))
-				{
-					m_miracast_ctrler_obj->send_msgto_test_notifier_thread(state);
-					success = true;
-				}
-				else
-				{
-					LOGERR("Invalid state passed");
-					response["message"] = "Invalid state passed";
-				}
-			}
-			else
-			{
-				LOGERR("Invalid parameter passed");
-				response["message"] = "Invalid parameter passed";
-			}
-			LOGINFO("Exiting..!!!");
-
-			returnResponse(success);
-		}
-#endif /*ENABLE_TEST_NOTIFIER*/
 
 		void MiracastService::onMiracastServiceClientConnectionRequest(string client_mac, string client_name)
 		{
 			LOGINFO("Entering..!!!");
 
 			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
+			params["mac"] = client_mac;
+			params["name"] = client_name;
 			sendNotify(EVT_ON_CLIENT_CONNECTION_REQUEST, params);
 		}
 
-		void MiracastService::onMiracastServiceClientStopRequest(string client_mac, string client_name)
+		void MiracastService::onMiracastServiceClientConnectionError(string client_mac, string client_name , eMIRACAST_SERVICE_ERR_CODE error_code )
 		{
 			LOGINFO("Entering..!!!");
 
 			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_STOP_REQUEST, params);
-		}
-
-		void MiracastService::onMiracastServiceClientConnectionStarted(string client_mac, string client_name)
-		{
-			LOGINFO("Entering..!!!");
-
-			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
-			sendNotify(EVT_ON_CLIENT_CONNECTION_STARTED, params);
-		}
-
-		void MiracastService::onMiracastServiceClientConnectionError(string client_mac, string client_name)
-		{
-			LOGINFO("Entering..!!!");
-
-			JsonObject params;
-			params["clientMac"] = client_mac;
-			params["clientName"] = client_name;
+			params["mac"] = client_mac;
+			params["name"] = client_name;
+			params["error_code"] = std::to_string(error_code);
+			params["reason"] = reasonDescription(error_code);
 			sendNotify(EVT_ON_CLIENT_CONNECTION_ERROR, params);
+		}
+
+		std::string MiracastService::reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw()
+		{
+			switch (e)
+			{
+			case MIRACAST_SERVICE_ERR_CODE_SUCCESS:
+				return "SUCCESS";
+			case MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_NEGO_ERROR:
+				return "P2P GROUP NEGOTIATION FAILURE.";
+			case MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_FORMATION_ERROR:
+				return "P2P GROUP FORMATION FAILURE.";
+			case MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE:
+				return "P2P GENERIC FAILURE.";
+			case MIRACAST_SERVICE_ERR_CODE_P2P_CONNECT_ERROR:
+				return "P2P CONNECT FAILURE.";
+			default:
+				throw std::invalid_argument("Unimplemented item");
+			}
 		}
 
 		int MiracastService::updateSystemFriendlyName()
@@ -709,6 +675,52 @@ namespace WPEFramework
 			device_params["source_dev_name"] = src_dev_name;
 			device_params["sink_dev_ip"] = sink_dev_ip;
 			params["device_parameters"] = device_params;
+
+			if (0 == access("/opt/miracast_autoconnect", F_OK)){
+				std::string system_command = "";
+				system_command = "curl -H \"Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '\"' -f 4`\"";
+				system_command.append(" --header \"Content-Type: application/json\" --request POST --data '{\"jsonrpc\":\"2.0\", \"id\":3,\"method\":\"org.rdk.MiracastPlayer.1.playRequest\", \"params\":{");
+				
+				system_command.append("\"device_parameters\": {\n");
+
+				system_command.append("\"source_dev_ip\": ");
+				system_command.append(src_dev_ip);
+				system_command.append(",\n");
+
+				system_command.append("\"source_dev_mac\": ");
+				system_command.append(src_dev_mac);
+				system_command.append(",\n");
+
+				system_command.append("\"source_dev_name\": ");
+				system_command.append(src_dev_name);
+				system_command.append(",\n");
+
+				system_command.append("\"sink_dev_ip\": ");
+				system_command.append(sink_dev_ip);
+				system_command.append("\n},\n");
+
+				system_command.append("\"video_rectangle\": {\n");
+
+				system_command.append("\"X\": ");
+				system_command.append("0");
+				system_command.append(",\n");
+
+				system_command.append("\"Y\": ");
+				system_command.append("0");
+				system_command.append(",\n");
+
+				system_command.append("\"W\": ");
+				system_command.append("720");
+				system_command.append(",\n");
+
+				system_command.append("\"H\": ");
+				system_command.append("576");
+
+				system_command.append("}}' http://127.0.0.1:9998/jsonrpc\n");
+
+				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
+				system( system_command.c_str());
+			}
 
 			sendNotify(EVT_ON_LAUNCH_REQUEST, params);
 		}

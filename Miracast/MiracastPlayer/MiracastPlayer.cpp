@@ -40,7 +40,7 @@ using namespace std;
 #define THUNDER_RPC_TIMEOUT 2000
 
 /*Methods*/
-const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_PlAY_REQUEST = "playRequest";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_PLAY_REQUEST = "playRequest";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_STOP_REQUEST = "stopRequest";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE = "setVideoRectangle";
 
@@ -75,8 +75,10 @@ namespace WPEFramework
 		{
 			LOGINFO("Entering..!!!");
 			MiracastPlayer::_instance = this;
-			m_GstPlayer = MiracastGstPlayer::getInstance();
-			MIRACAST::logger_init(STR(MODULE_NAME));
+			MIRACAST::logger_init("MiracastPlayer");
+			Register(METHOD_MIRACAST_PLAYER_PLAY_REQUEST, &MiracastPlayer::playRequest, this);
+			Register(METHOD_MIRACAST_PLAYER_STOP_REQUEST, &MiracastPlayer::stopRequest, this);
+			Register(METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE, &MiracastPlayer::setVideoRectangle, this);
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -148,6 +150,7 @@ namespace WPEFramework
 				if (nullptr != m_miracast_rtsp_obj)
 				{
 					m_CurrentService = service;
+					m_GstPlayer = MiracastGstPlayer::getInstance();
 					getSystemPlugin();
 					m_isServiceInitialized = true;
 				}
@@ -212,8 +215,53 @@ namespace WPEFramework
 
 		uint32_t MiracastPlayer::playRequest(const JsonObject &parameters, JsonObject &response)
 		{
+			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = true;
 			LOGINFO("Entering..!!!");
+
+			if(parameters.HasLabel("device_parameters")) {
+				JsonObject device_parameters;
+				std::string	source_dev_ip = "",
+							source_dev_mac = "",
+							source_dev_name = "",
+							sink_dev_ip = "";
+
+				device_parameters = parameters["device_parameters"].Object();
+
+				source_dev_ip = device_parameters["source_dev_ip"].String();
+				source_dev_mac = device_parameters["source_dev_mac"].String();
+				source_dev_name = device_parameters["source_dev_name"].String();
+				sink_dev_ip = device_parameters["sink_dev_ip"].String();
+
+				strncpy( rtsp_hldr_msgq_data.source_dev_ip, source_dev_ip.c_str() , sizeof(rtsp_hldr_msgq_data.source_dev_ip));
+				strncpy( rtsp_hldr_msgq_data.source_dev_mac, source_dev_mac.c_str() , sizeof(rtsp_hldr_msgq_data.source_dev_mac));
+				strncpy( rtsp_hldr_msgq_data.source_dev_name, source_dev_name.c_str() , sizeof(rtsp_hldr_msgq_data.source_dev_name));
+				strncpy( rtsp_hldr_msgq_data.sink_dev_ip, sink_dev_ip.c_str() , sizeof(rtsp_hldr_msgq_data.sink_dev_ip));
+
+				rtsp_hldr_msgq_data.state = RTSP_START_RECEIVE_MSGS;
+			}
+
+			if(parameters.HasLabel("video_rectangle")) {
+				JsonObject video_rectangle;
+				unsigned int startX = 0,
+							 startY = 0,
+							 width = 0,
+							 height = 0;
+
+				video_rectangle = parameters["video_rectangle"].Object();
+
+				startX = video_rectangle["X"].Number();
+				startY = video_rectangle["Y"].Number();
+				width = video_rectangle["W"].Number();
+				height = video_rectangle["H"].Number();
+
+				rtsp_hldr_msgq_data.videorect.startX = startX;
+				rtsp_hldr_msgq_data.videorect.startY = startY;
+				rtsp_hldr_msgq_data.videorect.width = width;
+				rtsp_hldr_msgq_data.videorect.height = height;
+			}
+
+			m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
@@ -221,11 +269,11 @@ namespace WPEFramework
 
 		uint32_t MiracastPlayer::stopRequest(const JsonObject &parameters, JsonObject &response)
 		{
+			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = true;
 			LOGINFO("Entering..!!!");
-			/*TODO: Stop RTSP and Player */
-			m_GstPlayer->stop();
-			m_miracast_rtsp_obj->destroyInstance();
+			rtsp_hldr_msgq_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
+			m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
@@ -235,22 +283,72 @@ namespace WPEFramework
 			bool success = true;
 			LOGINFO("Entering..!!!");
 
+			returnIfParamNotFound(parameters, "X");
+			returnIfParamNotFound(parameters, "Y");
+			returnIfParamNotFound(parameters, "W");
+			returnIfParamNotFound(parameters, "H");
+
+			unsigned int startX = 0,
+						 startY = 0,
+						 width = 0,
+						 height = 0;
+
+			startX = parameters["X"].Number();
+			startY = parameters["Y"].Number();
+			width = parameters["W"].Number();
+			height = parameters["H"].Number();
+
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
-		void MiracastPlayer::onStateChange(string client_mac, string client_name, string player_state, eM_PLAYER_REASON_CODE reason_code)
+		void MiracastPlayer::onStateChange(string client_mac, string client_name, eMIRA_PLAYER_STATES player_state, eM_PLAYER_REASON_CODE reason_code)
 		{
 			LOGINFO("Entering..!!!");
 
 			JsonObject params;
 			params["mac"] = client_mac;
 			params["name"] = client_name;
-			params["state"] = player_state;
+			params["state"] = stateDescription(player_state);
 			params["reason_code"] = std::to_string(reason_code);
 			params["reason"] = reasonDescription(reason_code);
 
+			if (0 == access("/opt/miracast_autoconnect", F_OK)){
+				std::string system_command = "";
+				system_command = "curl -H \"Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '\"' -f 4`\"";
+				system_command.append(" --header \"Content-Type: application/json\" --request POST --data '{\"jsonrpc\":\"2.0\", \"id\":3,\"method\":\"org.rdk.MiracastService.1.updatePlayerState\", \"params\":{");
+				system_command.append("\"mac\": ");
+				system_command.append(client_mac);
+				system_command.append(",");
+				system_command.append("\"state\": ");
+				system_command.append(stateDescription(player_state));
+				system_command.append("}}' http://127.0.0.1:9998/jsonrpc\n");
+
+				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
+				system( system_command.c_str());
+			}
+
 			sendNotify(EVT_ON_STATE_CHANGE, params);
+			LOGINFO("Exiting..!!!");
+		}
+
+		std::string MiracastPlayer::stateDescription(eMIRA_PLAYER_STATES e) throw()
+		{
+			switch (e)
+			{
+			case MIRACAST_PLAYER_STATE_IDLE:
+				return "IDLE";
+			case MIRACAST_PLAYER_STATE_INITIATED:
+				return "INITIATED";
+			case MIRACAST_PLAYER_STATE_INPROGRESS:
+				return "INPROGRESS";
+			case MIRACAST_PLAYER_STATE_PLAYING:
+				return "PLAYING";
+			case MIRACAST_PLAYER_STATE_STOPPED:
+				return "STOPPED";
+			default:
+				throw std::invalid_argument("Unimplemented item");
+			}
 		}
 
 		std::string MiracastPlayer::reasonDescription(eM_PLAYER_REASON_CODE e) throw()

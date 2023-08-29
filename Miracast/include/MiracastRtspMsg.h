@@ -141,18 +141,6 @@ typedef enum rtsp_error_codes_e
     RTSP_ERRORCODE_INVALID
 }RTSP_ERRORCODES;
 
-typedef enum rtsp_states_e
-{
-    RTSP_STATE_INITIATED = 0x00,
-    RTSP_STATE_INPROGRESS,
-    RTSP_STATE_FAILED,
-    RTSP_STATE_M1_M7_EXCHANGE_DONE,
-    RTSP_STATE_PAUSE,
-    RTSP_STATE_RESUME,
-    RTSP_STATE_TEARDOWN,
-    RTSP_STATE_INVALID
-}RTSP_STATES;
-
 typedef struct rtsp_msg_template_info
 {
     RTSP_MSG_FMT_SINK2SRC rtsp_msg_fmt_e;
@@ -401,10 +389,12 @@ public:
     void reset_WFDSourceMACAddress(void);
     void reset_WFDSourceName(void);
 
-    RTSP_STATES get_state(void);
+    eMIRA_PLAYER_STATES get_state(void);
 
-    void send_msgto_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
+    void send_msgto_rtsp_msg_hdler_thread(RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data);
     MiracastError initiate_TCP(std::string goIP);
+    MiracastError start_streaming();
+    MiracastError stop_streaming(eCONTROLLER_FW_STATES state );
     void RTSPMessageHandler_Thread(void *args);
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
@@ -435,7 +425,7 @@ private:
     unsigned int m_wfd_src_req_timeout;
     unsigned int m_wfd_src_res_timeout;
     int m_wfd_src_session_timeout;
-    RTSP_STATES m_current_state;
+    eMIRA_PLAYER_STATES m_current_state;
 
     std::string m_connected_mac_addr;
     std::string m_connected_device_name;
@@ -455,6 +445,8 @@ private:
     bool m_is_unicast;
     std::string m_wfd_session_number;
     std::string m_current_sequence_number;
+    std::string m_src_dev_ip;
+    std::string m_sink_ip;
     RTSP_WFD_VIDEO_FMT_STRUCT   m_wfd_video_formats_st;
     RTSP_WFD_AUDIO_FMT_STRUCT   m_wfd_audio_formats_st;
     static RTSP_MSG_TEMPLATE_INFO rtsp_msg_template_info[];
@@ -464,7 +456,8 @@ private:
 
     MiracastPlayerNotifier *m_player_notify_handler;
 
-    void set_state(RTSP_STATES state);
+    void set_state( eMIRA_PLAYER_STATES state , bool send_notification = false , eM_PLAYER_REASON_CODE reason_code = MIRACAST_PLAYER_REASON_CODE_SUCCESS );
+    void store_srcsink_info( std::string client_name, std::string client_mac, std::string src_dev_ip, std::string sink_ip);
 
     void send_msgto_controller_thread(eCONTROLLER_FW_STATES state);
     MiracastError create_RTSPThread(void);
@@ -487,6 +480,7 @@ private:
     RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len , unsigned int wait_time_ms = RTSP_REQUEST_RECV_TIMEOUT );
     bool wait_data_timeout(int m_Sockfd, unsigned int ms);
     RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
+    std::string get_localIp();
 };
 
 #endif
