@@ -679,25 +679,26 @@ namespace WPEFramework
 			if (0 == access("/opt/miracast_autoconnect", F_OK)){
 				std::string system_command = "";
 				system_command = "curl -H \"Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '\"' -f 4`\"";
+				
 				system_command.append(" --header \"Content-Type: application/json\" --request POST --data '{\"jsonrpc\":\"2.0\", \"id\":3,\"method\":\"org.rdk.MiracastPlayer.1.playRequest\", \"params\":{");
 				
 				system_command.append("\"device_parameters\": {\n");
 
-				system_command.append("\"source_dev_ip\": ");
+				system_command.append("\"source_dev_ip\": \"");
 				system_command.append(src_dev_ip);
-				system_command.append(",\n");
+				system_command.append("\",\n");
 
-				system_command.append("\"source_dev_mac\": ");
+				system_command.append("\"source_dev_mac\": \"");
 				system_command.append(src_dev_mac);
-				system_command.append(",\n");
+				system_command.append("\",\n");
 
-				system_command.append("\"source_dev_name\": ");
+				system_command.append("\"source_dev_name\": \"");
 				system_command.append(src_dev_name);
-				system_command.append(",\n");
+				system_command.append("\",\n");
 
-				system_command.append("\"sink_dev_ip\": ");
+				system_command.append("\"sink_dev_ip\": \"");
 				system_command.append(sink_dev_ip);
-				system_command.append("\n},\n");
+				system_command.append("\"\n},\n");
 
 				system_command.append("\"video_rectangle\": {\n");
 
@@ -710,13 +711,13 @@ namespace WPEFramework
 				system_command.append(",\n");
 
 				system_command.append("\"W\": ");
-				system_command.append("720");
+				system_command.append("1920");
 				system_command.append(",\n");
 
 				system_command.append("\"H\": ");
-				system_command.append("576");
+				system_command.append("1080");
 
-				system_command.append("}}' http://127.0.0.1:9998/jsonrpc\n");
+				system_command.append("}}}' http://127.0.0.1:9998/jsonrpc\n");
 
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 				system( system_command.c_str());

@@ -279,7 +279,11 @@ void MiracastP2P::p2pCtrlMonitorThread()
 
             if (0 == wpa_ctrl_recv(m_wpa_p2p_ctrl_monitor, m_event_buffer, &m_event_buffer_len))
             {
-                MIRACASTLOG_TRACE("wpa_ctrl_recv got m_event_buffer = [%s]\n", m_event_buffer);
+                if (!(( strstr( m_event_buffer , "CTRL-EVENT-BSS-ADDED" )) ||
+                    ( strstr( m_event_buffer , "CTRL-EVENT-BSS-REMOVED" )))){
+                    MIRACASTLOG_TRACE("wpa_ctrl_recv got m_event_buffer = [%s]\n", m_event_buffer);
+                }
+
                 if (strstr(m_event_buffer, "P2P-DEVICE-FOUND"))
                 {
                     char *evt_buf = strdup(m_event_buffer);

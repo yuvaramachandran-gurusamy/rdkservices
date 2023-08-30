@@ -216,7 +216,7 @@ namespace WPEFramework
 		uint32_t MiracastPlayer::playRequest(const JsonObject &parameters, JsonObject &response)
 		{
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
-			bool success = true;
+			bool success = false;
 			LOGINFO("Entering..!!!");
 
 			if(parameters.HasLabel("device_parameters")) {
@@ -239,6 +239,7 @@ namespace WPEFramework
 				strncpy( rtsp_hldr_msgq_data.sink_dev_ip, sink_dev_ip.c_str() , sizeof(rtsp_hldr_msgq_data.sink_dev_ip));
 
 				rtsp_hldr_msgq_data.state = RTSP_START_RECEIVE_MSGS;
+				success = true;
 			}
 
 			if(parameters.HasLabel("video_rectangle")) {
@@ -317,12 +318,12 @@ namespace WPEFramework
 				std::string system_command = "";
 				system_command = "curl -H \"Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '\"' -f 4`\"";
 				system_command.append(" --header \"Content-Type: application/json\" --request POST --data '{\"jsonrpc\":\"2.0\", \"id\":3,\"method\":\"org.rdk.MiracastService.1.updatePlayerState\", \"params\":{");
-				system_command.append("\"mac\": ");
+				system_command.append("\"mac\": \"");
 				system_command.append(client_mac);
-				system_command.append(",");
-				system_command.append("\"state\": ");
+				system_command.append("\",");
+				system_command.append("\"state\": \"");
 				system_command.append(stateDescription(player_state));
-				system_command.append("}}' http://127.0.0.1:9998/jsonrpc\n");
+				system_command.append("\"}}}' http://127.0.0.1:9998/jsonrpc\n");
 
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 				system( system_command.c_str());
@@ -345,6 +346,7 @@ namespace WPEFramework
 			case MIRACAST_PLAYER_STATE_PLAYING:
 				return "PLAYING";
 			case MIRACAST_PLAYER_STATE_STOPPED:
+			case MIRACAST_PLAYER_STATE_SELF_ABORT:
 				return "STOPPED";
 			default:
 				throw std::invalid_argument("Unimplemented item");

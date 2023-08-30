@@ -35,6 +35,7 @@ public:
     bool launch(std::string localip , std::string streaming_port);
     bool stop();
     bool pause();
+    bool setVideoRectangle( VIDEO_RECT_STRUCT video_rect , bool apply = false );
     int getPlayerstate();
     bool setUri(std::string ipaddr, std::string port);
     std::string getUri();
@@ -56,6 +57,7 @@ private:
     double m_currentPosition;
     GstElement *m_video_sink{nullptr};
     pthread_t m_playback_thread;
+    VIDEO_RECT_STRUCT m_video_rect_st;
 
     static MiracastGstPlayer *mMiracastGstPlayer;
     MiracastGstPlayer();

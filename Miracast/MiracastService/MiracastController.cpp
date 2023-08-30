@@ -153,7 +153,11 @@ MiracastError MiracastController::destroy_ControllerFramework(void)
 std::string MiracastController::parse_p2p_event_data(const char *tmpBuff, const char *lookup_data)
 {
     char return_buf[1024] = {0};
-    const char *ret = nullptr, *ret_equal = nullptr, *ret_space = nullptr;
+    const char  *ret = nullptr, 
+                *ret_equal = nullptr,
+                *ret_space = nullptr,
+                *single_quote_start = nullptr,
+                *single_quote_end = nullptr;
     ret = strstr(tmpBuff, lookup_data);
     if (nullptr != ret)
     {
@@ -161,7 +165,19 @@ std::string MiracastController::parse_p2p_event_data(const char *tmpBuff, const 
         {
             ret_equal = strstr(ret, "=");
             ret_space = strstr(ret_equal, " ");
-            if (ret_space)
+
+            if (0 == strncmp("name", lookup_data, strlen(lookup_data))){
+                single_quote_start = strstr(ret_equal, "'");
+                single_quote_end = strstr(single_quote_start + 1, "'");
+            }
+
+            if (single_quote_start && single_quote_end) {
+                unsigned int length = single_quote_end - single_quote_start;
+                if (length < sizeof(return_buf)) {
+                    snprintf(return_buf, length, "%s", single_quote_start + 1);
+                }
+            }
+            else if (ret_space)
             {
                 snprintf(return_buf, (int)(ret_space - ret_equal), "%s", ret + strlen(lookup_data) + 1);
                 MIRACASTLOG_VERBOSE("Parsed Data is - %s", return_buf);

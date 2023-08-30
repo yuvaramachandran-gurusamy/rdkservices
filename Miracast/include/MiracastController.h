@@ -105,7 +105,7 @@ private:
     MiracastController &operator=(const MiracastController &) = delete;
     MiracastController(const MiracastController &) = delete;
 
-    std::string parse_p2p_event_data(const char *tmpBuff, const char *lookup_data);
+    std::string parse_p2p_event_data(const char *tmpBuff, const char *lookup_data );
     std::string start_DHCPClient(std::string interface, std::string &default_gw_ip_addr);
     MiracastError initiate_TCP(std::string go_ip);
     MiracastError connect_Sink();

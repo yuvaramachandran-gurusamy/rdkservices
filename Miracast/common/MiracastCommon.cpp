@@ -107,10 +107,15 @@ int8_t MiracastThread::receive_message(void *message, size_t msg_size, int sem_w
     int8_t status = false;
     MIRACASTLOG_TRACE("Entering...");
     if (nullptr != m_g_queue){
-        if (THREAD_RECV_MSG_INDEFINITE_WAIT == sem_wait_timedout)
+        if (( THREAD_RECV_MSG_WAIT_IMMEDIATE == sem_wait_timedout )||
+            (THREAD_RECV_MSG_INDEFINITE_WAIT == sem_wait_timedout))
         {
-            sem_wait(&m_empty_msgq_sem_obj);
-            status = true;
+            int count = 0;
+	        sem_getvalue(&m_empty_msgq_sem_obj,&count);
+            if ((0 < count ) || (THREAD_RECV_MSG_INDEFINITE_WAIT == sem_wait_timedout)){
+                sem_wait(&m_empty_msgq_sem_obj);
+                status = true;
+            }
         }
         else if (0 < sem_wait_timedout)
         {

@@ -393,8 +393,8 @@ public:
 
     void send_msgto_rtsp_msg_hdler_thread(RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data);
     MiracastError initiate_TCP(std::string goIP);
-    MiracastError start_streaming();
-    MiracastError stop_streaming(eCONTROLLER_FW_STATES state );
+    MiracastError start_streaming( VIDEO_RECT_STRUCT video_rect );
+    MiracastError stop_streaming( eMIRA_PLAYER_STATES state );
     void RTSPMessageHandler_Thread(void *args);
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
@@ -426,6 +426,8 @@ private:
     unsigned int m_wfd_src_res_timeout;
     int m_wfd_src_session_timeout;
     eMIRA_PLAYER_STATES m_current_state;
+
+    bool m_streaming_started;
 
     std::string m_connected_mac_addr;
     std::string m_connected_device_name;
