@@ -154,6 +154,7 @@ typedef enum miracast_player_states_e
     MIRACAST_PLAYER_STATE_PLAYING,
     MIRACAST_PLAYER_STATE_STOPPED,
     MIRACAST_PLAYER_STATE_PAUSED,
+    // Below are Internal Player States. No need to notify these to subscribers
     MIRACAST_PLAYER_STATE_M1_M7_XCHANGE_DONE,
     MIRACAST_PLAYER_STATE_SELF_ABORT,
 } eMIRA_PLAYER_STATES;

@@ -363,6 +363,8 @@ namespace WPEFramework
 				return "APP REQUESTED TO STOP.";
 			case MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR:
 				return "RTSP Failure.";
+			case MIRACAST_PLAYER_REASON_CODE_RTSP_TIMEOUT:
+				return "RTSP Timeout.";
 			case MIRACAST_PLAYER_REASON_CODE_GST_ERROR:
 				return "GStreamer Failure.";
 			case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
