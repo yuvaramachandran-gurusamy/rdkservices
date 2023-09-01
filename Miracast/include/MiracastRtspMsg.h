@@ -483,6 +483,7 @@ private:
     bool wait_data_timeout(int m_Sockfd, unsigned int ms);
     RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
     std::string get_localIp();
+    MiracastError updateVideoRectangle( VIDEO_RECT_STRUCT videorect );
 };
 
 #endif

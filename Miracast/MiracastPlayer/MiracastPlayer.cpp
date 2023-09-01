@@ -256,13 +256,20 @@ namespace WPEFramework
 				width = video_rectangle["W"].Number();
 				height = video_rectangle["H"].Number();
 
-				rtsp_hldr_msgq_data.videorect.startX = startX;
-				rtsp_hldr_msgq_data.videorect.startY = startY;
-				rtsp_hldr_msgq_data.videorect.width = width;
-				rtsp_hldr_msgq_data.videorect.height = height;
-			}
+				if (( 0 < width ) && ( 0 < height ))
+				{
+					m_video_sink_rect.startX = startX;
+					m_video_sink_rect.startY = startY;
+					m_video_sink_rect.width = width;
+					m_video_sink_rect.height = height;
 
-			m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+					rtsp_hldr_msgq_data.videorect = m_video_sink_rect;
+					m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+				}
+				else{
+					success = false;
+				}
+			}
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
@@ -281,7 +288,8 @@ namespace WPEFramework
 
 		uint32_t MiracastPlayer::setVideoRectangle(const JsonObject &parameters, JsonObject &response)
 		{
-			bool success = true;
+			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
+			bool success = false;
 			LOGINFO("Entering..!!!");
 
 			returnIfParamNotFound(parameters, "X");
@@ -298,6 +306,23 @@ namespace WPEFramework
 			startY = parameters["Y"].Number();
 			width = parameters["W"].Number();
 			height = parameters["H"].Number();
+
+			if (( 0 < width ) && ( 0 < height ) &&
+				(( startX != m_video_sink_rect.startX ) ||
+				( startY != m_video_sink_rect.startY ) ||
+				( width != m_video_sink_rect.width ) ||
+				( height != m_video_sink_rect.height )))
+			{
+				m_video_sink_rect.startX = startX;
+				m_video_sink_rect.startY = startY;
+				m_video_sink_rect.width = width;
+				m_video_sink_rect.height = height;
+
+				rtsp_hldr_msgq_data.videorect = m_video_sink_rect;
+				rtsp_hldr_msgq_data.state = RTSP_UPDATE_VIDEO_RECT;
+				m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+				success = true;
+			}
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);

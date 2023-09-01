@@ -1432,6 +1432,17 @@ MiracastError MiracastRTSPMsg::stop_streaming( eMIRA_PLAYER_STATES state )
     return MIRACAST_OK;
 }
 
+MiracastError MiracastRTSPMsg::updateVideoRectangle( VIDEO_RECT_STRUCT videorect )
+{
+    MIRACASTLOG_TRACE("Entering...");
+
+    MiracastGstPlayer *miracastGstPlayerObj = MiracastGstPlayer::getInstance();
+    miracastGstPlayerObj->setVideoRectangle( videorect , true );
+
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
 void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 {
     char rtsp_message_socket[4096] = {0};
@@ -1737,6 +1748,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                         videorect.startY = rtsp_message_data.videorect.startY;
                         videorect.width = rtsp_message_data.videorect.width;
                         videorect.height = rtsp_message_data.videorect.height;
+                        updateVideoRectangle(videorect);
                     }
                     break;
                     default:

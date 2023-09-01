@@ -76,6 +76,7 @@ namespace WPEFramework
             static MiracastRTSPMsg *m_miracast_rtsp_obj;
 
         private:
+            VIDEO_RECT_STRUCT m_video_sink_rect;
             bool m_isServiceInitialized;
             bool m_isServiceEnabled;
             MiracastGstPlayer *m_GstPlayer;

@@ -114,17 +114,41 @@ bool MiracastGstPlayer::setVideoRectangle( VIDEO_RECT_STRUCT video_rect , bool a
 {
     bool ret = false;
 
-    if (( 0 < video_rect.width ) && ( 0 < video_rect.height )){
-        ret = true;
-        m_video_rect_st.startX = video_rect.startX;
-        m_video_rect_st.startY = video_rect.startY;
-        m_video_rect_st.width = video_rect.width;
-        m_video_rect_st.height = video_rect.height;
+    MIRACASTLOG_TRACE("Entering...");
 
-        if ( true == apply ){
-            // Apply this rect while streaming inprogress.
-        }
+    m_video_rect_st.startX = video_rect.startX;
+    m_video_rect_st.startY = video_rect.startY;
+    m_video_rect_st.width = video_rect.width;
+    m_video_rect_st.height = video_rect.height;
+
+    if ( true == apply ){
+        updateVideoSinkRectangle();
     }
+    ret = true;
+
+    MIRACASTLOG_TRACE("Exiting Coords[%d,%d,%d,%d]Apply[%x]...",
+                        video_rect.startX,video_rect.startY,video_rect.width,video_rect.height,
+                        apply);
+
+    return ret;
+}
+
+bool MiracastGstPlayer::updateVideoSinkRectangle(void)
+{
+    bool ret = false;
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    if (( nullptr != m_video_sink ) &&
+        ( 0 < m_video_rect_st.width ) && ( 0 < m_video_rect_st.height )){
+        char rectString[64];
+        sprintf(rectString,"%d,%d,%d,%d", m_video_rect_st.startX, m_video_rect_st.startY,
+                m_video_rect_st.width, m_video_rect_st.height);
+        //g_object_set(G_OBJECT(m_video_sink), "rectangle", rectString, NULL);
+        g_object_set(G_OBJECT(m_video_sink), "window-set", rectString, NULL);
+    }
+
+    MIRACASTLOG_TRACE("Exiting...");
 
     return ret;
 }
@@ -270,12 +294,7 @@ bool MiracastGstPlayer::createPipeline()
         MIRACASTLOG_INFO("Set avsync-session as 0 \n");
     }
 #endif
-    if (( 0 < m_video_rect_st.width ) && ( 0 < m_video_rect_st.height )){
-        char rectString[64];
-        sprintf(rectString,"%d,%d,%d,%d", m_video_rect_st.startX, m_video_rect_st.startY,
-                m_video_rect_st.width, m_video_rect_st.height);
-        g_object_set(G_OBJECT(m_video_sink), "rectangle", rectString, NULL);
-    }
+    updateVideoSinkRectangle();
     g_object_set(m_pipeline, "video-sink", m_video_sink, nullptr);
 
     bus = gst_element_get_bus(m_pipeline);

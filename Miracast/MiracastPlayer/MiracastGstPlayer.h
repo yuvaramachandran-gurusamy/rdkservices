@@ -66,6 +66,7 @@ private:
     MiracastGstPlayer(const MiracastGstPlayer &) = delete;
 
     bool createPipeline();
+    bool updateVideoSinkRectangle(void);
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
     bool changePipelineState(GstState state) const;
 
