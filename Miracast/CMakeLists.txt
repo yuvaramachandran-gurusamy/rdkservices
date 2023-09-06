@@ -17,3 +17,4 @@
 
 add_subdirectory(MiracastService)
 add_subdirectory(MiracastPlayer)
+add_subdirectory(MiracastTestApp)
