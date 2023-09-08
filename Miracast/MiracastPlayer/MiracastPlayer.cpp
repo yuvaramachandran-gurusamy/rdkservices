@@ -43,6 +43,8 @@ using namespace std;
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_PLAY_REQUEST = "playRequest";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_STOP_REQUEST = "stopRequest";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE = "setVideoRectangle";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_VIDEO_FORMATS = "setVideoFormats";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_AUDIO_FORMATS = "setAudioFormats";
 
 #define EVT_ON_STATE_CHANGE "onStateChange"
 
@@ -79,6 +81,8 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_PLAYER_PLAY_REQUEST, &MiracastPlayer::playRequest, this);
 			Register(METHOD_MIRACAST_PLAYER_STOP_REQUEST, &MiracastPlayer::stopRequest, this);
 			Register(METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE, &MiracastPlayer::setVideoRectangle, this);
+			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastPlayer::setVideoFormats, this);
+			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastPlayer::setAudioFormats, this);
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -323,6 +327,134 @@ namespace WPEFramework
 				m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 				success = true;
 			}
+
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		/**
+		 * @brief This method used to set the videoformats for Miracast.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastPlayer::setVideoFormats(const JsonObject &parameters, JsonObject &response)
+		{
+			JsonArray h264_codecs;
+			RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt = {0};
+			bool success = false;
+
+			LOGINFO("Entering..!!!");
+
+			returnIfParamNotFound(parameters, "native");
+			returnIfBooleanParamNotFound(parameters, "display_mode_supported");
+			returnIfParamNotFound(parameters, "h264_codecs");
+
+			h264_codecs = parameters["h264_codecs"].Array();
+			if (0 == h264_codecs.Length())
+			{
+				LOGWARN("Got empty list of h264_codecs");
+				returnResponse(false);
+			}
+			getNumberParameter("native", st_video_fmt.native);
+			getBoolParameter("display_mode_supported", st_video_fmt.preferred_display_mode_supported);
+
+			JsonArray::Iterator index(h264_codecs.Elements());
+
+			while (index.Next() == true)
+			{
+				if (Core::JSON::Variant::type::OBJECT == index.Current().Content())
+				{
+					JsonObject codecs = index.Current().Object();
+
+					returnIfParamNotFound(codecs, "profile");
+					returnIfParamNotFound(codecs, "level");
+					returnIfParamNotFound(codecs, "cea_mask");
+					returnIfParamNotFound(codecs, "vesa_mask");
+					returnIfParamNotFound(codecs, "hh_mask");
+
+					getNumberParameterObject(codecs, "profile", st_video_fmt.st_h264_codecs.profile);
+					getNumberParameterObject(codecs, "level", st_video_fmt.st_h264_codecs.level);
+					getNumberParameterObject(codecs, "cea_mask", st_video_fmt.st_h264_codecs.cea_mask);
+					getNumberParameterObject(codecs, "vesa_mask", st_video_fmt.st_h264_codecs.vesa_mask);
+					getNumberParameterObject(codecs, "hh_mask", st_video_fmt.st_h264_codecs.hh_mask);
+					getNumberParameterObject(codecs, "latency", st_video_fmt.st_h264_codecs.latency);
+					getNumberParameterObject(codecs, "min_slice", st_video_fmt.st_h264_codecs.min_slice);
+					getNumberParameterObject(codecs, "slice_encode", st_video_fmt.st_h264_codecs.slice_encode);
+
+					if (codecs.HasLabel("video_frame_skip_support"))
+					{
+						bool video_frame_skip_support;
+						video_frame_skip_support = codecs["video_frame_skip_support"].Boolean();
+						st_video_fmt.st_h264_codecs.video_frame_skip_support = video_frame_skip_support;
+					}
+
+					if (codecs.HasLabel("max_skip_intervals"))
+					{
+						uint8_t max_skip_intervals;
+						getNumberParameterObject(codecs, "max_skip_intervals", max_skip_intervals);
+						st_video_fmt.st_h264_codecs.max_skip_intervals = max_skip_intervals;
+					}
+
+					if (codecs.HasLabel("video_frame_rate_change_support"))
+					{
+						bool video_frame_rate_change_support;
+						video_frame_rate_change_support = codecs["video_frame_rate_change_support"].Boolean();
+						st_video_fmt.st_h264_codecs.video_frame_rate_change_support = video_frame_rate_change_support;
+					}
+				}
+				else
+					LOGWARN("Unexpected variant type");
+			}
+			success = m_miracast_rtsp_obj->set_WFDVideoFormat(st_video_fmt);
+
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		/**
+		 * @brief This method used to set the audioformats for Miracast.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastPlayer::setAudioFormats(const JsonObject &parameters, JsonObject &response)
+		{
+			JsonArray audio_codecs;
+			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
+			bool success = false;
+
+			LOGINFO("Entering..!!!");
+
+			returnIfParamNotFound(parameters, "audio_codecs");
+
+			audio_codecs = parameters["audio_codecs"].Array();
+			if (0 == audio_codecs.Length())
+			{
+				LOGWARN("Got empty list of audio_codecs");
+				returnResponse(false);
+			}
+
+			JsonArray::Iterator index(audio_codecs.Elements());
+
+			while (index.Next() == true)
+			{
+				if (Core::JSON::Variant::type::OBJECT == index.Current().Content())
+				{
+					JsonObject codecs = index.Current().Object();
+
+					returnIfParamNotFound(codecs, "audio_format");
+					returnIfParamNotFound(codecs, "modes");
+					returnIfParamNotFound(codecs, "latency");
+
+					getNumberParameterObject(codecs, "audio_format", st_audio_fmt.audio_format);
+					getNumberParameterObject(codecs, "modes", st_audio_fmt.modes);
+					getNumberParameterObject(codecs, "latency", st_audio_fmt.latency);
+				}
+				else
+					LOGWARN("Unexpected variant type");
+			}
+			success = m_miracast_rtsp_obj->set_WFDAudioCodecs(st_audio_fmt);
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);

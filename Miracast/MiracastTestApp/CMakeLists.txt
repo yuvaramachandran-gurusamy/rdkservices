@@ -33,7 +33,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES)
 
-target_include_directories(${MODULE_NAME} PRIVATE ./ ../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDES})
+target_include_directories(${MODULE_NAME} PRIVATE ./ ../../helpers ${IARMBUS_INCLUDE_DIRS} ${GLIB_INCLUDE_DIRS} ${GSTREAMER_INCLUDES})
 
 target_compile_options(${MODULE_NAME} PRIVATE -Wno-error -fpermissive -Os -pipe -g -feliminate-unused-debug-types -Wl,-O1 -Wl,--hash-style=gnu -Wl,--as-needed)
 #target_compile_options(${MODULE_NAME} PRIVATE -DENABLE_HDCP2X_SUPPORT)
