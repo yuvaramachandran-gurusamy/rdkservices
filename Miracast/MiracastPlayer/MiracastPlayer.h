@@ -59,6 +59,7 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE;
             static const string METHOD_MIRACAST_SET_VIDEO_FORMATS;
             static const string METHOD_MIRACAST_SET_AUDIO_FORMATS;
+            static const string METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT;
 
             MiracastPlayer();
             virtual ~MiracastPlayer();
@@ -90,6 +91,7 @@ namespace WPEFramework
             uint32_t setVideoRectangle(const JsonObject &parameters, JsonObject &response);
             uint32_t setVideoFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
+            uint32_t setRTSPWaitTimeout(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eM_PLAYER_REASON_CODE) throw();
             std::string stateDescription(eMIRA_PLAYER_STATES) throw();

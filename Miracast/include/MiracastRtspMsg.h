@@ -389,6 +389,8 @@ public:
     void reset_WFDSourceMACAddress(void);
     void reset_WFDSourceName(void);
 
+    bool set_WFDRequestResponseTimeout( unsigned int request_timeout , unsigned int response_timeout );
+
     eMIRA_PLAYER_STATES get_state(void);
 
     void send_msgto_rtsp_msg_hdler_thread(RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data);

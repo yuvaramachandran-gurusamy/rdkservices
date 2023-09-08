@@ -45,6 +45,7 @@ const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_STOP_R
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE = "setVideoRectangle";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_VIDEO_FORMATS = "setVideoFormats";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_AUDIO_FORMATS = "setAudioFormats";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT = "setRTSPWaitTimeOut";
 
 #define EVT_ON_STATE_CHANGE "onStateChange"
 
@@ -83,6 +84,8 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE, &MiracastPlayer::setVideoRectangle, this);
 			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastPlayer::setVideoFormats, this);
 			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastPlayer::setAudioFormats, this);
+			Register(METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT, &MiracastPlayer::setRTSPWaitTimeout, this);
+
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -327,6 +330,27 @@ namespace WPEFramework
 				m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 				success = true;
 			}
+
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		uint32_t MiracastPlayer::setRTSPWaitTimeout(const JsonObject &parameters, JsonObject &response)
+		{
+			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
+			bool success = false;
+			unsigned int request_time = 0,
+						 response_time = 0;
+
+			LOGINFO("Entering..!!!");
+
+			returnIfParamNotFound(parameters, "Request");
+			returnIfParamNotFound(parameters, "Response");
+
+			request_time = parameters["Request"].Number();
+			response_time = parameters["Response"].Number();
+
+			success = m_miracast_rtsp_obj->set_WFDRequestResponseTimeout( request_time , response_time );
 
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
