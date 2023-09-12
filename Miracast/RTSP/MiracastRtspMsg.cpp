@@ -151,7 +151,7 @@ MiracastRTSPMsg::MiracastRTSPMsg()
 
     m_wfd_src_req_timeout = RTSP_REQUEST_RECV_TIMEOUT;
     m_wfd_src_res_timeout = RTSP_RESPONSE_RECV_TIMEOUT;
-    m_wfd_src_session_timeout = SOCKET_DFLT_WAIT_TIMEOUT;
+    m_wfd_src_session_timeout = RTSP_DFLT_KEEP_ALIVE_WAIT_TIMEOUT_SEC;
 
     m_current_sequence_number.clear();
 
@@ -1155,15 +1155,25 @@ RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m6_ack_m7_send_request(std::string rt
         while (std::getline(ss, line))
         {
             if (line.find(RTSP_STD_SESSION_FIELD) != std::string::npos) {
-                std::regex sessionRegex("Session: ([0-9]+);timeout=([0-9]+)");
+                std::regex sessionRegex("Session: ([0-9a-fA-F]+)(?:;timeout=([0-9]+))?");
                 std::smatch match;
                 if (std::regex_search(line, match, sessionRegex) && match.size() == 3) {
                     session_number = match[1];
-                    timeoutValue = std::stoi(match[2]);
-                    MIRACASTLOG_TRACE("timeoutValue[%d]\n",timeoutValue);
+                    if (match.size() > 2 && match[2].matched)
+                    {
+                        timeoutValue = std::stoi(match[2]);
+                        MIRACASTLOG_TRACE("timeoutValue[%d]\n",timeoutValue);
+                    }
+                    else
+                    {
+                        timeoutValue = RTSP_DFLT_KEEP_ALIVE_WAIT_TIMEOUT_SEC;
+                        MIRACASTLOG_ERROR("Failed to obtain timeout from [%s] and configured the default value[%d]\n",
+                                            line.c_str(),
+                                            timeoutValue);
+                    }
                 }
                 else{
-                    MIRACASTLOG_ERROR("Failed to obtain timeout from [%s]\n",line.c_str());
+                    MIRACASTLOG_ERROR("Failed to obtain Session and Timeout from [%s]\n",line.c_str());
                 }
             }
 
