@@ -198,18 +198,14 @@ std::string MiracastController::parse_p2p_event_data(const char *tmpBuff, const 
 std::string MiracastController::start_DHCPClient(std::string interface, std::string &default_gw_ip_addr)
 {
     MIRACASTLOG_TRACE("Entering...");
-    char data[1024] = {0};
     char command[128] = {0};
     char sys_cls_file_ifidx[128] = {0};
-    std::string leaseof_str = "lease of ",
-                gw_str = "route add default gw ",
-                local_addr = "",
+    std::string local_addr = "",
+                gw_ip_addr = "",
                 popen_buffer = "";
     FILE *popen_file_ptr = nullptr;
     char *current_line_buffer = nullptr;
-    std::size_t len = 0,
-                local_ip_pos = 0,
-                gw_pos = 0;
+    std::size_t len = 0;
     unsigned char retry_count = 3;
 
     sprintf( sys_cls_file_ifidx , "/sys/class/net/%s/ifindex" , interface.c_str());
@@ -234,32 +230,46 @@ std::string MiracastController::start_DHCPClient(std::string interface, std::str
         }
         else
         {
-            memset( data , 0x00 , sizeof(data));
+            std::smatch match;
+            std::regex localipRegex(R"(lease\s+of\s+(\d+\.\d+\.\d+\.\d+)\s+obtained)");
+            std::regex goipRegex1(R"(default\s+gw\s+(\d+\.\d+\.\d+\.\d+)\s+dev)");
+            std::regex goipRegex2(R"(Adding\s+DNS\s+(\d+\.\d+\.\d+\.\d+))", std::regex_constants::icase);
+
+            MIRACASTLOG_VERBOSE("udhcpc output as below:\n");
+
             while (getline(&current_line_buffer, &len, popen_file_ptr) != -1)
             {
-                sprintf(data + strlen(data), current_line_buffer);
-                MIRACASTLOG_VERBOSE("data : [%s]", data);
+                MIRACASTLOG_VERBOSE("[%s]", current_line_buffer);
+                popen_buffer = current_line_buffer;
+
+                if ( local_addr.empty() && (std::regex_search(popen_buffer, match, localipRegex)))
+                {
+                    local_addr = match[1];
+                    MIRACASTLOG_VERBOSE("local IP addr obtained is %s\n", local_addr.c_str());
+                }
+
+                /* Here retrieved the default gw ip address. Later it can be used as GO IP address if P2P-GROUP started as PERSISTENT */
+                if ( gw_ip_addr.empty() && (std::regex_search(popen_buffer, match, goipRegex1)))
+                {
+                    gw_ip_addr = match[1];
+                    MIRACASTLOG_VERBOSE("GO IP addr obtained is %s\n", gw_ip_addr.c_str());
+                }
+                else if ( gw_ip_addr.empty() && (std::regex_search(popen_buffer, match, goipRegex2)))
+                {
+                    gw_ip_addr = match[1];
+                    MIRACASTLOG_VERBOSE("GO IP addr obtained is %s\n", gw_ip_addr.c_str());
+                }
             }
+            MIRACASTLOG_VERBOSE("udhcpc output done\n");
             pclose(popen_file_ptr);
             popen_file_ptr = nullptr;
 
-            popen_buffer = data;
-
-            MIRACASTLOG_VERBOSE("popen_buffer is %s\n", popen_buffer.c_str());
-
-            local_ip_pos = popen_buffer.find(leaseof_str.c_str()) + leaseof_str.length();
-            local_addr = popen_buffer.substr(local_ip_pos, popen_buffer.find(" obtained") - local_ip_pos);
-            MIRACASTLOG_VERBOSE("local IP addr obtained is %s\n", local_addr.c_str());
-
-            /* Here retrieved the default gw ip address. Later it can be used as GO IP address if P2P-GROUP started as PERSISTENT */
-            gw_pos = popen_buffer.find(gw_str.c_str()) + gw_str.length();
-            default_gw_ip_addr = popen_buffer.substr(gw_pos, popen_buffer.find(" dev") - gw_pos);
-            MIRACASTLOG_VERBOSE("default_gw_ip_addr obtained is %s\n", default_gw_ip_addr.c_str());
             free(current_line_buffer);
             current_line_buffer = nullptr;
 
             if (!local_addr.empty()){
                 MIRACASTLOG_VERBOSE("%s is success\n", command);
+                default_gw_ip_addr = gw_ip_addr;
                 break;
             }
         }
