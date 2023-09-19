@@ -54,6 +54,8 @@ void logger_init(const char* module_name);
  */
 void logger_deinit();
 
+void set_loglevel(LogLevel level);
+
 #define MIRACAST_assert(expr) do { \
                               if ( __builtin_expect(expr, true) ) \
                                 {} \

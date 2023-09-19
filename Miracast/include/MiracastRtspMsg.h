@@ -39,10 +39,13 @@ typedef enum rtsp_status_e
     RTSP_MSG_SUCCESS,
     RTSP_INVALID_MSG_RECEIVED,
     RTSP_MSG_TEARDOWN_REQUEST,
+    RTSP_M1_M7_MSG_EXCHANGE_RECEIVED,
     RTSP_KEEP_ALIVE_MSG_RECEIVED,
-    RTSP_TIMEDOUT
+    RTSP_TIMEDOUT,
+    RTSP_METHOD_NOT_SUPPORTED
 } RTSP_STATUS;
 
+#if 0
 #define RTSP_CRLF_STR "\r\n"
 #define RTSP_DOUBLE_QUOTE_STR "\""
 #define RTSP_SPACE_STR SPACE_CHAR
@@ -52,20 +55,27 @@ typedef enum rtsp_status_e
 #define RTSP_STD_REQUEST_STR "RTSP/1.0" RTSP_CRLF_STR
 #define RTSP_REQ_OPTIONS "OPTIONS * " RTSP_STD_REQUEST_STR
 #define RTSP_TRIGGER_METHOD_FIELD   "wfd_trigger_method: "
-#define RTSP_REQ_PLAY_MODE "PLAY"
-#define RTSP_REQ_PAUSE_MODE "PAUSE"
-#define RTSP_REQ_TEARDOWN_MODE "TEARDOWN"
+
 #define RTSP_STD_SEQUENCE_FIELD "CSeq: "
 #define RTSP_STD_REQUIRE_FIELD "Require: "
 #define RTSP_STD_SESSION_FIELD "Session: "
+
+#define RTSP_REQ_PLAY_MODE "PLAY"
+#define RTSP_REQ_PAUSE_MODE "PAUSE"
+#define RTSP_REQ_TEARDOWN_MODE "TEARDOWN"
+
 #define RTSP_STD_UNICAST_FIELD "unicast"
+
 #define RTSP_WFD_CONTENT_PROTECT_FIELD "wfd_content_protection: "
 #define RTSP_WFD_VIDEO_FMT_FIELD "wfd_video_formats: "
 #define RTSP_WFD_AUDIO_FMT_FIELD "wfd_audio_codecs: "
 #define RTSP_WFD_CLIENT_PORTS_FIELD "wfd_client_rtp_ports: "
 #define RTSP_WFD_PRESENTATION_URL_FIELD "wfd_presentation_URL: "
+
 #define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
 #define RTSP_SET_PARAMETER_FIELD "SET_PARAMETER"
+
+#endif
 
 /* Default values*/
 #define RTSP_DFLT_CONTENT_PROTECTION "none"
@@ -73,7 +83,79 @@ typedef enum rtsp_status_e
 #define RTSP_DFLT_AUDIO_FORMATS "AAC 00000007 00"
 #define RTSP_DFLT_TRANSPORT_PROFILE "RTP/AVP/UDP"
 #define RTSP_DFLT_STREAMING_PORT "1990"
+#define RTSP_STD_UNICAST_FIELD "unicast"
 #define RTSP_DFLT_CLIENT_RTP_PORTS RTSP_DFLT_TRANSPORT_PROFILE RTSP_SEMI_COLON_STR RTSP_STD_UNICAST_FIELD RTSP_SPACE_STR RTSP_DFLT_STREAMING_PORT RTSP_SPACE_STR "0 mode=play"
+
+#define RTSP_CRLF_STR "\r\n"
+#define RTSP_DOUBLE_QUOTE_STR "\""
+#define RTSP_SPACE_STR SPACE_CHAR
+#define RTSP_SEMI_COLON_STR ";"
+
+/* It will be used to parse the data from WFD Source */
+//#define RTSP_STD_REQUEST_STR "RTSP/1.0" RTSP_CRLF_STR
+//#define RTSP_REQ_OPTIONS "OPTIONS * " RTSP_STD_REQUEST_STR
+
+//#define RTSP_STD_SEQUENCE_FIELD "CSeq: "
+//#define RTSP_STD_REQUIRE_FIELD "Require: "
+//#define RTSP_STD_SESSION_FIELD "Session: "
+
+//#define RTSP_TRIGGER_METHOD_FIELD   "wfd_trigger_method: "
+
+//#define RTSP_STD_UNICAST_FIELD "unicast"
+
+//#define RTSP_WFD_CONTENT_PROTECT_FIELD "wfd_content_protection: "
+//#define RTSP_WFD_VIDEO_FMT_FIELD "wfd_video_formats: "
+//#define RTSP_WFD_AUDIO_FMT_FIELD "wfd_audio_codecs: "
+//#define RTSP_WFD_CLIENT_PORTS_FIELD "wfd_client_rtp_ports: "
+//#define RTSP_WFD_PRESENTATION_URL_FIELD "wfd_presentation_URL: "
+
+//#define RTSP_M16_REQUEST_MSG "GET_PARAMETER rtsp://localhost/wfd1.0 RTSP/1.0"
+//#define RTSP_SET_PARAMETER_FIELD "SET_PARAMETER"
+
+class MiracastRTSPMsg;
+
+typedef enum rtsp_parser_fields_e
+{
+    RTSP_PARSER_FIELD_START  = 0x00,
+
+    RTSP_OPTIONS_REQ_FIELD,
+
+    /* M2 Response validation Mark START */
+    RTSP_M2_RESPONSE_VALIDATE_MARKER_START,
+    RTSP_OPTIONS_QUERY_FIELD,
+    RTSP_SETUP_FIELD,
+    RTSP_TEARDOWN_FIELD,
+    RTSP_PLAY_FIELD,
+    RTSP_PAUSE_FIELD,
+    RTSP_GET_PARAMETER_FIELD,
+    RTSP_SET_PARAMETER_FIELD,
+    RTSP_M2_RESPONSE_VALIDATE_MARKER_END,
+    /* M2 Response validation Mark END */
+
+    /* M3 Request validation Mark START */
+    RTSP_M3_REQ_VALIDATE_MARKER_START,
+    RTSP_WFD_HDCP_FIELD,
+    RTSP_WFD_VIDEO_FMT_FIELD,
+    RTSP_WFD_AUDIO_CODEC_FIELD,
+    RTSP_WFD_CLI_RTP_PORTS_FIELD,
+    RTSP_M3_REQ_VALIDATE_MARKER_END,
+    /* M3 Request validation Mark END */
+
+    RTSP_WFD_STREAMING_URL_FIELD,
+
+    RTSP_SEQUENCE_FIELD,
+    RTSP_REQUIRE_FIELD,
+    RTSP_SESSION_FIELD,
+    RTSP_PUBLIC_FIELD,
+    RTSP_TRANSPORT_FIELD,
+    RTSP_CONTENT_TEXT_FIELD,
+    RTSP_TRIGGER_METHOD_FIELD,
+    RTSP_UNICAST_FIELD,
+    RTSP_VERSION_FIELD,
+
+    RTSP_PARSER_FIELD_END
+}
+RTSP_PARSER_FIELDS;
 
 typedef enum rtsp_message_format_sink2src_e
 {
@@ -89,6 +171,7 @@ typedef enum rtsp_message_format_sink2src_e
     RTSP_MSG_FMT_PLAY_REQUEST,
     RTSP_MSG_FMT_TEARDOWN_REQUEST,
     RTSP_MSG_FMT_TRIGGER_METHODS_RESPONSE,
+    RTSP_MSG_FMT_REPORT_ERROR,
     RTSP_MSG_FMT_INVALID
 } RTSP_MSG_FMT_SINK2SRC;
 
@@ -142,17 +225,24 @@ typedef enum rtsp_error_codes_e
     RTSP_ERRORCODE_INVALID
 }RTSP_ERRORCODES;
 
-typedef struct rtsp_msg_template_info
+typedef struct rtsp_msg_fmt_template_st
 {
     RTSP_MSG_FMT_SINK2SRC rtsp_msg_fmt_e;
     const char *template_name;
-} RTSP_MSG_TEMPLATE_INFO;
+} RTSP_MSG_FMT_TEMPLATE;
 
 typedef struct rtsp_errorcode_template
 {
     RTSP_ERRORCODES rtsp_errorcode_e;
     const char *string_fmt;
 } RTSP_ERRORCODE_TEMPLATE;
+
+typedef struct rtsp_parser_template_st
+{
+    RTSP_PARSER_FIELDS rtsp_parser_field_e;
+    const char *string_fmt;
+    std::string (MiracastRTSPMsg::*parse_field_info_fn)(void);
+} RTSP_PARSER_TEMPLATE;
 
 typedef enum rtsp_native_timing_options_e
 {
@@ -427,6 +517,7 @@ private:
     int m_tcpSockfd;
     unsigned int m_wfd_src_req_timeout;
     unsigned int m_wfd_src_res_timeout;
+    unsigned int m_current_wait_time_ms;
     int m_wfd_src_session_timeout;
     eMIRA_PLAYER_STATES m_current_state;
 
@@ -454,8 +545,12 @@ private:
     std::string m_sink_ip;
     RTSP_WFD_VIDEO_FMT_STRUCT   m_wfd_video_formats_st;
     RTSP_WFD_AUDIO_FMT_STRUCT   m_wfd_audio_formats_st;
-    static RTSP_MSG_TEMPLATE_INFO rtsp_msg_template_info[];
+
+    static RTSP_MSG_FMT_TEMPLATE rtsp_msg_fmt_template[];
     static RTSP_ERRORCODE_TEMPLATE rtsp_msg_error_codes[];
+    static RTSP_PARSER_TEMPLATE rtsp_msg_parser_fields[];
+    static const int num_parse_fields;
+
     MiracastThread *m_rtsp_msg_handler_thread;
     MiracastThread *m_controller_thread;
 
@@ -473,14 +568,31 @@ private:
     RTSP_STATUS validate_rtsp_m4_response_back(std::string rtsp_m4_msg_buffer);
     RTSP_STATUS validate_rtsp_m5_msg_m6_send_request(std::string rtsp_m5_msg_buffer);
     RTSP_STATUS validate_rtsp_m6_ack_m7_send_request(std::string rtsp_m6_ack_buffer);
-    RTSP_STATUS validate_rtsp_m7_request_ack(std::string rtsp_m7_ack_buffer);
+    RTSP_STATUS validate_rtsp_trigger_request_ack(std::string rtsp_trigger_req_ack_buffer , std::string received_seq_num );
     RTSP_STATUS validate_rtsp_post_m1_m7_xchange(std::string rtsp_post_m1_m7_xchange_buffer);
     RTSP_STATUS rtsp_sink2src_request_msg_handling(eCONTROLLER_FW_STATES state);
 
+    RTSP_STATUS validate_rtsp_receive_buffer_handling(std::string rtsp_msg_buffer);
+    RTSP_STATUS validate_rtsp_generic_request_response( std::string rtsp_msg_buffer );
+    RTSP_STATUS validate_rtsp_options_request( std::string rtsp_msg_buffer );
+    RTSP_STATUS validate_rtsp_getparameter_request( std::string rtsp_msg_buffer );
+    RTSP_STATUS validate_rtsp_setparameter_request( std::string rtsp_msg_buffer );
+    RTSP_STATUS validate_rtsp_trigger_method_request(std::string rtsp_msg_buffer);
+    RTSP_STATUS send_rtsp_reply_sink2src( RTSP_MSG_FMT_SINK2SRC req_fmt , std::string received_seq_num = "" , RTSP_ERRORCODES error_code = RTSP_ERRORCODE_OK );
+
     const char *get_RequestResponseFormat(RTSP_MSG_FMT_SINK2SRC format_type);
     const char* get_errorcode_string(RTSP_ERRORCODES error_code);
+    const char* get_parser_field_by_index(RTSP_PARSER_FIELDS parse_field);
+    std::string get_parser_field_value(RTSP_PARSER_FIELDS parse_field);
+    std::string get_parser_field_n_value_by_name(std::string request_field_name );
+    std::string parse_received_parser_field_value(std::string rtsp_msg_buffer , RTSP_PARSER_FIELDS parse_field );
+
     std::string generate_request_response_msg(RTSP_MSG_FMT_SINK2SRC msg_fmt_needed, std::string received_session_no , std::string append_data1 , RTSP_ERRORCODES error_code = RTSP_ERRORCODE_OK );
     std::string get_RequestSequenceNumber(void);
+    std::string generate_RequestSequenceNumber(void);
+
+    bool set_wait_timeout(unsigned int waittime_ms);
+    unsigned int get_wait_timeout(void);
 
     RTSP_STATUS receive_buffer_timedOut(int sockfd, void *buffer, size_t buffer_len , unsigned int wait_time_ms = RTSP_REQUEST_RECV_TIMEOUT );
     bool wait_data_timeout(int m_Sockfd, unsigned int ms);

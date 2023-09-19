@@ -169,6 +169,11 @@ bool MiracastGstPlayer::pause()
     return changePipelineState(GST_STATE_PAUSED);
 }
 
+bool MiracastGstPlayer::resume()
+{
+    return changePipelineState(GST_STATE_PLAYING);
+}
+
 bool MiracastGstPlayer::stop()
 {
     MIRACASTLOG_TRACE("Entering..");
@@ -270,8 +275,21 @@ bool MiracastGstPlayer::createPipeline()
 
     unsigned flagAudio = getGstPlayFlag("audio");
     unsigned flagVideo = getGstPlayFlag("video");
+    unsigned flagNativeVideo = 0;
+    unsigned flagBuffering = 0;
 
-    g_object_set(m_pipeline, "flags", flagAudio | flagVideo, nullptr);
+    if (0 == access("/opt/miracast_native_video", F_OK))
+    {
+        flagNativeVideo = getGstPlayFlag("native-video");
+        MIRACASTLOG_INFO("flagNativeVideo [ %#04X ]", flagNativeVideo);
+    }
+    if (0 == access("/opt/miracast_buffering", F_OK))
+    {
+        flagBuffering = getGstPlayFlag("buffering");
+        MIRACASTLOG_INFO("flagBuffering [ %#04X ]", flagBuffering);
+    }
+
+    g_object_set(m_pipeline, "flags", flagAudio | flagVideo | flagNativeVideo | flagBuffering, nullptr);
 
     MIRACASTLOG_INFO("Miracast playbin uri [ %s ]", m_uri.c_str());
 
@@ -279,6 +297,14 @@ bool MiracastGstPlayer::createPipeline()
 
     m_video_sink = gst_element_factory_make("westerossink", nullptr);
 
+    if (0 == access("/opt/miracast_immediateoutput", F_OK))
+    {
+        if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
+        {
+            g_object_set(G_OBJECT(m_video_sink), "immediate-output", TRUE, nullptr);
+            MIRACASTLOG_INFO("Set immediate-output as TRUE \n");
+        }
+    }
 #if 0
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
     {
@@ -305,10 +331,17 @@ bool MiracastGstPlayer::createPipeline()
     pthread_create(&m_playback_thread, nullptr, MiracastGstPlayer::playbackThread, this);
     pthread_create(&m_player_statistics_tid, nullptr, MiracastGstPlayer::monitor_player_statistics_thread, this);
 
-    MIRACASTLOG_TRACE("Start Playing.");
-
     /* Start playing */
-    ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+    if (0 == access("/opt/miracast_player_state", F_OK))
+    {
+        MIRACASTLOG_TRACE("Pipeline Paused.");
+        ret = gst_element_set_state(m_pipeline, GST_STATE_PAUSED);
+    }
+    else
+    {
+        MIRACASTLOG_TRACE("Start Playing.");
+        ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
+    }
 
     if (ret == GST_STATE_CHANGE_FAILURE)
     {
@@ -476,6 +509,21 @@ gboolean MiracastGstPlayer::busMessageCb(GstBus *bus, GstMessage *msg, gpointer 
         gst_element_set_state(self->m_pipeline, GST_STATE_PAUSED);
         gst_element_set_state(self->m_pipeline, GST_STATE_PLAYING);
         break;
+    case GST_MESSAGE_ASYNC_DONE:
+    {
+        MIRACASTLOG_VERBOSE("BusMessageCallback GST_MESSAGE_ASYNC_DONE Received\n");
+        if (GST_MESSAGE_SRC(msg) == GST_OBJECT(self->m_pipeline))
+        {
+            MIRACASTLOG_VERBOSE("===> ASYNC-DONE %s %d\n",gst_element_state_get_name(GST_STATE(self->m_pipeline)));
+            MIRACASTLOG_VERBOSE("BusMessageCallback GST_MESSAGE_ASYNC_DONE \n");
+            if (0 == access("/opt/miracast_player_state", F_OK))
+            {
+                MIRACASTLOG_VERBOSE("BusMessageCallback start playing\n");
+                gst_element_set_state(self->m_pipeline, GST_STATE_PLAYING);
+            }
+        }
+    }
+    break;
     case GST_MESSAGE_QOS:
     {
         MIRACASTLOG_VERBOSE("Received [%s], a buffer was dropped or an element changed its processing strategy for Quality of Service reasons.", gst_message_type_get_name(msg->type));

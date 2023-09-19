@@ -69,6 +69,11 @@ namespace MIRACAST
         }
     }
 
+    void set_loglevel(LogLevel level)
+    {
+        gDefaultLogLevel = level;
+    }
+
     void log(LogLevel level,
              const char *func,
              const char *file,

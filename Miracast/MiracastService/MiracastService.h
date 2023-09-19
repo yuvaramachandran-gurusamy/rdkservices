@@ -56,7 +56,8 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_GET_ENABLE;
             static const string METHOD_MIRACAST_CLIENT_CONNECT;
             static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
-            static const string METHOD_MIRACAST_SER_UPDATE_PLAYER_STATE;
+            static const string METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE;
+            static const string METHOD_MIRACAST_SET_LOG_LEVEL;
             static const string METHOD_MIRACAST_TEST_NOTIFIER;
 
             MiracastService();
@@ -81,12 +82,14 @@ namespace WPEFramework
         private:
             bool m_isServiceInitialized;
             bool m_isServiceEnabled;
+            eMIRA_SERVICE_STATES m_eService_state;
             WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement> *m_SystemPluginObj = NULL;
             uint32_t setEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t getEnable(const JsonObject &parameters, JsonObject &response);
             uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
+            uint32_t setLogLevel(const JsonObject &parameters, JsonObject &response);
             uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw();

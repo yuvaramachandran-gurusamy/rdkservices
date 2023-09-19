@@ -42,10 +42,12 @@ using namespace std;
 /*Methods*/
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_PLAY_REQUEST = "playRequest";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_STOP_REQUEST = "stopRequest";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_PLAYER_STATE = "setPlayerState";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE = "setVideoRectangle";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_VIDEO_FORMATS = "setVideoFormats";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_AUDIO_FORMATS = "setAudioFormats";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT = "setRTSPWaitTimeOut";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL = "setLogLevel";
 
 #define EVT_ON_STATE_CHANGE "onStateChange"
 
@@ -81,10 +83,12 @@ namespace WPEFramework
 			MIRACAST::logger_init("MiracastPlayer");
 			Register(METHOD_MIRACAST_PLAYER_PLAY_REQUEST, &MiracastPlayer::playRequest, this);
 			Register(METHOD_MIRACAST_PLAYER_STOP_REQUEST, &MiracastPlayer::stopRequest, this);
+			Register(METHOD_MIRACAST_PLAYER_SET_PLAYER_STATE, &MiracastPlayer::setPlayerState, this);
 			Register(METHOD_MIRACAST_PLAYER_SET_VIDEO_RECTANGLE, &MiracastPlayer::setVideoRectangle, this);
 			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastPlayer::setVideoFormats, this);
 			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastPlayer::setAudioFormats, this);
 			Register(METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT, &MiracastPlayer::setRTSPWaitTimeout, this);
+			Register(METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL, &MiracastPlayer::setLogLevel, this);
 
 			LOGINFO("Exiting..!!!");
 		}
@@ -293,6 +297,43 @@ namespace WPEFramework
 			returnResponse(success);
 		}
 
+		uint32_t MiracastPlayer::setPlayerState(const JsonObject &parameters, JsonObject &response)
+		{
+			string player_state;
+			bool success = false;
+			LOGINFO("Entering..!!!");
+			if(parameters.HasLabel("state"))
+			{
+				RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
+				getStringParameter("state", player_state);
+				success = true;
+				if (player_state == "STOP" || player_state == "stop")
+				{
+					rtsp_hldr_msgq_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
+				}
+				else if (player_state == "PLAY" || player_state == "play")
+				{
+					rtsp_hldr_msgq_data.state = RTSP_PLAY_FROM_SINK2SRC;
+				}
+				else if (player_state == "PAUSE" || player_state == "pause")
+				{
+					rtsp_hldr_msgq_data.state = RTSP_PAUSE_FROM_SINK2SRC;
+				}
+				else
+				{
+					LOGERR("Invalid Player state[%s]",player_state.c_str());
+					success = false;
+				}
+
+				if (success)
+				{
+					m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+				}
+			}
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
 		uint32_t MiracastPlayer::setVideoRectangle(const JsonObject &parameters, JsonObject &response)
 		{
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
@@ -352,6 +393,58 @@ namespace WPEFramework
 
 			success = m_miracast_rtsp_obj->set_WFDRequestResponseTimeout( request_time , response_time );
 
+			LOGINFO("Exiting..!!!");
+			returnResponse(success);
+		}
+
+		uint32_t MiracastPlayer::setLogLevel(const JsonObject &parameters, JsonObject &response)
+		{
+			std::string log_level = "";
+			bool success = false;
+
+			LOGINFO("Entering..!!!");
+
+			returnIfStringParamNotFound(parameters, "level");
+			
+			if (parameters.HasLabel("level"))
+			{
+				LogLevel level = FATAL_LEVEL;
+				getStringParameter("level", log_level);
+				success = true;
+				if (log_level == "FATAL" || log_level == "fatal")
+				{
+					level = FATAL_LEVEL;
+				}
+				else if (log_level == "ERROR" || log_level == "error")
+				{
+					level = ERROR_LEVEL;
+				}
+				else if (log_level == "WARNING" || log_level == "warning")
+				{
+					level = WARNING_LEVEL;
+				}
+				else if (log_level == "INFO" || log_level == "info")
+				{
+					level = INFO_LEVEL;
+				}
+				else if (log_level == "VERBOSE" || log_level == "verbose")
+				{
+					level = VERBOSE_LEVEL;
+				}
+				else if (log_level == "TRACE" || log_level == "trace")
+				{
+					level = TRACE_LEVEL;
+				}
+				else
+				{
+					success = false;
+				}
+
+				if (success)
+				{
+					set_loglevel(level);
+				}
+			}
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
@@ -514,44 +607,48 @@ namespace WPEFramework
 			LOGINFO("Exiting..!!!");
 		}
 
-		std::string MiracastPlayer::stateDescription(eMIRA_PLAYER_STATES e) throw()
+		std::string MiracastPlayer::stateDescription(eMIRA_PLAYER_STATES e)
 		{
 			switch (e)
 			{
-			case MIRACAST_PLAYER_STATE_IDLE:
-				return "IDLE";
-			case MIRACAST_PLAYER_STATE_INITIATED:
-				return "INITIATED";
-			case MIRACAST_PLAYER_STATE_INPROGRESS:
-				return "INPROGRESS";
-			case MIRACAST_PLAYER_STATE_PLAYING:
-				return "PLAYING";
-			case MIRACAST_PLAYER_STATE_STOPPED:
-			case MIRACAST_PLAYER_STATE_SELF_ABORT:
-				return "STOPPED";
-			default:
-				throw std::invalid_argument("Unimplemented item");
+				case MIRACAST_PLAYER_STATE_IDLE:
+					return "IDLE";
+				case MIRACAST_PLAYER_STATE_INITIATED:
+					return "INITIATED";
+				case MIRACAST_PLAYER_STATE_INPROGRESS:
+					return "INPROGRESS";
+				case MIRACAST_PLAYER_STATE_PLAYING:
+					return "PLAYING";
+				case MIRACAST_PLAYER_STATE_STOPPED:
+				case MIRACAST_PLAYER_STATE_SELF_ABORT:
+					return "STOPPED";
+				default:
+					return "Unimplemented state";
 			}
 		}
 
-		std::string MiracastPlayer::reasonDescription(eM_PLAYER_REASON_CODE e) throw()
+		std::string MiracastPlayer::reasonDescription(eM_PLAYER_REASON_CODE e)
 		{
 			switch (e)
 			{
-			case MIRACAST_PLAYER_REASON_CODE_SUCCESS:
-				return "SUCCESS";
-			case MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP:
-				return "APP REQUESTED TO STOP.";
-			case MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR:
-				return "RTSP Failure.";
-			case MIRACAST_PLAYER_REASON_CODE_RTSP_TIMEOUT:
-				return "RTSP Timeout.";
-			case MIRACAST_PLAYER_REASON_CODE_GST_ERROR:
-				return "GStreamer Failure.";
-			case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
-				return "Internal Failure.";
-			default:
-				throw std::invalid_argument("Unimplemented item");
+				case MIRACAST_PLAYER_REASON_CODE_SUCCESS:
+					return "SUCCESS";
+				case MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP:
+					return "APP REQUESTED TO STOP.";
+				case MIRACAST_PLAYER_REASON_CODE_SRC_DEV_REQ_TO_STOP:
+					return "SRC DEVICE REQUESTED TO STOP.";
+				case MIRACAST_PLAYER_REASON_CODE_RTSP_ERROR:
+					return "RTSP Failure.";
+				case MIRACAST_PLAYER_REASON_CODE_RTSP_TIMEOUT:
+					return "RTSP Timeout.";
+				case MIRACAST_PLAYER_REASON_CODE_RTSP_METHOD_NOT_SUPPORTED:
+					return "RTSP Method Not Supported.";
+				case MIRACAST_PLAYER_REASON_CODE_GST_ERROR:
+					return "GStreamer Failure.";
+				case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
+					return "Internal Failure.";
+				default:
+					return "Unimplemented item.";
 			}
 		}
 

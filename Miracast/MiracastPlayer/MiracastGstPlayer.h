@@ -35,6 +35,7 @@ public:
     bool launch(std::string localip , std::string streaming_port);
     bool stop();
     bool pause();
+    bool resume();
     bool setVideoRectangle( VIDEO_RECT_STRUCT video_rect , bool apply = false );
     int getPlayerstate();
     bool setUri(std::string ipaddr, std::string port);
