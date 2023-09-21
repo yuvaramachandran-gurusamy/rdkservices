@@ -29,6 +29,10 @@ void RTSPMsgHandlerCallback(void *args);
 void HDCPHandlerCallback(void *args);
 #endif
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+void MiracastPlayerTestNotifierThreadCallback(void *args);
+#endif
+
 RTSP_MSG_FMT_TEMPLATE MiracastRTSPMsg::rtsp_msg_fmt_template[] = {
     {RTSP_MSG_FMT_M1_RESPONSE, "RTSP/1.0 200 OK\r\nPublic: \"%s, GET_PARAMETER, SET_PARAMETER\"\r\nCSeq: %s\r\n\r\n"},
     {RTSP_MSG_FMT_M2_REQUEST, "OPTIONS * RTSP/1.0\r\nRequire: %s\r\nCSeq: %s\r\n\r\n"},
@@ -169,7 +173,11 @@ MiracastRTSPMsg *MiracastRTSPMsg::getInstance(MiracastError &error_code , Miraca
 
 void MiracastRTSPMsg::destroyInstance()
 {
+    RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = { 0 };
     MIRACASTLOG_TRACE("Entering...");
+
+    rtsp_hldr_msgq_data.state = RTSP_SELF_ABORT;
+    m_rtsp_msg_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 
     if (nullptr != m_rtsp_msg_obj)
     {
@@ -230,13 +238,19 @@ MiracastRTSPMsg::MiracastRTSPMsg()
 }
 MiracastRTSPMsg::~MiracastRTSPMsg()
 {
-    if ( nullptr != m_rtsp_msg_handler_thread ){
+    if ( nullptr != m_rtsp_msg_handler_thread )
+    {
         delete m_rtsp_msg_handler_thread;
         m_rtsp_msg_handler_thread = nullptr;
     }
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+    destroy_TestNotifier();
+#endif
+
     MIRACASTLOG_TRACE("Entering...");
-    if (-1 != m_tcpSockfd){
+    if (-1 != m_tcpSockfd)
+    {
         close(m_tcpSockfd);
         m_tcpSockfd = -1;
     }
@@ -2183,7 +2197,7 @@ void RTSPMsgHandlerCallback(void *args)
 }
 
 #ifdef ENABLE_HDCP2X_SUPPORT
-void MiracastController::DumpBuffer(char *buffer, int length)
+void MiracastRTSPMsg::DumpBuffer(char *buffer, int length)
 {
     // Loop through the buffer, printing each byte in hex format
     std::string hex_string;
@@ -2198,7 +2212,7 @@ void MiracastController::DumpBuffer(char *buffer, int length)
     MIRACASTLOG_INFO("\n######### DUMP BUFFER[%u] #########\n%s\n###############################\n", length, hex_string.c_str());
 }
 
-void MiracastController::HDCPTCPServerHandlerThread(void *args)
+void MiracastRTSPMsg::HDCPTCPServerHandlerThread(void *args)
 {
     char buff[HDCP2X_SOCKET_BUF_MAX];
     int sockfd, connfd, len;
@@ -2263,8 +2277,119 @@ void MiracastController::HDCPTCPServerHandlerThread(void *args)
 
 void HDCPHandlerCallback(void *args)
 {
-    MiracastController *miracast_ctrler_obj = (MiracastController *)args;
+    MiracastRTSPMsg *miracast_ctrler_obj = (MiracastRTSPMsg *)args;
 
     miracast_ctrler_obj->HDCPTCPServerHandlerThread(nullptr);
 }
 #endif /*ENABLE_HDCP2X_SUPPORT*/
+
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+
+MiracastError MiracastRTSPMsg::create_TestNotifier(void)
+{
+    MiracastError error_code = MIRACAST_OK;
+    m_test_notifier_thread = nullptr;
+    m_test_notifier_thread = new MiracastThread( MIRACAST_PLAYER_TEST_NOTIFIER_THREAD_NAME,
+                                                MIRACAST_PLAYER_TEST_NOTIFIER_THREAD_STACK,
+                                                MIRACAST_PLAYER_TEST_NOTIFIER_MSG_COUNT,
+                                                MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_SIZE,
+                                                reinterpret_cast<void (*)(void *)>(&MiracastPlayerTestNotifierThreadCallback),
+                                                this);
+    if ((nullptr == m_test_notifier_thread)||
+        ( MIRACAST_OK != m_test_notifier_thread->start()))
+    {
+        if ( nullptr != m_test_notifier_thread )
+        {
+            delete m_test_notifier_thread;
+            m_test_notifier_thread = nullptr;
+        }
+        error_code = MIRACAST_FAIL;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return error_code;
+}
+
+void MiracastRTSPMsg::destroy_TestNotifier()
+{
+    MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+    MIRACASTLOG_TRACE("Entering...");
+    stMsgQ.state = MIRACAST_PLAYER_TEST_NOTIFIER_SHUTDOWN;
+    m_rtsp_msg_obj->send_msgto_test_notifier_thread(stMsgQ);
+    if (nullptr != m_test_notifier_thread)
+    {
+        delete m_test_notifier_thread;
+        m_test_notifier_thread = nullptr;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastRTSPMsg::TestNotifier_Thread(void *args)
+{
+    MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+    std::string device_name = "",
+                mac_address = "",
+                source_dev_ip = "",
+                sink_dev_ip = "";
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    while (true)
+    {
+        memset( &stMsgQ , 0x00 , MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_SIZE );
+
+        m_test_notifier_thread->receive_message(&stMsgQ, MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_SIZE , THREAD_RECV_MSG_INDEFINITE_WAIT);
+
+        MIRACASTLOG_TRACE("Received Action[%#08X]\n", stMsgQ.state);
+
+        device_name = stMsgQ.src_dev_name;
+        mac_address = stMsgQ.src_dev_mac_addr;
+
+        switch (stMsgQ.state)
+        {
+            case MIRACAST_PLAYER_TEST_NOTIFIER_STATE_CHANGED:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_PLAYER_TEST_NOTIFIER_STATE_CHANGED]...");
+                m_player_notify_handler->onStateChange( mac_address ,
+                                                        device_name ,
+                                                        stMsgQ.player_state,
+                                                        stMsgQ.reason_code );
+            }
+            break;
+            case MIRACAST_PLAYER_TEST_NOTIFIER_SHUTDOWN:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_PLAYER_TEST_NOTIFIER_SHUTDOWN]...");
+            }
+            break;
+            default:
+            {
+                MIRACASTLOG_ERROR("[UNKNOWN STATE]...");
+            }
+            break;
+        }
+
+        if (MIRACAST_PLAYER_TEST_NOTIFIER_SHUTDOWN == stMsgQ.state)
+        {
+            break;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastPlayerTestNotifierThreadCallback(void *args)
+{
+    MiracastRTSPMsg *miracast_rtsp_obj = (MiracastRTSPMsg *)args;
+    MIRACASTLOG_TRACE("Entering...");
+    miracast_rtsp_obj->TestNotifier_Thread(nullptr);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastRTSPMsg::send_msgto_test_notifier_thread(MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    if (nullptr != m_test_notifier_thread)
+    {
+        m_test_notifier_thread->send_message(&stMsgQ, MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_SIZE);
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+#endif /* ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER */

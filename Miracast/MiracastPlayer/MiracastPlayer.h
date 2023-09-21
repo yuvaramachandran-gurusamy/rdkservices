@@ -63,6 +63,12 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT;
             static const string METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL;
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+            static const string METHOD_MIRACAST_TEST_NOTIFIER;
+            uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
+            bool m_isTestNotifierEnabled;
+#endif /* ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER */
+
             MiracastPlayer();
             virtual ~MiracastPlayer();
             virtual const string Initialize(PluginHost::IShell *shell) override;
@@ -95,7 +101,7 @@ namespace WPEFramework
             uint32_t setVideoFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setRTSPWaitTimeout(const JsonObject &parameters, JsonObject &response);
-            uint32_t MiracastPlayer::setLogLevel(const JsonObject &parameters, JsonObject &response);
+            uint32_t setLogLevel(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eM_PLAYER_REASON_CODE);
             std::string stateDescription(eMIRA_PLAYER_STATES);

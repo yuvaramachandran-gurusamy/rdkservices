@@ -489,6 +489,13 @@ public:
     MiracastError start_streaming( VIDEO_RECT_STRUCT video_rect );
     MiracastError stop_streaming( eMIRA_PLAYER_STATES state );
     void RTSPMessageHandler_Thread(void *args);
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+    MiracastError create_TestNotifier(void);
+    void destroy_TestNotifier();
+    void TestNotifier_Thread(void *args);
+    void send_msgto_test_notifier_thread(MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ);
+    MiracastThread  *m_test_notifier_thread;
+#endif /* ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER */
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
     {
@@ -553,7 +560,6 @@ private:
 
     MiracastThread *m_rtsp_msg_handler_thread;
     MiracastThread *m_controller_thread;
-
     MiracastPlayerNotifier *m_player_notify_handler;
 
     void set_state( eMIRA_PLAYER_STATES state , bool send_notification = false , eM_PLAYER_REASON_CODE reason_code = MIRACAST_PLAYER_REASON_CODE_SUCCESS );

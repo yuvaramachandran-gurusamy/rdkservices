@@ -68,11 +68,18 @@ public:
     MiracastError disconnect_device();
     void send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_STATES state, std::string buffer = "", std::string user_data = "");
     void send_msg_rtsp_msg_hdler_thread(eCONTROLLER_FW_STATES state);
-    void send_msgto_test_notifier_thread(uint32_t state);
 
     void Controller_Thread(void *args);
     void ThunderReqHandler_Thread(void *args);
+
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+    MiracastThread  *m_test_notifier_thread;
+    MiracastError create_TestNotifier(void);
+    void destroy_TestNotifier();
     void TestNotifier_Thread(void *args);
+    void send_msgto_test_notifier_thread( MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST stMsgQ );
+#endif /* ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER */
+
     // void HDCPTCPServerHandlerThread(void *args);
     // void DumpBuffer(char *buffer, int length);
 
@@ -131,9 +138,6 @@ private:
     MiracastThread *m_controller_thread;
     //MiracastThread *m_hdcp_handler_thread;
     int m_tcpserverSockfd;
-#ifdef ENABLE_TEST_NOTIFIER
-    MiracastThread  *m_test_notifier_thread;
-#endif
     eCONTROLLER_FW_STATES convertP2PtoSessionActions(P2P_EVENTS eventId);
     MiracastError start_DHCPServer(std::string interface);
 };

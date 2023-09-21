@@ -49,6 +49,10 @@ const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_AUDIO_FOR
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT = "setRTSPWaitTimeOut";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL = "setLogLevel";
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
+#endif
+
 #define EVT_ON_STATE_CHANGE "onStateChange"
 
 namespace WPEFramework
@@ -90,6 +94,10 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT, &MiracastPlayer::setRTSPWaitTimeout, this);
 			Register(METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL, &MiracastPlayer::setLogLevel, this);
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastPlayer::testNotifier, this);
+			m_isTestNotifierEnabled = false;
+#endif /* ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER */
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -577,6 +585,164 @@ namespace WPEFramework
 			returnResponse(success);
 		}
 
+#ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
+		/**
+		 * @brief This method used to stop the client connection.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastPlayer::testNotifier(const JsonObject &parameters, JsonObject &response)
+		{
+			MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+			string client_mac,client_name,state;
+			string status;
+			bool success = false;
+
+			LOGINFO("Entering..!!!");
+
+			if ( false == m_isTestNotifierEnabled )
+			{
+				if (parameters.HasLabel("setStatus"))
+				{
+					getStringParameter("setStatus", status);
+					if (status == "ENABLED" || status == "enabled")
+					{
+						if ( MIRACAST_OK == m_miracast_rtsp_obj->create_TestNotifier())
+						{
+							m_isTestNotifierEnabled = true;
+							success = true;
+						}
+						else
+						{
+							LOGERR("Failed to enable TestNotifier");
+							response["message"] = "Failed to enable TestNotifier";
+						}
+					}
+					else if (status == "DISABLED" || status == "disabled")
+					{
+						LOGERR("TestNotifier not yet enabled. Unable to Disable it");
+						response["message"] = "TestNotifier not yet enabled. Unable to Disable";
+					}
+				}
+				else
+				{
+					LOGERR("TestNotifier not yet enabled");
+					response["message"] = "TestNotifier not yet enabled";
+				}
+			}
+			else
+			{
+				if (parameters.HasLabel("setStatus"))
+				{
+					getStringParameter("setStatus", status);
+					if (status == "DISABLED" || status == "disabled")
+					{
+						m_miracast_rtsp_obj->destroy_TestNotifier();
+						success = true;
+						m_isTestNotifierEnabled = false;
+					}
+					else if (status == "ENABLED" || status == "enabled")
+					{
+						LOGERR("TestNotifier already enabled");
+						response["message"] = "TestNotifier already enabled";
+						success = false;
+					}
+					else
+					{
+						LOGERR("Invalid status");
+						response["message"] = "Invalid status";
+					}
+					return success;
+				}
+
+				returnIfStringParamNotFound(parameters, "state");
+				returnIfStringParamNotFound(parameters, "mac");
+				returnIfStringParamNotFound(parameters, "name");
+
+				if (parameters.HasLabel("state"))
+				{
+					getStringParameter("state", state);
+				}
+
+				if (parameters.HasLabel("mac"))
+				{
+					getStringParameter("mac", client_mac);
+				}
+
+				if (parameters.HasLabel("name"))
+				{
+					getStringParameter("name", client_name);
+				}
+
+				if (client_mac.empty()||client_name.empty())
+				{
+					LOGERR("Invalid MAC/Name has passed");
+					response["message"] = "Invalid MAC/Name has passed";
+				}
+				else
+				{
+					strcpy( stMsgQ.src_dev_name, client_name.c_str());
+					strcpy( stMsgQ.src_dev_mac_addr, client_mac.c_str());
+
+					LOGINFO("Given 'NAME, MAC and state' are[%s-%s-%s]",
+							client_name.c_str(),
+							client_mac.c_str(),
+							state.c_str());
+
+					success = true;
+
+					if (state == "STATE_CHANGE" || state == "state_change")
+					{
+						eMIRA_PLAYER_STATES player_state;
+						eM_PLAYER_REASON_CODE reason_code;
+
+						returnIfNumberParamNotFound(parameters, "player_state");
+						returnIfNumberParamNotFound(parameters, "reason_code");
+
+						getNumberParameter("player_state", player_state);
+						getNumberParameter("reason_code", reason_code);
+
+						LOGINFO("Given 'player_state and reason_code' are[%#04X--%#04X]",
+								player_state,
+								reason_code);
+
+						if (( MIRACAST_PLAYER_REASON_CODE_MAX_ERROR > reason_code ) &&
+							( MIRACAST_PLAYER_REASON_CODE_SUCCESS <= reason_code ) &&
+							( MIRACAST_PLAYER_STATE_PAUSED > player_state ) &&
+							( MIRACAST_PLAYER_STATE_IDLE <= player_state ))
+						{
+							stMsgQ.state = MIRACAST_PLAYER_TEST_NOTIFIER_STATE_CHANGED;
+							stMsgQ.player_state = player_state;
+							stMsgQ.reason_code = reason_code;
+						}
+						else
+						{
+							success = false;
+							LOGERR("Invalid playerstate/reason_code passed");
+							response["message"] = "Invalid playerstate/reason_code passed";
+						}
+					}
+					else
+					{
+						success = false;
+						LOGERR("Invalid state passed");
+						response["message"] = "Invalid state passed";
+					}
+
+					if (success)
+					{
+						m_miracast_rtsp_obj->send_msgto_test_notifier_thread(stMsgQ);
+					}
+				}
+			}
+
+			LOGINFO("Exiting..!!!");
+
+			returnResponse(success);
+		}
+#endif/*ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER*/
+
 		void MiracastPlayer::onStateChange(string client_mac, string client_name, eMIRA_PLAYER_STATES player_state, eM_PLAYER_REASON_CODE reason_code)
 		{
 			LOGINFO("Entering..!!!");
@@ -588,7 +754,8 @@ namespace WPEFramework
 			params["reason_code"] = std::to_string(reason_code);
 			params["reason"] = reasonDescription(reason_code);
 
-			if (0 == access("/opt/miracast_autoconnect", F_OK)){
+			if (0 == access("/opt/miracast_autoconnect", F_OK))
+			{
 				std::string system_command = "";
 				system_command = "curl -H \"Authorization: Bearer `WPEFrameworkSecurityUtility | cut -d '\"' -f 4`\"";
 				system_command.append(" --header \"Content-Type: application/json\" --request POST --data '{\"jsonrpc\":\"2.0\", \"id\":3,\"method\":\"org.rdk.MiracastService.1.updatePlayerState\", \"params\":{");
@@ -602,8 +769,10 @@ namespace WPEFramework
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 				system( system_command.c_str());
 			}
-
-			sendNotify(EVT_ON_STATE_CHANGE, params);
+			else
+			{
+				sendNotify(EVT_ON_STATE_CHANGE, params);
+			}
 			LOGINFO("Exiting..!!!");
 		}
 

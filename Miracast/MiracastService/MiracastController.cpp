@@ -21,6 +21,9 @@
 
 void ThunderReqHandlerCallback(void *args);
 void ControllerThreadCallback(void *args);
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+void MiracastServiceTestNotifierThreadCallback(void *args);
+#endif
 
 //#define UDHCPD_BASED_DHCP_SERVER_ENABLED
 #define DNSMASQ_BASED_DHCP_SERVER_ENABLED
@@ -132,9 +135,13 @@ MiracastError MiracastController::destroy_ControllerFramework(void)
 {
     MIRACASTLOG_TRACE("Entering...");
 
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+    destroy_TestNotifier();
+#endif
     send_msg_thunder_msg_hdler_thread(MIRACAST_SERVICE_SHUTDOWN);
 
-    if (nullptr != m_p2p_ctrl_obj){
+    if (nullptr != m_p2p_ctrl_obj)
+    {
         MiracastP2P::destroyInstance();
         m_p2p_ctrl_obj = nullptr;
     }
@@ -219,7 +226,15 @@ std::string MiracastController::start_DHCPClient(std::string interface, std::str
 
     sprintf(command, "/sbin/udhcpc -v -i ");
     sprintf(command + strlen(command), interface.c_str());
-    sprintf(command + strlen(command), " -s /etc/netsrvmgr/p2p_udhcpc.script 2>&1");
+
+    if (0 == access("/opt/miracast/p2p_udhcpc.script", F_OK))
+    {
+        sprintf(command + strlen(command), " -s /opt/miracast/p2p_udhcpc.script 2>&1");
+    }
+    else
+    {
+        sprintf(command + strlen(command), " -s /etc/netsrvmgr/p2p_udhcpc.script 2>&1");
+    }
 
     MIRACASTLOG_VERBOSE("command : [%s]", command);
     while ( retry_count-- ){
@@ -1637,3 +1652,130 @@ void ControllerThreadCallback(void *args)
     miracast_ctrler_obj->Controller_Thread(nullptr);
     MIRACASTLOG_TRACE("Exiting...");
 }
+
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+
+MiracastError MiracastController::create_TestNotifier(void)
+{
+    MiracastError error_code = MIRACAST_OK;
+    m_test_notifier_thread = nullptr;
+    m_test_notifier_thread = new MiracastThread( MIRACAST_SERVICE_TEST_NOTIFIER_THREAD_NAME,
+                                                MIRACAST_SERVICE_TEST_NOTIFIER_THREAD_STACK,
+                                                MIRACAST_SERVICE_TEST_NOTIFIER_MSG_COUNT,
+                                                MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_SIZE,
+                                                reinterpret_cast<void (*)(void *)>(&MiracastServiceTestNotifierThreadCallback),
+                                                this);
+    if ((nullptr == m_test_notifier_thread)||
+        ( MIRACAST_OK != m_test_notifier_thread->start()))
+    {
+        if ( nullptr != m_test_notifier_thread )
+        {
+            delete m_test_notifier_thread;
+            m_test_notifier_thread = nullptr;
+        }
+        error_code = MIRACAST_FAIL;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
+void MiracastController::destroy_TestNotifier()
+{
+    MIRACASTLOG_TRACE("Entering...");
+    MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+    stMsgQ.state = MIRACAST_SERVICE_TEST_NOTIFIER_SHUTDOWN;
+    send_msgto_test_notifier_thread(stMsgQ);
+    if (nullptr != m_test_notifier_thread)
+    {
+        delete m_test_notifier_thread;
+        m_test_notifier_thread = nullptr;
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastController::TestNotifier_Thread(void *args)
+{
+    MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+    std::string device_name = "",
+                mac_address = "",
+                source_dev_ip = "",
+                sink_dev_ip = "";
+
+    MIRACASTLOG_TRACE("Entering...");
+
+    while (true)
+    {
+        memset( &stMsgQ , 0x00 , MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_SIZE );
+
+        m_test_notifier_thread->receive_message(&stMsgQ, MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_SIZE , THREAD_RECV_MSG_INDEFINITE_WAIT);
+
+        MIRACASTLOG_TRACE("Received Action[%#08X]\n", stMsgQ.state);
+
+        device_name = stMsgQ.src_dev_name;
+        mac_address = stMsgQ.src_dev_mac_addr;
+
+        switch (stMsgQ.state)
+        {
+            case MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_REQUESTED:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_REQUESTED]...");
+                m_notify_handler->onMiracastServiceClientConnectionRequest(mac_address, device_name);
+            }
+            break;
+            case MIRACAST_SERVICE_TEST_NOTIFIER_SHUTDOWN:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_SERVICE_TEST_NOTIFIER_SHUTDOWN]...");
+            }
+            break;
+            case MIRACAST_SERVICE_TEST_NOTIFIER_LAUNCH_REQUESTED:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_SERVICE_TEST_NOTIFIER_LAUNCH_REQUESTED]...");
+                source_dev_ip = stMsgQ.src_dev_ip_addr;
+                sink_dev_ip = stMsgQ.sink_ip_addr;
+                m_notify_handler->onMiracastServiceLaunchRequest( source_dev_ip,
+                                                                  mac_address,
+                                                                  device_name,
+                                                                  sink_dev_ip );
+            }
+            break;
+            case MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_ERROR:
+            {
+                MIRACASTLOG_TRACE("[MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_ERROR]...");
+                m_notify_handler->onMiracastServiceClientConnectionError( mac_address,
+                                                                          device_name ,
+                                                                          stMsgQ.error_code );
+            }
+            break;
+            default:
+            {
+                MIRACASTLOG_ERROR("[UNKNOWN STATE]...");
+            }
+            break;
+        }
+
+        if (MIRACAST_SERVICE_TEST_NOTIFIER_SHUTDOWN == stMsgQ.state)
+        {
+            break;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastServiceTestNotifierThreadCallback(void *args)
+{
+    MiracastController *miracast_service_obj = (MiracastController *)args;
+    MIRACASTLOG_TRACE("Entering...");
+    miracast_service_obj->TestNotifier_Thread(nullptr);
+    MIRACASTLOG_TRACE("Exiting...");
+}
+
+void MiracastController::send_msgto_test_notifier_thread(MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST stMsgQ)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    if (nullptr != m_test_notifier_thread)
+    {
+        m_test_notifier_thread->send_message(&stMsgQ, MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_SIZE);
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+}
+#endif /* ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER */

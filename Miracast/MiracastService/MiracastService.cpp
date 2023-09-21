@@ -36,6 +36,10 @@ const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_STOP_CLIENT_
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE = "updatePlayerState";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_LOG_LEVEL = "setLogLevel";
 
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
+#endif
+
 using namespace std;
 
 #define API_VERSION_NUMBER_MAJOR 1
@@ -89,6 +93,11 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE, &MiracastService::updatePlayerState, this);
 			Register(METHOD_MIRACAST_SET_LOG_LEVEL, &MiracastService::setLogLevel, this);
+
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastService::testNotifier, this);
+			m_isTestNotifierEnabled = false;
+#endif /* ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER */
 			LOGINFO("Exiting..!!!");
 		}
 
@@ -439,7 +448,6 @@ namespace WPEFramework
 		{
 			string mac;
 			string player_state;
-			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
 			bool success = true;
 
 			LOGINFO("Entering..!!!");
@@ -540,6 +548,190 @@ namespace WPEFramework
 			LOGINFO("Exiting..!!!");
 			returnResponse(success);
 		}
+
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
+		/**
+		 * @brief This method used to stop the client connection.
+		 *
+		 * @param: None.
+		 * @return Returns the success code of underlying method.
+		 */
+		uint32_t MiracastService::testNotifier(const JsonObject &parameters, JsonObject &response)
+		{
+			MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST stMsgQ = {0};
+			string client_mac,client_name,state;
+			string status;
+			bool success = false;
+
+			LOGINFO("Entering..!!!");
+
+			if ( false == m_isTestNotifierEnabled )
+			{
+				if (parameters.HasLabel("setStatus"))
+				{
+					getStringParameter("setStatus", status);
+					if (status == "ENABLED" || status == "enabled")
+					{
+						if ( MIRACAST_OK == m_miracast_ctrler_obj->create_TestNotifier())
+						{
+							m_isTestNotifierEnabled = true;
+							success = true;
+						}
+						else
+						{
+							LOGERR("Failed to enable TestNotifier");
+							response["message"] = "Failed to enable TestNotifier";
+						}
+					}
+					else if (status == "DISABLED" || status == "disabled")
+					{
+						LOGERR("TestNotifier not yet enabled. Unable to Disable it");
+						response["message"] = "TestNotifier not yet enabled. Unable to Disable";
+					}
+				}
+				else
+				{
+					LOGERR("TestNotifier not yet enabled");
+					response["message"] = "TestNotifier not yet enabled";
+				}
+			}
+			else
+			{
+				if (parameters.HasLabel("setStatus"))
+				{
+					getStringParameter("setStatus", status);
+					if (status == "DISABLED" || status == "disabled")
+					{
+						m_miracast_ctrler_obj->destroy_TestNotifier();
+						success = true;
+						m_isTestNotifierEnabled = false;
+					}
+					else if (status == "ENABLED" || status == "enabled")
+					{
+						LOGERR("TestNotifier already enabled");
+						response["message"] = "TestNotifier already enabled";
+						success = false;
+					}
+					else
+					{
+						LOGERR("Invalid status");
+						response["message"] = "Invalid status";
+					}
+					return success;
+				}
+
+				returnIfStringParamNotFound(parameters, "state");
+				returnIfStringParamNotFound(parameters, "mac");
+				returnIfStringParamNotFound(parameters, "name");
+
+				if (parameters.HasLabel("state"))
+				{
+					getStringParameter("state", state);
+				}
+
+				if (parameters.HasLabel("mac"))
+				{
+					getStringParameter("mac", client_mac);
+				}
+
+				if (parameters.HasLabel("name"))
+				{
+					getStringParameter("name", client_name);
+				}
+
+				if (client_mac.empty()||client_name.empty())
+				{
+					LOGERR("Invalid MAC/Name has passed");
+					response["message"] = "Invalid MAC/Name has passed";
+				}
+				else
+				{
+					strcpy( stMsgQ.src_dev_name, client_name.c_str());
+					strcpy( stMsgQ.src_dev_mac_addr, client_mac.c_str());
+
+					LOGINFO("Given [NAME-MAC-state] are[%s-%s-%s]",
+							client_name.c_str(),
+							client_mac.c_str(),
+							state.c_str());
+
+					success = true;
+
+					if (state == "CONNECT_REQUEST" || state == "connect_request")
+					{
+						stMsgQ.state = MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_REQUESTED;
+					}
+					else if (state == "CONNECT_ERROR" || state == "connect_error")
+					{
+						eMIRACAST_SERVICE_ERR_CODE error_code;
+
+						returnIfNumberParamNotFound(parameters, "error_code");
+						getNumberParameter("error_code", error_code);
+
+						if (( MIRACAST_SERVICE_ERR_CODE_MAX_ERROR > error_code ) &&
+							( MIRACAST_SERVICE_ERR_CODE_SUCCESS <= error_code ))
+						{
+							stMsgQ.state = MIRACAST_SERVICE_TEST_NOTIFIER_CLIENT_CONNECTION_ERROR;
+							stMsgQ.error_code = error_code;
+						}
+						else
+						{
+							success = false;
+							LOGERR("Invalid error_code passed");
+							response["message"] = "Invalid error_code passed";
+						}
+					}
+					else if (state == "LAUNCH" || state == "launch")
+					{
+						string source_dev_ip,sink_dev_ip;
+						stMsgQ.state = MIRACAST_SERVICE_TEST_NOTIFIER_LAUNCH_REQUESTED;
+
+						returnIfStringParamNotFound(parameters, "source_dev_ip");
+						returnIfStringParamNotFound(parameters, "sink_dev_ip");
+
+						if (parameters.HasLabel("source_dev_ip"))
+						{
+							getStringParameter("source_dev_ip", source_dev_ip);
+						}
+
+						if (parameters.HasLabel("sink_dev_ip"))
+						{
+							getStringParameter("sink_dev_ip", sink_dev_ip);
+						}
+
+						if (source_dev_ip.empty()||sink_dev_ip.empty())
+						{
+							LOGERR("Invalid source_dev_ip/sink_dev_ip has passed");
+							response["message"] = "Invalid source_dev_ip/sink_dev_ip has passed";
+							success = false;
+						}
+						else
+						{
+							strcpy( stMsgQ.src_dev_ip_addr, source_dev_ip.c_str());
+							strcpy( stMsgQ.sink_ip_addr, sink_dev_ip.c_str());
+
+							LOGINFO("Given [Src-Sink-IP] are [%s-%s]",
+									source_dev_ip.c_str(),
+									sink_dev_ip.c_str());
+						}
+					}
+					else
+					{
+						success = false;
+						LOGERR("Invalid state passed");
+						response["message"] = "Invalid state passed";
+					}
+					if (success)
+					{
+						m_miracast_ctrler_obj->send_msgto_test_notifier_thread(stMsgQ);
+					}
+				}
+			}
+
+			LOGINFO("Exiting..!!!");
+
+			returnResponse(success);
+		}
+#endif/*ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER*/
 
 		void MiracastService::onMiracastServiceClientConnectionRequest(string client_mac, string client_name)
 		{
@@ -648,7 +840,7 @@ namespace WPEFramework
 			if ( MIRACAST_SERVICE_STATE_APP_REQ_TO_ABORT_CONNECTION == m_eService_state )
 			{
 				LOGINFO("APP_REQ_TO_ABORT_CONNECTION has requested. So no need to notify Launch Request..!!!");
-				m_miracast_ctrler_obj->restart_session_discovery();
+				//m_miracast_ctrler_obj->restart_session_discovery();
 			}
 			else
 			{
@@ -707,7 +899,10 @@ namespace WPEFramework
 					MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 					system( system_command.c_str());
 				}
-				sendNotify(EVT_ON_LAUNCH_REQUEST, params);	
+				else
+				{
+					sendNotify(EVT_ON_LAUNCH_REQUEST, params);
+				}
 			}
 		}
 	} // namespace Plugin

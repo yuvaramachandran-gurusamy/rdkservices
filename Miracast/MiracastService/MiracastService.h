@@ -58,7 +58,12 @@ namespace WPEFramework
             static const string METHOD_MIRACAST_STOP_CLIENT_CONNECT;
             static const string METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE;
             static const string METHOD_MIRACAST_SET_LOG_LEVEL;
+
+#ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
             static const string METHOD_MIRACAST_TEST_NOTIFIER;
+            uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
+            bool m_isTestNotifierEnabled;
+#endif /* ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER */
 
             MiracastService();
             virtual ~MiracastService();
@@ -90,7 +95,6 @@ namespace WPEFramework
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
             uint32_t setLogLevel(const JsonObject &parameters, JsonObject &response);
-            uint32_t testNotifier(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw();
             void getSystemPlugin();
