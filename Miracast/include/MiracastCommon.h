@@ -40,6 +40,7 @@ using namespace MIRACAST;
 #define REMOVE_N(x) x.erase(std::remove(x.begin(), x.end(), '\n'), x.end())
 
 #define SPACE_CHAR " "
+#define CONTINUE_CHAR "..."
 
 #define ONE_SECOND_IN_MILLISEC (1000)
 

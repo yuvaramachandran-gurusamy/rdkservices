@@ -31,6 +31,9 @@
 #define WPA_SUP_CTRL "/var/run/wpa_supplicant/p2p-dev-wlan0"
 #define WPA_SUP_GLOBAL_CTRL "/opt/wpa_supplicant/wlan0-3.global"
 
+#define P2P_SUPPORTED_MAX_FRIENDLY_NAME_LENGTH   (32)
+#define P2P_TRIMMING_CHAR   CONTINUE_CHAR
+
 using namespace MIRACAST;
 
 MiracastP2P *MiracastP2P::m_miracast_p2p_obj{nullptr};
@@ -544,12 +547,26 @@ MiracastError MiracastP2P::set_FriendlyName(std::string friendly_name , bool app
     MiracastError ret = MIRACAST_OK;
     MIRACASTLOG_TRACE("Entering..");
 
-    if (friendly_name.empty()){
+    if (friendly_name.empty())
+    {
         MIRACASTLOG_ERROR("Empty Friendly name has passed..");
         ret = MIRACAST_FAIL;
     }
-    else{
+    else
+    {
         m_friendly_name = friendly_name;
+        if ( P2P_SUPPORTED_MAX_FRIENDLY_NAME_LENGTH < m_friendly_name.length())
+        {
+            std::string trimming_char = P2P_TRIMMING_CHAR;
+            size_t trimmed_length = P2P_SUPPORTED_MAX_FRIENDLY_NAME_LENGTH - trimming_char.length();
+
+            m_friendly_name = m_friendly_name.substr(0, trimmed_length) + trimming_char;
+            MIRACASTLOG_WARNING("!!! Max Friendly name[%s] Length[%u] passed. So trimming it[%s]TrimLen[%u] !!!",
+                                friendly_name.c_str(),
+                                friendly_name.length(),
+                                m_friendly_name.c_str(),
+                                trimmed_length);
+        }
         if (apply){
             std::string command, retBuffer;
             command = "SET device_name " + m_friendly_name;
