@@ -622,7 +622,7 @@ namespace WPEFramework
 			string message;
 			string value;
 			parameters.ToString(message);
-			LOGINFO("[Friendly Name Event], %s : %s", __FUNCTION__,message.c_str());
+			LOGINFO("[Friendly Name Event], [%s]", message.c_str());
 
 			if (parameters.HasLabel("friendlyName")) {
 				value = parameters["friendlyName"].String();

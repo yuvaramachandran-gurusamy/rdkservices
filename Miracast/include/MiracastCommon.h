@@ -190,8 +190,16 @@ typedef enum miracast_player_reason_code_e
     MIRACAST_PLAYER_REASON_CODE_RTSP_METHOD_NOT_SUPPORTED,
     MIRACAST_PLAYER_REASON_CODE_GST_ERROR,
     MIRACAST_PLAYER_REASON_CODE_INT_FAILURE,
+    MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ,
     MIRACAST_PLAYER_REASON_CODE_MAX_ERROR
 } eM_PLAYER_REASON_CODE;
+
+typedef enum miracast_player_stop_reason_e
+{
+    MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT = 0x100,
+    MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION
+}
+eM_PLAYER_STOP_REASON;
 
 typedef struct d_info
 {
@@ -226,7 +234,7 @@ typedef struct rtsp_hldr_msgq_st
     char source_dev_name[40];
     VIDEO_RECT_STRUCT videorect;
     eCONTROLLER_FW_STATES state;
-    size_t userdata;
+    eM_PLAYER_STOP_REASON stop_reason_e;
 } RTSP_HLDR_MSGQ_STRUCT;
 
 typedef struct thunder_req_hldr_msg_st
@@ -263,17 +271,17 @@ typedef enum miracaset_service_test_notifier_states_e
 
 typedef struct miracast_service_test_notifier_msgq_st
 {
-    MIRACAST_SERVICE_TEST_NOTIFIER_STATES   state;
-    eMIRACAST_SERVICE_ERR_CODE error_code;
     char   src_dev_name[128];
     char   src_dev_mac_addr[32];
     char   src_dev_ip_addr[32];
     char   sink_ip_addr[32];
+    MIRACAST_SERVICE_TEST_NOTIFIER_STATES   state;
+    eMIRACAST_SERVICE_ERR_CODE error_code;
 }
 MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST;
 
 #define MIRACAST_SERVICE_TEST_NOTIFIER_THREAD_NAME ("MIRACAST_SERVICE_TEST_NOTIFIER")
-#define MIRACAST_SERVICE_TEST_NOTIFIER_THREAD_STACK (20 * 1024)
+#define MIRACAST_SERVICE_TEST_NOTIFIER_THREAD_STACK (100 * 1024)
 #define MIRACAST_SERVICE_TEST_NOTIFIER_MSG_COUNT (1)
 #define MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_SIZE (sizeof(MIRACAST_SERVICE_TEST_NOTIFIER_MSGQ_ST))
 
@@ -289,16 +297,16 @@ typedef enum miracaset_player_test_notifier_states_e
 
 typedef struct miracast_player_test_notifier_msgq_st
 {
+    char   src_dev_name[128];
+    char   src_dev_mac_addr[32];
     MIRACAST_PLAYER_TEST_NOTIFIER_STATES    state;
     eMIRA_PLAYER_STATES player_state;
     eM_PLAYER_REASON_CODE reason_code;
-    char   src_dev_name[128];
-    char   src_dev_mac_addr[32];
 }
 MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST;
 
 #define MIRACAST_PLAYER_TEST_NOTIFIER_THREAD_NAME ("MIRACAST_PLAYER_TEST_NOTIFIER")
-#define MIRACAST_PLAYER_TEST_NOTIFIER_THREAD_STACK (20 * 1024)
+#define MIRACAST_PLAYER_TEST_NOTIFIER_THREAD_STACK (100 * 1024)
 #define MIRACAST_PLAYER_TEST_NOTIFIER_MSG_COUNT (1)
 #define MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_SIZE (sizeof(MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST))
 

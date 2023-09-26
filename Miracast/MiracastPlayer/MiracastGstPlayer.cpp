@@ -180,7 +180,7 @@ bool MiracastGstPlayer::stop()
 
     if (!m_pipeline)
     {
-        MIRACASTLOG_WARNING("Pipeline is NULL");
+        MIRACASTLOG_ERROR("Pipeline is NULL");
         return false;
     }
     if (m_player_statistics_tid){

@@ -116,7 +116,7 @@ namespace WPEFramework
 		// Thunder plugins communication
 		void MiracastPlayer::getSystemPlugin()
 		{
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			if (nullptr == m_SystemPluginObj)
 			{
@@ -130,17 +130,17 @@ namespace WPEFramework
 											  reinterpret_cast<const uint8_t *>(payload.c_str()),
 											  token) == Core::ERROR_NONE)
 					{
-						LOGINFO("got security token\n");
+						MIRACASTLOG_INFO("got security token\n");
 					}
 					else
 					{
-						LOGERR("failed to get security token\n");
+						MIRACASTLOG_ERROR("failed to get security token\n");
 					}
 					security->Release();
 				}
 				else
 				{
-					LOGERR("No security agent\n");
+					MIRACASTLOG_ERROR("No security agent\n");
 				}
 
 				string query = "token=" + token;
@@ -148,20 +148,20 @@ namespace WPEFramework
 				m_SystemPluginObj = new WPEFramework::JSONRPC::LinkType<Core::JSON::IElement>(_T(SYSTEM_CALLSIGN_VER), (_T("MiracastPlayer")), false, query);
 				if (nullptr == m_SystemPluginObj)
 				{
-					LOGERR("JSONRPC: %s: initialization failed", SYSTEM_CALLSIGN_VER);
+					MIRACASTLOG_ERROR("JSONRPC: %s: initialization failed", SYSTEM_CALLSIGN_VER);
 				}
 				else
 				{
-					LOGINFO("JSONRPC: %s: initialization ok", SYSTEM_CALLSIGN_VER);
+					MIRACASTLOG_INFO("JSONRPC: %s: initialization ok", SYSTEM_CALLSIGN_VER);
 				}
 			}
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 		}
 
 		const string MiracastPlayer::Initialize(PluginHost::IShell *service)
 		{
 			string msg;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 			if (!m_isServiceInitialized)
 			{
 				MiracastError ret_code = MIRACAST_OK;
@@ -213,7 +213,7 @@ namespace WPEFramework
 		void MiracastPlayer::Deinitialize(PluginHost::IShell * /* service */)
 		{
 			MiracastPlayer::_instance = nullptr;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			if (m_isServiceInitialized)
 			{
@@ -222,9 +222,9 @@ namespace WPEFramework
 				m_miracast_rtsp_obj = nullptr;
 				m_isServiceInitialized = false;
 				m_isServiceEnabled = false;
-				LOGINFO("Done..!!!");
+				MIRACASTLOG_INFO("Done..!!!");
 			}
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 		}
 
 		string MiracastPlayer::Information() const
@@ -236,7 +236,7 @@ namespace WPEFramework
 		{
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = false;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			if(parameters.HasLabel("device_parameters")) {
 				JsonObject device_parameters;
@@ -290,18 +290,31 @@ namespace WPEFramework
 				}
 			}
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
 		uint32_t MiracastPlayer::stopRequest(const JsonObject &parameters, JsonObject &response)
 		{
+			std::string stop_reason;
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = true;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
+			returnIfStringParamNotFound(parameters, "reason");
+			getStringParameter("reason", stop_reason);
+
+			if (stop_reason == "EXIT" || stop_reason == "exit")
+			{
+				rtsp_hldr_msgq_data.stop_reason_e = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT;
+			}
+			else if (stop_reason == "NEW_CONNECTION" || stop_reason == "new_connection")
+			{
+				rtsp_hldr_msgq_data.stop_reason_e = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION;
+			}
+
 			rtsp_hldr_msgq_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
 			m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -309,7 +322,7 @@ namespace WPEFramework
 		{
 			string player_state;
 			bool success = false;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 			if(parameters.HasLabel("state"))
 			{
 				RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
@@ -329,7 +342,7 @@ namespace WPEFramework
 				}
 				else
 				{
-					LOGERR("Invalid Player state[%s]",player_state.c_str());
+					MIRACASTLOG_ERROR("Invalid Player state[%s]",player_state.c_str());
 					success = false;
 				}
 
@@ -338,7 +351,7 @@ namespace WPEFramework
 					m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
 				}
 			}
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -346,7 +359,7 @@ namespace WPEFramework
 		{
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = false;
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			returnIfParamNotFound(parameters, "X");
 			returnIfParamNotFound(parameters, "Y");
@@ -380,7 +393,7 @@ namespace WPEFramework
 				success = true;
 			}
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -391,7 +404,7 @@ namespace WPEFramework
 			unsigned int request_time = 0,
 						 response_time = 0;
 
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			returnIfParamNotFound(parameters, "Request");
 			returnIfParamNotFound(parameters, "Response");
@@ -401,7 +414,7 @@ namespace WPEFramework
 
 			success = m_miracast_rtsp_obj->set_WFDRequestResponseTimeout( request_time , response_time );
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -410,7 +423,7 @@ namespace WPEFramework
 			std::string log_level = "";
 			bool success = false;
 
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			returnIfStringParamNotFound(parameters, "level");
 			
@@ -453,7 +466,7 @@ namespace WPEFramework
 					set_loglevel(level);
 				}
 			}
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -469,7 +482,7 @@ namespace WPEFramework
 			RTSP_WFD_VIDEO_FMT_STRUCT st_video_fmt = {0};
 			bool success = false;
 
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			returnIfParamNotFound(parameters, "native");
 			returnIfBooleanParamNotFound(parameters, "display_mode_supported");
@@ -478,7 +491,7 @@ namespace WPEFramework
 			h264_codecs = parameters["h264_codecs"].Array();
 			if (0 == h264_codecs.Length())
 			{
-				LOGWARN("Got empty list of h264_codecs");
+				MIRACASTLOG_WARNING("Got empty list of h264_codecs");
 				returnResponse(false);
 			}
 			getNumberParameter("native", st_video_fmt.native);
@@ -529,11 +542,11 @@ namespace WPEFramework
 					}
 				}
 				else
-					LOGWARN("Unexpected variant type");
+					MIRACASTLOG_WARNING("Unexpected variant type");
 			}
 			success = m_miracast_rtsp_obj->set_WFDVideoFormat(st_video_fmt);
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -549,14 +562,14 @@ namespace WPEFramework
 			RTSP_WFD_AUDIO_FMT_STRUCT st_audio_fmt = {};
 			bool success = false;
 
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			returnIfParamNotFound(parameters, "audio_codecs");
 
 			audio_codecs = parameters["audio_codecs"].Array();
 			if (0 == audio_codecs.Length())
 			{
-				LOGWARN("Got empty list of audio_codecs");
+				MIRACASTLOG_WARNING("Got empty list of audio_codecs");
 				returnResponse(false);
 			}
 
@@ -577,11 +590,11 @@ namespace WPEFramework
 					getNumberParameterObject(codecs, "latency", st_audio_fmt.latency);
 				}
 				else
-					LOGWARN("Unexpected variant type");
+					MIRACASTLOG_WARNING("Unexpected variant type");
 			}
 			success = m_miracast_rtsp_obj->set_WFDAudioCodecs(st_audio_fmt);
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
 
@@ -599,7 +612,7 @@ namespace WPEFramework
 			string status;
 			bool success = false;
 
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			if ( false == m_isTestNotifierEnabled )
 			{
@@ -615,19 +628,19 @@ namespace WPEFramework
 						}
 						else
 						{
-							LOGERR("Failed to enable TestNotifier");
+							MIRACASTLOG_ERROR("Failed to enable TestNotifier");
 							response["message"] = "Failed to enable TestNotifier";
 						}
 					}
 					else if (status == "DISABLED" || status == "disabled")
 					{
-						LOGERR("TestNotifier not yet enabled. Unable to Disable it");
+						MIRACASTLOG_ERROR("TestNotifier not yet enabled. Unable to Disable it");
 						response["message"] = "TestNotifier not yet enabled. Unable to Disable";
 					}
 				}
 				else
 				{
-					LOGERR("TestNotifier not yet enabled");
+					MIRACASTLOG_ERROR("TestNotifier not yet enabled");
 					response["message"] = "TestNotifier not yet enabled";
 				}
 			}
@@ -644,13 +657,13 @@ namespace WPEFramework
 					}
 					else if (status == "ENABLED" || status == "enabled")
 					{
-						LOGERR("TestNotifier already enabled");
+						MIRACASTLOG_ERROR("TestNotifier already enabled");
 						response["message"] = "TestNotifier already enabled";
 						success = false;
 					}
 					else
 					{
-						LOGERR("Invalid status");
+						MIRACASTLOG_ERROR("Invalid status");
 						response["message"] = "Invalid status";
 					}
 					return success;
@@ -677,7 +690,7 @@ namespace WPEFramework
 
 				if (client_mac.empty()||client_name.empty())
 				{
-					LOGERR("Invalid MAC/Name has passed");
+					MIRACASTLOG_ERROR("Invalid MAC/Name has passed");
 					response["message"] = "Invalid MAC/Name has passed";
 				}
 				else
@@ -685,7 +698,7 @@ namespace WPEFramework
 					strcpy( stMsgQ.src_dev_name, client_name.c_str());
 					strcpy( stMsgQ.src_dev_mac_addr, client_mac.c_str());
 
-					LOGINFO("Given 'NAME, MAC and state' are[%s-%s-%s]",
+					MIRACASTLOG_INFO("Given 'NAME, MAC and state' are[%s-%s-%s]",
 							client_name.c_str(),
 							client_mac.c_str(),
 							state.c_str());
@@ -703,7 +716,7 @@ namespace WPEFramework
 						getNumberParameter("player_state", player_state);
 						getNumberParameter("reason_code", reason_code);
 
-						LOGINFO("Given 'player_state and reason_code' are[%#04X--%#04X]",
+						MIRACASTLOG_INFO("Given 'player_state and reason_code' are[%#04X--%#04X]",
 								player_state,
 								reason_code);
 
@@ -719,14 +732,14 @@ namespace WPEFramework
 						else
 						{
 							success = false;
-							LOGERR("Invalid playerstate/reason_code passed");
+							MIRACASTLOG_ERROR("Invalid playerstate/reason_code passed");
 							response["message"] = "Invalid playerstate/reason_code passed";
 						}
 					}
 					else
 					{
 						success = false;
-						LOGERR("Invalid state passed");
+						MIRACASTLOG_ERROR("Invalid state passed");
 						response["message"] = "Invalid state passed";
 					}
 
@@ -737,7 +750,7 @@ namespace WPEFramework
 				}
 			}
 
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 
 			returnResponse(success);
 		}
@@ -745,7 +758,7 @@ namespace WPEFramework
 
 		void MiracastPlayer::onStateChange(string client_mac, string client_name, eMIRA_PLAYER_STATES player_state, eM_PLAYER_REASON_CODE reason_code)
 		{
-			LOGINFO("Entering..!!!");
+			MIRACASTLOG_INFO("Entering..!!!");
 
 			JsonObject params;
 			params["mac"] = client_mac;
@@ -764,7 +777,7 @@ namespace WPEFramework
 				system_command.append("\",");
 				system_command.append("\"state\": \"");
 				system_command.append(stateDescription(player_state));
-				system_command.append("\"}}}' http://127.0.0.1:9998/jsonrpc\n");
+				system_command.append("\"}}' http://127.0.0.1:9998/jsonrpc\n");
 
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 				system( system_command.c_str());
@@ -773,7 +786,7 @@ namespace WPEFramework
 			{
 				sendNotify(EVT_ON_STATE_CHANGE, params);
 			}
-			LOGINFO("Exiting..!!!");
+			MIRACASTLOG_INFO("Exiting..!!!");
 		}
 
 		std::string MiracastPlayer::stateDescription(eMIRA_PLAYER_STATES e)
@@ -816,6 +829,8 @@ namespace WPEFramework
 					return "GStreamer Failure.";
 				case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
 					return "Internal Failure.";
+				case MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ:
+					return "APP REQ TO STOP FOR NEW CONNECTION";
 				default:
 					return "Unimplemented item.";
 			}

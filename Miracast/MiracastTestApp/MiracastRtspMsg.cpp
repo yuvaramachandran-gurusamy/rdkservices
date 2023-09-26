@@ -1227,10 +1227,10 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
     while ((nullptr != m_rtsp_msg_handler_thread)&&(true == rtsp_msg_hldr_running_state))
     {
-        MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+        MIRACASTLOG_TRACE("!!! Waiting for Event !!!\n");
         m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), THREAD_RECV_MSG_INDEFINITE_WAIT);
 
-        MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+        MIRACASTLOG_TRACE("!!! Received Action[%#04X] !!!\n", rtsp_message_data.state);
 
         if (RTSP_SELF_ABORT == rtsp_message_data.state)
         {
@@ -1254,7 +1254,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
             status_code = validate_rtsp_msg_response_back(socket_buffer, rtsp_message_data.state);
 
-            MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_message_data.state, status_code);
+            MIRACASTLOG_TRACE("!!! Validate RTSP Msg Action[%#04X] Response[%#04X] !!!\n", rtsp_message_data.state, status_code);
 
             if ((RTSP_MSG_SUCCESS != status_code) || (RTSP_M7_REQUEST_ACK == rtsp_message_data.state))
             {
@@ -1309,7 +1309,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
                 status_code = validate_rtsp_msg_response_back(socket_buffer, RTSP_MSG_POST_M1_M7_XCHANGE);
 
-                MIRACASTLOG_TRACE("[%s] Validate RTSP Msg Action[%#04X] Response[%#04X]\n", __FUNCTION__, rtsp_message_data.state, status_code);
+                MIRACASTLOG_TRACE("!!! Validate RTSP Msg Action[%#04X] Response[%#04X] !!!\n", rtsp_message_data.state, status_code);
                 if ((RTSP_MSG_TEARDOWN_REQUEST == status_code) ||
                     ((RTSP_MSG_SUCCESS != status_code) &&
                      (RTSP_MSG_TEARDOWN_REQUEST != status_code)))
@@ -1326,10 +1326,10 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                 break;
             }
 
-            MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+            MIRACASTLOG_TRACE("!!! Waiting for Event !!!\n");
             if (true == m_rtsp_msg_handler_thread->receive_message(&rtsp_message_data, sizeof(rtsp_message_data), 1))
             {
-                MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+                MIRACASTLOG_TRACE("!!! Received Action[%#04X] !!!\n", rtsp_message_data.state);
                 switch (rtsp_message_data.state)
                 {
                     case RTSP_RESTART:
@@ -1367,7 +1367,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             }
         }
 
-        MIRACASTLOG_TRACE("[%s] Received Action[%#04X]\n", __FUNCTION__, rtsp_message_data.state);
+        MIRACASTLOG_TRACE("!!! Received Action[%#04X] !!!\n", rtsp_message_data.state);
         if ( true == restart_discovery_needed )
         {
             MIRACASTLOG_TRACE("Msg to Controller Action[%#04X]\n", CONTROLLER_RTSP_RESTART_DISCOVERING);

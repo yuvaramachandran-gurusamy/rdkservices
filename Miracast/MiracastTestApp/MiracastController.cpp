@@ -930,12 +930,12 @@ void MiracastController::Controller_Thread(void *args)
         std::string event_buffer;
         event_buffer.clear();
 
-        MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+        MIRACASTLOG_TRACE("!!! Waiting for Event !!!\n");
         m_controller_thread->receive_message(&controller_msgq_data, CONTROLLER_MSGQ_SIZE, THREAD_RECV_MSG_INDEFINITE_WAIT);
 
         event_buffer = controller_msgq_data.msg_buffer;
 
-        MIRACASTLOG_TRACE("[%s] Received Action[%#08X]Data[%s]\n", __FUNCTION__, controller_msgq_data.state, event_buffer.c_str());
+        MIRACASTLOG_TRACE("!!! Received Action[%#08X]Data[%s] !!!\n", controller_msgq_data.state, event_buffer.c_str());
 
         if (CONTROLLER_SELF_ABORT == controller_msgq_data.state)
         {
@@ -1396,10 +1396,10 @@ void MiracastController::ThunderReqHandler_Thread(void *args)
         send_message = true;
         memset(&controller_msgq_data, 0x00, CONTROLLER_MSGQ_SIZE);
 
-        MIRACASTLOG_TRACE("[%s] Waiting for Event .....\n", __FUNCTION__);
+        MIRACASTLOG_TRACE("!!! Waiting for Event !!!\n");
         m_thunder_req_handler_thread->receive_message(&thunder_req_hdlr_msgq_data, sizeof(thunder_req_hdlr_msgq_data), THREAD_RECV_MSG_INDEFINITE_WAIT);
 
-        MIRACASTLOG_TRACE("[%s] Received Action[%#08X]\n", __FUNCTION__, thunder_req_hdlr_msgq_data.state);
+        MIRACASTLOG_TRACE("!!! Received Action[%#08X] !!!\n", thunder_req_hdlr_msgq_data.state);
 
         switch (thunder_req_hdlr_msgq_data.state)
         {
