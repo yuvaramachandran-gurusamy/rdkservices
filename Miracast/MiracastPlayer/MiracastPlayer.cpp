@@ -47,7 +47,7 @@ const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_VI
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_VIDEO_FORMATS = "setVideoFormats";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_AUDIO_FORMATS = "setAudioFormats";
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT = "setRTSPWaitTimeOut";
-const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL = "setLogLevel";
+const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL = "setLogging";
 
 #ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
 const string WPEFramework::Plugin::MiracastPlayer::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
@@ -92,7 +92,7 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_SET_VIDEO_FORMATS, &MiracastPlayer::setVideoFormats, this);
 			Register(METHOD_MIRACAST_SET_AUDIO_FORMATS, &MiracastPlayer::setAudioFormats, this);
 			Register(METHOD_MIRACAST_SET_RTSP_WAITTIMEOUT, &MiracastPlayer::setRTSPWaitTimeout, this);
-			Register(METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL, &MiracastPlayer::setLogLevel, this);
+			Register(METHOD_MIRACAST_PLAYER_SET_LOG_LEVEL, &MiracastPlayer::setLogging, this);
 
 #ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
 			Register(METHOD_MIRACAST_TEST_NOTIFIER, &MiracastPlayer::testNotifier, this);
@@ -418,15 +418,42 @@ namespace WPEFramework
 			returnResponse(success);
 		}
 
-		uint32_t MiracastPlayer::setLogLevel(const JsonObject &parameters, JsonObject &response)
+		uint32_t MiracastPlayer::setLogging(const JsonObject &parameters, JsonObject &response)
 		{
 			std::string log_level = "";
 			bool success = false;
 
 			MIRACASTLOG_INFO("Entering..!!!");
 
-			returnIfStringParamNotFound(parameters, "level");
-			
+			if (parameters.HasLabel("separate_logger"))
+			{
+				JsonObject separate_logger;
+				separate_logger = parameters["separate_logger"].Object();
+
+				if (separate_logger.HasLabel("status"))
+				{
+					std::string status = "";
+					status = separate_logger["separate_logger"].String();
+
+					success = true;
+
+					if (status == "ENABLE" || status == "enable")
+					{
+						std::string logfilename = "";
+						logfilename = separate_logger["logfilename"].String();
+						MIRACAST::enable_separate_logger(logfilename);
+					}
+					else if (status == "DISABLE" || status == "disable")
+					{
+						MIRACAST::disable_separate_logger();
+					}
+					else
+					{
+						success = false;
+					}
+				}
+			}
+
 			if (parameters.HasLabel("level"))
 			{
 				LogLevel level = FATAL_LEVEL;

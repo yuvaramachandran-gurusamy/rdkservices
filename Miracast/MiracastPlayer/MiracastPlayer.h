@@ -101,7 +101,7 @@ namespace WPEFramework
             uint32_t setVideoFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setAudioFormats(const JsonObject &parameters, JsonObject &response);
             uint32_t setRTSPWaitTimeout(const JsonObject &parameters, JsonObject &response);
-            uint32_t setLogLevel(const JsonObject &parameters, JsonObject &response);
+            uint32_t setLogging(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eM_PLAYER_REASON_CODE);
             std::string stateDescription(eMIRA_PLAYER_STATES);

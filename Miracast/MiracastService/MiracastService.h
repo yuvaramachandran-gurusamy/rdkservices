@@ -94,7 +94,7 @@ namespace WPEFramework
             uint32_t acceptClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t stopClientConnection(const JsonObject &parameters, JsonObject &response);
             uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
-            uint32_t setLogLevel(const JsonObject &parameters, JsonObject &response);
+            uint32_t setLogging(const JsonObject &parameters, JsonObject &response);
 
             std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw();
             void getSystemPlugin();

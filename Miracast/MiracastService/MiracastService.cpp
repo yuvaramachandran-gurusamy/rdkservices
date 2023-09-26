@@ -34,7 +34,7 @@ const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_GET_ENABLE =
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_CLIENT_CONNECT = "acceptClientConnection";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_STOP_CLIENT_CONNECT = "stopClientConnection";
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE = "updatePlayerState";
-const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_LOG_LEVEL = "setLogLevel";
+const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_SET_LOG_LEVEL = "setLogging";
 
 #ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
 const string WPEFramework::Plugin::MiracastService::METHOD_MIRACAST_TEST_NOTIFIER = "testNotifier";
@@ -92,7 +92,7 @@ namespace WPEFramework
 			Register(METHOD_MIRACAST_CLIENT_CONNECT, &MiracastService::acceptClientConnection, this);
 			Register(METHOD_MIRACAST_STOP_CLIENT_CONNECT, &MiracastService::stopClientConnection, this);
 			Register(METHOD_MIRACAST_SET_UPDATE_PLAYER_STATE, &MiracastService::updatePlayerState, this);
-			Register(METHOD_MIRACAST_SET_LOG_LEVEL, &MiracastService::setLogLevel, this);
+			Register(METHOD_MIRACAST_SET_LOG_LEVEL, &MiracastService::setLogging, this);
 
 #ifdef ENABLE_MIRACAST_SERVICE_TEST_NOTIFIER
 			m_isTestNotifierEnabled = false;
@@ -520,15 +520,42 @@ namespace WPEFramework
 			returnResponse(success);
 		}
 
-		uint32_t MiracastService::setLogLevel(const JsonObject &parameters, JsonObject &response)
+		uint32_t MiracastService::setLogging(const JsonObject &parameters, JsonObject &response)
 		{
 			std::string log_level = "";
 			bool success = false;
 
 			MIRACASTLOG_INFO("Entering..!!!");
 
-			returnIfStringParamNotFound(parameters, "level");
-			
+			if (parameters.HasLabel("separate_logger"))
+			{
+				JsonObject separate_logger;
+				separate_logger = parameters["separate_logger"].Object();
+
+				if (separate_logger.HasLabel("status"))
+				{
+					std::string status = "";
+					status = separate_logger["separate_logger"].String();
+
+					success = true;
+
+					if (status == "ENABLE" || status == "enable")
+					{
+						std::string logfilename = "";
+						logfilename = separate_logger["logfilename"].String();
+						MIRACAST::enable_separate_logger(logfilename);
+					}
+					else if (status == "DISABLE" || status == "disable")
+					{
+						MIRACAST::disable_separate_logger();
+					}
+					else
+					{
+						success = false;
+					}
+				}
+			}
+
 			if (parameters.HasLabel("level"))
 			{
 				LogLevel level = FATAL_LEVEL;

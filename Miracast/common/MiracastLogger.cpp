@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <sys/stat.h>
+#include <semaphore.h>
 
 namespace MIRACAST
 {
@@ -44,29 +45,77 @@ namespace MIRACAST
     static int gDefaultLogLevel = TRACE_LEVEL;
     static FILE *logger_file_ptr = nullptr;
     static char* service_name = "NOT-DEFINED";
+    static sem_t separate_logger_sync;
 
     void logger_init(const char* module_name)
     {
-        sync_stdout();
+        const char *separate_logger = getenv("MIRACAST_SEPARATE_LOGGER_ENABLED");
         const char *level = getenv("MIRACAST_DEFAULT_LOG_LEVEL");
-        if (level){
+
+        sync_stdout();
+        sem_init(&separate_logger_sync, 0, 1);
+
+        if (level)
+        {
             gDefaultLogLevel = static_cast<LogLevel>(atoi(level));
         }
-        const char *separate_logger = getenv("MIRACAST_SEPARATE_LOGGER_ENABLED");
-        if ((nullptr != separate_logger)&&(std::string(separate_logger) == "Yes")){
-            logger_file_ptr = fopen("/opt/logs/miracast.log", "a");
+
+        if ((nullptr != separate_logger)&&(std::string(separate_logger) == "Yes"))
+        {
+            std::string logger_filename = "/opt/logs/";
+            logger_filename.append(module_name);
+            logger_filename.append(".log");
+            logger_file_ptr = fopen( logger_filename.c_str() , "a");
         }
-        if ( nullptr != module_name ){
+
+        if ( nullptr != module_name )
+        {
             service_name = module_name;
         }
     }
 
     void logger_deinit()
     {
-        if (nullptr != logger_file_ptr){
+        if (nullptr != logger_file_ptr)
+        {
+            sem_wait(&separate_logger_sync);
+            fclose(logger_file_ptr);
+            logger_file_ptr = nullptr;
+            sem_post(&separate_logger_sync);
+        }
+        sem_destroy(&separate_logger_sync);
+    }
+
+    void enable_separate_logger( std::string filename )
+    {
+        sem_wait(&separate_logger_sync);
+        if (nullptr != logger_file_ptr)
+        {
+            std::string logger_filename = "/opt/logs/";
+            fclose(logger_file_ptr);
+            logger_file_ptr = nullptr;
+
+            if ( filename.empty())
+            {
+                filename = service_name;
+            }
+
+            logger_filename.append(filename);
+            logger_filename.append(".log");
+            logger_file_ptr = fopen( logger_filename.c_str() , "a");
+        }
+        sem_post(&separate_logger_sync);
+    }
+
+    void disable_separate_logger( void )
+    {
+        sem_wait(&separate_logger_sync);
+        if (nullptr != logger_file_ptr)
+        {
             fclose(logger_file_ptr);
             logger_file_ptr = nullptr;
         }
+        sem_post(&separate_logger_sync);
     }
 
     void set_loglevel(LogLevel level)
@@ -113,6 +162,7 @@ namespace MIRACAST
                     tm.tm_min,
                     tm.tm_sec,
                     ms);
+            sem_wait(&separate_logger_sync);
 
             if (threadID)
             {
@@ -133,6 +183,7 @@ namespace MIRACAST
             }
 
             fflush(logger_file_ptr);
+            sem_post(&separate_logger_sync);
         }
         else{
             fprintf(stderr, "[%s][%d] %s [%s:%d] %s: %s \n",
