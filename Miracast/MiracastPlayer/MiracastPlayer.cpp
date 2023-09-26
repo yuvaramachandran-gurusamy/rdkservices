@@ -804,6 +804,9 @@ namespace WPEFramework
 				system_command.append("\",");
 				system_command.append("\"state\": \"");
 				system_command.append(stateDescription(player_state));
+				system_command.append(",");
+				system_command.append("\"reason\": \"");
+				system_command.append(reasonDescription(reason_code));
 				system_command.append("\"}}' http://127.0.0.1:9998/jsonrpc\n");
 
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
@@ -857,7 +860,7 @@ namespace WPEFramework
 				case MIRACAST_PLAYER_REASON_CODE_INT_FAILURE:
 					return "Internal Failure.";
 				case MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ:
-					return "APP REQ TO STOP FOR NEW CONNECTION";
+					return "APP REQ TO STOP FOR NEW CONNECTION.";
 				default:
 					return "Unimplemented item.";
 			}

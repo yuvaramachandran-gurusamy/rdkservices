@@ -470,19 +470,23 @@ namespace WPEFramework
 				else if (player_state == "STOPPED" || player_state == "stopped")
 				{
 					std::string stop_reason;
-					returnIfStringParamNotFound(parameters, "reason");
+
 					getStringParameter("reason", stop_reason);
 
-					if (stop_reason == "NEW_CONNECTION" || stop_reason == "new_connection")
+					if (stop_reason == "APP REQ TO STOP FOR NEW CONNECTION.")
 					{
 						MIRACASTLOG_INFO("!!! STOPPED RECEIVED FOR NEW CONECTION !!!");
 					}
 					else
 					{
 						restart_discovery_needed = true;
-						 if (stop_reason == "EXIT" || stop_reason == "exit")
+						 if (stop_reason == "APP REQUESTED TO STOP.")
 						 {
 							MIRACASTLOG_INFO("!!! STOPPED RECEIVED FOR ON EXIT !!!");
+						 }
+						 else if (stop_reason == "SRC DEVICE REQUESTED TO STOP.")
+						 {
+							MIRACASTLOG_INFO("!!! SRC DEV TEARDOWN THE CONNECTION !!!");
 						 }
 						 else
 						 {
