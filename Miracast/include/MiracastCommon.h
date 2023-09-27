@@ -194,12 +194,12 @@ typedef enum miracast_player_reason_code_e
     MIRACAST_PLAYER_REASON_CODE_MAX_ERROR
 } eM_PLAYER_REASON_CODE;
 
-typedef enum miracast_player_stop_reason_e
+typedef enum miracast_player_stop_reason_code_e
 {
-    MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT = 0x100,
+    MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT = 300,
     MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION
 }
-eM_PLAYER_STOP_REASON;
+eM_PLAYER_STOP_REASON_CODE;
 
 typedef struct d_info
 {
@@ -234,7 +234,7 @@ typedef struct rtsp_hldr_msgq_st
     char source_dev_name[40];
     VIDEO_RECT_STRUCT videorect;
     eCONTROLLER_FW_STATES state;
-    eM_PLAYER_STOP_REASON stop_reason_e;
+    eM_PLAYER_STOP_REASON_CODE stop_reason_code;
 } RTSP_HLDR_MSGQ_STRUCT;
 
 typedef struct thunder_req_hldr_msg_st

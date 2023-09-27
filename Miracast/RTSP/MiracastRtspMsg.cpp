@@ -2011,12 +2011,12 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             }
             else if ( RTSP_MSG_TEARDOWN_REQUEST == status_code )
             {
-                if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT == rtsp_message_data.stop_reason_e )
+                if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT == rtsp_message_data.stop_reason_code )
                 {
                     reason = MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP;
                     MIRACASTLOG_INFO("!!! APP REQUESTED TO STOP ON EXIT !!!\n");
                 }
-                else if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION == rtsp_message_data.stop_reason_e )
+                else if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION == rtsp_message_data.stop_reason_code )
                 {
                     reason = MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ;
                     MIRACASTLOG_INFO("!!! APP REQUESTED TO STOP ON NEW CONNECTION !!!\n");
@@ -2152,19 +2152,19 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
                             if (RTSP_TEARDOWN_FROM_SINK2SRC == rtsp_message_data.state)
                             {
-                                if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT == rtsp_message_data.stop_reason_e )
+                                if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT == rtsp_message_data.stop_reason_code )
                                 {
                                     reason_code = MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP;
                                     MIRACASTLOG_INFO("!!! APP REQUESTED TO STOP ON EXIT!!!\n");
                                 }
-                                else if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION == rtsp_message_data.stop_reason_e )
+                                else if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION == rtsp_message_data.stop_reason_code )
                                 {
                                     reason_code = MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ;
                                     MIRACASTLOG_INFO("!!! APP REQUESTED TO STOP ON NEW CONNECTION !!!\n");
                                 }
                                 else
                                 {
-                                    MIRACASTLOG_ERROR("!!! INVALID STOP REASON RECEIVED [%#04X] !!!\n",rtsp_message_data.stop_reason_e);
+                                    MIRACASTLOG_ERROR("!!! INVALID STOP REASON RECEIVED [%#04X] !!!\n",rtsp_message_data.stop_reason_code);
                                 }
                             }
                             else

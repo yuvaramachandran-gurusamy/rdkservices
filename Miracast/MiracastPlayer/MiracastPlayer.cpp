@@ -296,24 +296,39 @@ namespace WPEFramework
 
 		uint32_t MiracastPlayer::stopRequest(const JsonObject &parameters, JsonObject &response)
 		{
-			std::string stop_reason;
 			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
+			int64_t json_parsed_value;
+			eM_PLAYER_STOP_REASON_CODE	stop_reason_code;
 			bool success = true;
+
 			MIRACASTLOG_INFO("Entering..!!!");
-			returnIfStringParamNotFound(parameters, "reason");
-			getStringParameter("reason", stop_reason);
 
-			if (stop_reason == "EXIT" || stop_reason == "exit")
+			returnIfNumberParamNotFound(parameters, "reason_code");
+
+			getNumberParameter("reason_code", json_parsed_value);
+			stop_reason_code = static_cast<eM_PLAYER_STOP_REASON_CODE>(json_parsed_value);
+
+			if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT == stop_reason_code )
 			{
-				rtsp_hldr_msgq_data.stop_reason_e = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT;
+				rtsp_hldr_msgq_data.stop_reason_code = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_EXIT;
 			}
-			else if (stop_reason == "NEW_CONNECTION" || stop_reason == "new_connection")
+			else if ( MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION == stop_reason_code )
 			{
-				rtsp_hldr_msgq_data.stop_reason_e = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION;
+				rtsp_hldr_msgq_data.stop_reason_code = MIRACAST_PLAYER_APP_REQ_TO_STOP_ON_NEW_CONNECTION;
+			}
+			else
+			{
+				success = false;
+				MIRACASTLOG_ERROR("!!! UNKNOWN STOP REASON CODE RECEIVED[%#04X] !!!",stop_reason_code);
+				response["message"] = "UNKNOWN STOP REASON CODE RECEIVED";
 			}
 
-			rtsp_hldr_msgq_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
-			m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+			if ( success )
+			{
+				rtsp_hldr_msgq_data.state = RTSP_TEARDOWN_FROM_SINK2SRC;
+				m_miracast_rtsp_obj->send_msgto_rtsp_msg_hdler_thread(rtsp_hldr_msgq_data);
+			}
+
 			MIRACASTLOG_INFO("Exiting..!!!");
 			returnResponse(success);
 		}
@@ -366,10 +381,10 @@ namespace WPEFramework
 			returnIfParamNotFound(parameters, "W");
 			returnIfParamNotFound(parameters, "H");
 
-			unsigned int startX = 0,
-						 startY = 0,
-						 width = 0,
-						 height = 0;
+			int startX = 0,
+				startY = 0,
+				width = 0,
+				height = 0;
 
 			startX = parameters["X"].Number();
 			startY = parameters["Y"].Number();
@@ -399,7 +414,6 @@ namespace WPEFramework
 
 		uint32_t MiracastPlayer::setRTSPWaitTimeout(const JsonObject &parameters, JsonObject &response)
 		{
-			RTSP_HLDR_MSGQ_STRUCT rtsp_hldr_msgq_data = {0};
 			bool success = false;
 			unsigned int request_time = 0,
 						 response_time = 0;
@@ -525,6 +539,7 @@ namespace WPEFramework
 			getBoolParameter("display_mode_supported", st_video_fmt.preferred_display_mode_supported);
 
 			JsonArray::Iterator index(h264_codecs.Elements());
+			int64_t json_parsed_value;
 
 			while (index.Next() == true)
 			{
@@ -538,14 +553,29 @@ namespace WPEFramework
 					returnIfParamNotFound(codecs, "vesa_mask");
 					returnIfParamNotFound(codecs, "hh_mask");
 
-					getNumberParameterObject(codecs, "profile", st_video_fmt.st_h264_codecs.profile);
-					getNumberParameterObject(codecs, "level", st_video_fmt.st_h264_codecs.level);
-					getNumberParameterObject(codecs, "cea_mask", st_video_fmt.st_h264_codecs.cea_mask);
-					getNumberParameterObject(codecs, "vesa_mask", st_video_fmt.st_h264_codecs.vesa_mask);
-					getNumberParameterObject(codecs, "hh_mask", st_video_fmt.st_h264_codecs.hh_mask);
-					getNumberParameterObject(codecs, "latency", st_video_fmt.st_h264_codecs.latency);
-					getNumberParameterObject(codecs, "min_slice", st_video_fmt.st_h264_codecs.min_slice);
-					getNumberParameterObject(codecs, "slice_encode", st_video_fmt.st_h264_codecs.slice_encode);
+					getNumberParameterObject(codecs, "profile", json_parsed_value);
+					st_video_fmt.st_h264_codecs.profile = static_cast<uint8_t>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "level", json_parsed_value);
+					st_video_fmt.st_h264_codecs.level = static_cast<uint8_t>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "cea_mask", json_parsed_value);
+					st_video_fmt.st_h264_codecs.cea_mask = static_cast<RTSP_CEA_RESOLUTIONS>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "vesa_mask", json_parsed_value);
+					st_video_fmt.st_h264_codecs.vesa_mask = static_cast<RTSP_VESA_RESOLUTIONS>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "hh_mask", json_parsed_value);
+					st_video_fmt.st_h264_codecs.hh_mask = static_cast<RTSP_HH_RESOLUTIONS>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "latency", json_parsed_value);
+					st_video_fmt.st_h264_codecs.latency = static_cast<uint8_t>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "min_slice", json_parsed_value);
+					st_video_fmt.st_h264_codecs.min_slice = static_cast<uint8_t>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "slice_encode", json_parsed_value);
+					st_video_fmt.st_h264_codecs.slice_encode = static_cast<uint8_t>(json_parsed_value);
 
 					if (codecs.HasLabel("video_frame_skip_support"))
 					{
@@ -601,6 +631,7 @@ namespace WPEFramework
 			}
 
 			JsonArray::Iterator index(audio_codecs.Elements());
+			int64_t json_parsed_value;
 
 			while (index.Next() == true)
 			{
@@ -612,9 +643,14 @@ namespace WPEFramework
 					returnIfParamNotFound(codecs, "modes");
 					returnIfParamNotFound(codecs, "latency");
 
-					getNumberParameterObject(codecs, "audio_format", st_audio_fmt.audio_format);
-					getNumberParameterObject(codecs, "modes", st_audio_fmt.modes);
-					getNumberParameterObject(codecs, "latency", st_audio_fmt.latency);
+					getNumberParameterObject(codecs, "audio_format", json_parsed_value);
+					st_audio_fmt.audio_format = static_cast<RTSP_AUDIO_FORMATS>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "modes", json_parsed_value);
+					st_audio_fmt.modes = static_cast<uint32_t>(json_parsed_value);
+
+					getNumberParameterObject(codecs, "latency", json_parsed_value);
+					st_audio_fmt.latency = static_cast<uint8_t>(json_parsed_value);
 				}
 				else
 					MIRACASTLOG_WARNING("Unexpected variant type");
@@ -734,14 +770,18 @@ namespace WPEFramework
 
 					if (state == "STATE_CHANGE" || state == "state_change")
 					{
+						int64_t json_parsed_value;
 						eMIRA_PLAYER_STATES player_state;
 						eM_PLAYER_REASON_CODE reason_code;
 
 						returnIfNumberParamNotFound(parameters, "player_state");
 						returnIfNumberParamNotFound(parameters, "reason_code");
 
-						getNumberParameter("player_state", player_state);
-						getNumberParameter("reason_code", reason_code);
+						getNumberParameter("player_state", json_parsed_value);
+						player_state = static_cast<eMIRA_PLAYER_STATES>(json_parsed_value);
+
+						getNumberParameter("reason_code", json_parsed_value);
+						reason_code = static_cast<eM_PLAYER_REASON_CODE>(json_parsed_value);
 
 						MIRACASTLOG_INFO("Given 'player_state and reason_code' are[%#04X--%#04X]",
 								player_state,
@@ -805,9 +845,9 @@ namespace WPEFramework
 				system_command.append("\"state\": \"");
 				system_command.append(stateDescription(player_state));
 				system_command.append(",");
-				system_command.append("\"reason\": \"");
-				system_command.append(reasonDescription(reason_code));
-				system_command.append("\"}}' http://127.0.0.1:9998/jsonrpc\n");
+				system_command.append("\"reason_code\": ");
+				system_command.append(std::to_string(reason_code));
+				system_command.append("}}' http://127.0.0.1:9998/jsonrpc\n");
 
 				MIRACASTLOG_INFO("System Command [%s]\n",system_command.c_str());
 				system( system_command.c_str());
