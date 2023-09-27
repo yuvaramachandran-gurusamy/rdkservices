@@ -44,7 +44,7 @@ namespace MIRACAST
 
     static int gDefaultLogLevel = TRACE_LEVEL;
     static FILE *logger_file_ptr = nullptr;
-    static char* service_name = "NOT-DEFINED";
+    static std::string service_name = "NOT-DEFINED";
     static sem_t separate_logger_sync;
 
     void logger_init(const char* module_name)
@@ -187,7 +187,7 @@ namespace MIRACAST
         }
         else{
             fprintf(stderr, "[%s][%d] %s [%s:%d] %s: %s \n",
-                    service_name,
+                    service_name.c_str(),
                     (int)syscall(SYS_gettid),
                     levelMap[static_cast<int>(level)],
                     basename(file),

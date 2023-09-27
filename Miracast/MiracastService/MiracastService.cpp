@@ -469,30 +469,31 @@ namespace WPEFramework
 				}
 				else if (player_state == "STOPPED" || player_state == "stopped")
 				{
-					std::string stop_reason;
+					int64_t json_parsed_value;
+					eM_PLAYER_REASON_CODE stop_reason_code;
 
-					getStringParameter("reason", stop_reason);
+					getNumberParameter("reason_code", json_parsed_value);
+					stop_reason_code = static_cast<eM_PLAYER_REASON_CODE>(json_parsed_value);
 
-					if (stop_reason == "APP REQ TO STOP FOR NEW CONNECTION.")
+					if ( MIRACAST_PLAYER_REASON_CODE_NEW_SRC_DEV_CONNECT_REQ == stop_reason_code )
 					{
 						MIRACASTLOG_INFO("!!! STOPPED RECEIVED FOR NEW CONECTION !!!");
 					}
 					else
 					{
 						restart_discovery_needed = true;
-						 if (stop_reason == "APP REQUESTED TO STOP.")
-						 {
+						if ( MIRACAST_PLAYER_REASON_CODE_APP_REQ_TO_STOP == stop_reason_code )
+						{
 							MIRACASTLOG_INFO("!!! STOPPED RECEIVED FOR ON EXIT !!!");
-						 }
-						 else if (stop_reason == "SRC DEVICE REQUESTED TO STOP.")
-						 {
+						}
+						else if ( MIRACAST_PLAYER_REASON_CODE_SRC_DEV_REQ_TO_STOP == stop_reason_code )
+						{
 							MIRACASTLOG_INFO("!!! SRC DEV TEARDOWN THE CONNECTION !!!");
-						 }
-						 else
-						 {
-							MIRACASTLOG_ERROR("!!! STOPPED RECEIVED FOR UNKNOWN REASON[%s] !!!",
-												stop_reason.c_str());
-						 }
+						}
+						else
+						{
+							MIRACASTLOG_ERROR("!!! STOPPED RECEIVED FOR REASON[%#04X] !!!",stop_reason_code);
+						}
 					}
 					m_miracast_ctrler_obj->m_ePlayer_state = MIRACAST_PLAYER_STATE_STOPPED;
 					m_eService_state = MIRACAST_SERVICE_STATE_DISCOVERABLE;
@@ -717,10 +718,13 @@ namespace WPEFramework
 					}
 					else if (state == "CONNECT_ERROR" || state == "connect_error")
 					{
+						int64_t json_parsed_value;
 						eMIRACAST_SERVICE_ERR_CODE error_code;
 
 						returnIfNumberParamNotFound(parameters, "error_code");
-						getNumberParameter("error_code", error_code);
+
+						getNumberParameter("error_code", json_parsed_value);
+						error_code = static_cast<eMIRACAST_SERVICE_ERR_CODE>(json_parsed_value);
 
 						if (( MIRACAST_SERVICE_ERR_CODE_MAX_ERROR > error_code ) &&
 							( MIRACAST_SERVICE_ERR_CODE_SUCCESS <= error_code ))
