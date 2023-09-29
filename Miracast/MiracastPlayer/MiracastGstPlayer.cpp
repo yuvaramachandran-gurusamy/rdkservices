@@ -297,31 +297,38 @@ bool MiracastGstPlayer::createPipeline()
 
     m_video_sink = gst_element_factory_make("westerossink", nullptr);
 
-    if (0 == access("/opt/miracast_immediateoutput", F_OK))
+    bool westerossink_immediate_output = true;
+
+    if (0 == access("/opt/miracast_avoid_immediateoutput", F_OK))
     {
-        if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
-        {
-            g_object_set(G_OBJECT(m_video_sink), "immediate-output", TRUE, nullptr);
-            MIRACASTLOG_INFO("Set immediate-output as TRUE \n");
-        }
+        westerossink_immediate_output = false;
     }
-#if 0
+
     if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "immediate-output"))
     {
-        g_object_set(G_OBJECT(m_video_sink), "immediate-output", FALSE, nullptr);
-        MIRACASTLOG_INFO("Set immediate-output as FALSE \n");
+        g_object_set(G_OBJECT(m_video_sink), "immediate-output", westerossink_immediate_output , nullptr);
+        MIRACASTLOG_INFO("Set immediate-output as [%x] \n",westerossink_immediate_output);
     }
-    if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "avsync-mode")){
-        g_object_set(G_OBJECT(m_video_sink), "avsync-mode", 1, nullptr);
-        MIRACASTLOG_INFO("Set avsync-mode as 1 \n");
-    }
-    if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_video_sink), "avsync-session")){
-        g_object_set(G_OBJECT(m_video_sink), "avsync-session", 0, nullptr);
-        MIRACASTLOG_INFO("Set avsync-session as 0 \n");
+#if defined(PLATFORM_AMLOGIC)
+    if (0 != access("/opt/miracast_avoid_amlhalasink", F_OK))
+    {
+        bool amlhalasink_direct_mode = false;
+        m_audio_sink = gst_element_factory_make("amlhalasink", nullptr);
+
+        if(g_object_class_find_property(G_OBJECT_GET_CLASS(m_audio_sink), "direct-mode"))
+        {
+            g_object_set(G_OBJECT(m_audio_sink), "direct-mode", amlhalasink_direct_mode , nullptr);
+            MIRACASTLOG_INFO("Set direct-mode as [%x] \n",amlhalasink_direct_mode );
+        }
     }
 #endif
     updateVideoSinkRectangle();
     g_object_set(m_pipeline, "video-sink", m_video_sink, nullptr);
+
+    if ( nullptr != m_audio_sink )
+    {
+        g_object_set(m_pipeline, "audio-sink", m_audio_sink, nullptr);
+    }
 
     bus = gst_element_get_bus(m_pipeline);
     m_bus_watch_id = gst_bus_add_watch(bus, (GstBusFunc)busMessageCb, this);

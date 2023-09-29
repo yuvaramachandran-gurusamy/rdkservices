@@ -1775,23 +1775,44 @@ std::string MiracastRTSPMsg::get_localIp()
 MiracastError MiracastRTSPMsg::start_streaming( VIDEO_RECT_STRUCT video_rect )
 {
     MIRACASTLOG_TRACE("Entering...");
-    const char *mcastIptableFile = "/opt/mcast_iptable.txt";
-    std::ifstream mIpfile(mcastIptableFile);
-    std::string mcast_iptable;
-    if (mIpfile.is_open())
+#if defined(PLATFORM_AMLOGIC)
     {
-        std::getline(mIpfile, mcast_iptable);
-        MIRACASTLOG_INFO("Iptable reading from file [%s] as [ %s] ", mcastIptableFile, mcast_iptable.c_str());
-        system(mcast_iptable.c_str());
-        mIpfile.close();
-    }
-    else
-    {
-        //
-    }
-    MIRACASTLOG_INFO("Casting started. Player initiated");
-    std::string gstreamerPipeline;
+        char command[128] = {0};
+        std::string default_error_proc_policy = "2151665463";
+        std::ifstream decoder_error_proc_policy_file("/opt/aml_dec_error_proc_policy");
 
+        if (decoder_error_proc_policy_file.is_open())
+        {
+            std::string new_error_proc_policy = "";
+            std::getline(decoder_error_proc_policy_file, new_error_proc_policy);
+            decoder_error_proc_policy_file.close();
+
+            MIRACASTLOG_INFO("decoder_error_proc_policy_file reading from file [/opt/aml_dec_error_proc_policy], new_error_proc_policy as [%s] ",
+                                new_error_proc_policy.c_str());
+            MIRACASTLOG_INFO("Overwriting error_proc_policy default[%s] with new[%s]",
+                                default_error_proc_policy.c_str(),
+                                new_error_proc_policy.c_str());
+            default_error_proc_policy = new_error_proc_policy;
+        }
+
+        if ( ! default_error_proc_policy.empty())
+        {
+            sprintf(command, "echo %s > /sys/module/amvdec_mh264/parameters/error_proc_policy",
+                    default_error_proc_policy.c_str());
+
+            MIRACASTLOG_INFO("command for applying error_proc_policy[%s]",command);
+            if (0 == system(command))
+            {
+                MIRACASTLOG_INFO("error_proc_policy applied successfully");
+            }
+            else
+            {
+                MIRACASTLOG_ERROR("!!! Failed to apply error_proc_policy !!!");
+            }
+        }
+    }
+#endif
+    std::string gstreamerPipeline = "";
     const char *mcastfile = "/opt/mcastgstpipline.txt";
     std::ifstream mcgstfile(mcastfile);
 

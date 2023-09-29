@@ -57,6 +57,7 @@ private:
     int m_buffering_level;
     double m_currentPosition;
     GstElement *m_video_sink{nullptr};
+    GstElement *m_audio_sink{nullptr};
     pthread_t m_playback_thread;
     VIDEO_RECT_STRUCT m_video_rect_st;
 
