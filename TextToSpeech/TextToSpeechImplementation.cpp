@@ -36,7 +36,6 @@
 
 namespace WPEFramework {
 namespace Plugin {
-
     SERVICE_REGISTRATION(TextToSpeechImplementation, TTS_MAJOR_VERSION, TTS_MINOR_VERSION);
 
     TTS::TTSManager* TextToSpeechImplementation::_ttsManager = NULL;
@@ -66,6 +65,7 @@ namespace Plugin {
         TTS::TTSConfiguration *ttsConfig = _ttsManager->configuration();
         ttsConfig->setEndPoint(GET_STR(config, "endpoint", ""));
         ttsConfig->setSecureEndPoint(GET_STR(config, "secureendpoint", ""));
+        ttsConfig->setLocalEndPoint(GET_STR(config, "localendpoint", ""));
         ttsConfig->setLanguage(GET_STR(config, "language", "en-US"));
         ttsConfig->setVoice(GET_STR(config, "voice", ""));
         ttsConfig->setEndpointType(GET_STR(config, "endpoint_type", "TTS1"));
@@ -86,9 +86,16 @@ namespace Plugin {
         } else {
             TTSLOG_WARNING("Doesn't find default voice configuration");
         }
+        if(config.HasLabel("local_voices")) {
+            JsonObject voices = config["local_voices"].Object();
+            JsonObject::Iterator it = voices.Variants();
+            while(it.Next())
+                ttsConfig->m_others["voice_for_local_" + string(it.Label())] = it.Current().String();
+        }
         ttsConfig->loadFromConfigStore();
         TTSLOG_INFO("TTSEndPoint : %s", ttsConfig->endPoint().c_str());
         TTSLOG_INFO("SecureTTSEndPoint : %s", ttsConfig->secureEndPoint().c_str());
+        TTSLOG_INFO("LocalTTSEndPoint : %s", ttsConfig->localEndPoint().c_str());
         TTSLOG_INFO("Language : %s", ttsConfig->language().c_str());
         TTSLOG_INFO("Voice : %s", ttsConfig->voice().c_str());
         TTSLOG_INFO("Volume : %lf", ttsConfig->volume());
@@ -101,6 +108,18 @@ namespace Plugin {
         while( it != ttsConfig->m_others.end()) {
             TTSLOG_INFO("%s : %s", it->first.c_str(), it->second.c_str());
             ++it;
+        }
+
+        if(ttsConfig->hasValidLocalEndpoint()) {
+            TTSLOG_INFO("Online/offline endpoint switch enabled");
+            std::vector<std::string> localVoices;
+            _ttsManager->listLocalVoices(ttsConfig->language(), localVoices);
+            if(localVoices.empty()) {
+              TTSLOG_WARNING("Local Voice is empty and no voices are defined for the specified language ('%s')!!!", ttsConfig->language().c_str());
+              return TTS::TTS_FAIL;
+            } else {
+              ttsConfig->setLocalVoice(localVoices.front());
+            }
         }
 
         _ttsManager->enableTTS(ttsConfig->enabled());
@@ -387,31 +406,37 @@ namespace Plugin {
 
     void TextToSpeechImplementation::onTTSStateChanged(bool state)
     {
+        TTSLOG_INFO("Notify onttsstatechanged, state: %s", (state ? "true" : "false"));
         dispatchEvent(STATE_CHANGED, JsonValue((bool)state));
     }
 
     void TextToSpeechImplementation::onVoiceChanged(std::string voice)
     {
+        TTSLOG_INFO("Notify onvoicechanged, voice: %s", voice.c_str());
         dispatchEvent(VOICE_CHANGED, JsonValue((std::string)voice));
     }
 
     void TextToSpeechImplementation::onWillSpeak(TTS::SpeechData &data)
     {
+        TTSLOG_INFO("Notify onwillspeak, speechId: %d", data.id);
         dispatchEvent(WILL_SPEAK, JsonValue((int)data.id));
     }
 
     void TextToSpeechImplementation::onSpeechStart(TTS::SpeechData &data)
     {
+        TTSLOG_INFO("Notify onspeechstart, speechId: %d", data.id);
         dispatchEvent(SPEECH_START, JsonValue((int)data.id));
     }
 
     void TextToSpeechImplementation::onSpeechPause(uint32_t speechId)
     {
+        TTSLOG_INFO("Notify onspeechpause, speechId: %d", speechId);
         dispatchEvent(SPEECH_PAUSE, JsonValue((int)speechId));
     }
 
     void TextToSpeechImplementation::onSpeechResume(uint32_t speechId)
     {
+        TTSLOG_INFO("Notify onspeechresume, speechId: %d", speechId);
         dispatchEvent(SPEECH_RESUME, JsonValue((int)speechId));
     }
 
@@ -431,21 +456,25 @@ namespace Plugin {
 
     void TextToSpeechImplementation::onSpeechInterrupted(uint32_t speechId)
     {
+        TTSLOG_INFO("Notify onspeechinterrupted, speechId: %d", speechId);
         dispatchEvent(SPEECH_INTERRUPT, JsonValue((int)speechId));
     }
 
     void TextToSpeechImplementation::onNetworkError(uint32_t speechId)
     {
+        TTSLOG_INFO("Notify onnetworkerror, speechId: %d", speechId);
         dispatchEvent(NETWORK_ERROR, JsonValue((int)speechId));
     }
 
     void TextToSpeechImplementation::onPlaybackError(uint32_t speechId)
     {
+        TTSLOG_INFO("Notify onplaybackerror, speechId: %d", speechId);
         dispatchEvent(PLAYBACK_ERROR, JsonValue((int)speechId));
     }
 
     void TextToSpeechImplementation::onSpeechComplete(TTS::SpeechData &data)
     {
+        TTSLOG_INFO("Notify onspeechcomplete, speechId: %d", data.id);
         dispatchEvent(SPEECH_COMPLETE, JsonValue((int)data.id));
     }
 

@@ -424,6 +424,9 @@ typedef struct _DSMgr_EventData_t {
                int audio_output_delay;
                int video_latency;
         }hdmi_in_av_latency; /*HDMI in AVLatency change*/
+	struct _DISPLAY_FRAMERATE_CHANGE {
+            char framerate[20];
+        }DisplayFrameRateChange;
     } data;
 } IARM_Bus_DSMgr_EventData_t;
 
@@ -582,7 +585,7 @@ public:
     virtual uint8_t getNumberOfInputs() const = 0;
     virtual bool isPortConnected(int8_t Port) const = 0;
     virtual std::string getCurrentVideoMode() const = 0;
-    virtual void selectPort(int8_t Port) const = 0;
+    virtual void selectPort(int8_t Port,bool audioMix = false, int videoPlane = 0) const = 0;
     virtual void scaleVideo(int32_t x, int32_t y, int32_t width, int32_t height) const = 0;
 
     virtual void getEDIDBytesInfo(int iHdmiPort, std::vector<uint8_t>& edid) const = 0;
@@ -592,6 +595,8 @@ public:
     virtual void getHdmiALLMStatus(int iHdmiPort, bool* allmStatus) const = 0;
     virtual void getSupportedGameFeatures(std::vector<std::string>& featureList) const = 0;
     virtual void getAVLatency(int *audio_output_delay, int *video_latency) const = 0;
+    virtual void setEdid2AllmSupport(int iHdmiPort, bool allmsupport) const = 0;
+    virtual void getEdid2AllmSupport(int iHdmiPort, bool *allmsupport) const = 0;
 };
 
 class HdmiInput {
@@ -616,9 +621,9 @@ public:
     {
         return impl->getCurrentVideoMode();
     }
-    void selectPort(int8_t Port) const
+    void selectPort(int8_t Port,bool audioMix = false,int videoPlane = 0) const
     {
-        return impl->selectPort(Port);
+        return impl->selectPort(Port,audioMix,videoPlane);
     }
     void scaleVideo(int32_t x, int32_t y, int32_t width, int32_t height) const
     {
@@ -652,6 +657,14 @@ public:
     void getAVLatency(int *audio_output_delay, int *video_latency) const
     {
         return impl->getAVLatency(audio_output_delay,video_latency);
+    }
+    void setEdid2AllmSupport(int iport, bool allmSupport) const
+    {
+        return impl->setEdid2AllmSupport(iport,allmSupport);
+    }
+    void getEdid2AllmSupport(int iport, bool *allmSupport) const
+    {
+        return impl->getEdid2AllmSupport(iport,allmSupport);
     }
 };
 

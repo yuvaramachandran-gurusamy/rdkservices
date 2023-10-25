@@ -145,6 +145,10 @@ namespace WPEFramework {
             static const string RDKSHELL_METHOD_KEY_REPEAT_CONFIG;
             static const string RDKSHELL_METHOD_GET_GRAPHICS_FRAME_RATE;
             static const string RDKSHELL_METHOD_SET_GRAPHICS_FRAME_RATE;
+#ifdef HIBERNATE_SUPPORT_ENABLED
+            static const string RDKSHELL_METHOD_CHECKPOINT;
+            static const string RDKSHELL_METHOD_RESTORE;
+#endif
 
             // events
             static const string RDKSHELL_EVENT_ON_USER_INACTIVITY;
@@ -167,6 +171,10 @@ namespace WPEFramework {
             static const string RDKSHELL_EVENT_ON_EASTER_EGG;
             static const string RDKSHELL_EVENT_ON_WILL_DESTROY;
             static const string RDKSHELL_EVENT_ON_SCREENSHOT_COMPLETE;
+#ifdef HIBERNATE_SUPPORT_ENABLED
+            static const string RDKSHELL_EVENT_ON_CHECKPOINTED;
+            static const string RDKSHELL_EVENT_ON_RESTORED;
+#endif
 
             void notify(const std::string& event, const JsonObject& parameters);
             void pluginEventHandler(const JsonObject& parameters);
@@ -261,6 +269,10 @@ namespace WPEFramework {
             uint32_t keyRepeatConfigWrapper(const JsonObject& parameters, JsonObject& response);
             uint32_t getGraphicsFrameRateWrapper(const JsonObject& parameters, JsonObject& response);
             uint32_t setGraphicsFrameRateWrapper(const JsonObject& parameters, JsonObject& response);
+#ifdef HIBERNATE_SUPPORT_ENABLED
+            uint32_t checkpointWrapper(const JsonObject& parameters, JsonObject& response);
+            uint32_t restoreWrapper(const JsonObject& parameters, JsonObject& response);
+#endif
 
         private/*internal methods*/:
             RDKShell(const RDKShell&) = delete;
@@ -402,12 +414,16 @@ namespace WPEFramework {
 
               private:
                   virtual void StateChange(PluginHost::IShell* shell);
+		  void handleInitialize(PluginHost::IShell* shell);
+                  void handleActivated(PluginHost::IShell* shell);
                   void handleDeactivated(PluginHost::IShell* shell);
 #ifdef USE_THUNDER_R4
+		  virtual void Initialize(VARIABLE_IS_NOT_USED const string& callsign, VARIABLE_IS_NOT_USED PluginHost::IShell* plugin);
                   virtual void Activation(const string& name, PluginHost::IShell* plugin);
                   virtual void Deactivation(const string& name, PluginHost::IShell* plugin);
                   virtual void  Activated(const string& callSign,  PluginHost::IShell* plugin);
                   virtual void  Deactivated(const string& callSign,  PluginHost::IShell* plugin);
+		  virtual void Deinitialized(VARIABLE_IS_NOT_USED const string& callsign, VARIABLE_IS_NOT_USED PluginHost::IShell* plugin);
                   virtual void  Unavailable(const string& callSign,  PluginHost::IShell* plugin);
 #endif /* USE_THUNDER_R4 */
               private:

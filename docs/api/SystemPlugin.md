@@ -2,7 +2,7 @@
 <a name="System_Plugin"></a>
 # System Plugin
 
-**Version: [1.7.0](https://github.com/rdkcentral/rdkservices/blob/main/SystemServices/CHANGELOG.md)**
+**Version: [1.7.1](https://github.com/rdkcentral/rdkservices/blob/main/SystemServices/CHANGELOG.md)**
 
 A org.rdk.System plugin for Thunder framework.
 
@@ -90,7 +90,6 @@ SystemServices interface methods:
 | [getTimeZoneDST](#getTimeZoneDST) | Get the configured time zone from the file referenced by `TZ_FILE` |
 | [getWakeupReason](#getWakeupReason) | Returns the reason for the device coming out of deep sleep |
 | [getXconfParams](#getXconfParams) | Returns XCONF configuration parameters for the device |
-| [hasRebootBeenRequested](#hasRebootBeenRequested) | Checks whether a reboot has been requested |
 | [isGzEnabled](#isGzEnabled) | Checks whether GZ is enabled |
 | [isOptOutTelemetry](#isOptOutTelemetry) | Checks the telemetry opt-out status |
 | [queryMocaStatus](#queryMocaStatus) | Checks whether MOCA is enabled |
@@ -2299,52 +2298,6 @@ This method takes no parameters.
             "model": "AX061AEI",
             "firmwareVersion": "AX061AEI_VBN_1911_sprint_20200109040424sdy"
         },
-        "success": true
-    }
-}
-```
-
-<a name="hasRebootBeenRequested"></a>
-## *hasRebootBeenRequested*
-
-Checks whether a reboot has been requested.
-
-### Events
-
-No Events
-
-### Parameters
-
-This method takes no parameters.
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.rebootRequested | boolean | `true` if a reboot has been requested, otherwise `false` |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.System.hasRebootBeenRequested"
-}
-```
-
-#### Response
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "rebootRequested": false,
         "success": true
     }
 }
