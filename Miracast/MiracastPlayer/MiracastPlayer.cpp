@@ -19,7 +19,7 @@
 
 #include <algorithm>
 #include <regex>
-#include "rdk/iarmmgrs-hal/pwrMgr.h"
+//#include "rdk/iarmmgrs-hal/pwrMgr.h"
 #include "MiracastPlayer.h"
 #include <UtilsJsonRpc.h>
 #include "UtilsIarm.h"
@@ -162,6 +162,11 @@ namespace WPEFramework
 		{
 			string msg;
 			MIRACASTLOG_INFO("Entering..!!!");
+			if (0 == access("/opt/miracast_disable", F_OK))
+			{
+				msg = "'/opt/miracast_disable' flag available";
+				return msg;
+			}
 			if (!m_isServiceInitialized)
 			{
 				MiracastError ret_code = MIRACAST_OK;

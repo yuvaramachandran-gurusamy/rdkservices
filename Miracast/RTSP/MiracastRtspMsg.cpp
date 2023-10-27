@@ -1520,9 +1520,15 @@ RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m6_ack_m7_send_request(std::string rt
     }
 
     set_WFDSessionNumber(session_number);
-    if ( -1 != timeoutValue ){
+    if ( -1 != timeoutValue )
+    {
         m_wfd_src_session_timeout = timeoutValue;
     }
+
+#ifndef MIRACAST_CERT_BUILD
+    m_wfd_src_session_timeout += RTSP_KEEP_ALIVE_WAIT_TIMEOUT_OFFSET_SEC;
+    MIRACASTLOG_TRACE("SessionTimeout has updated as [%s]",m_wfd_src_session_timeout);
+#endif
 
     if (!clientPortValue.empty())
     {
@@ -1967,10 +1973,8 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
 
         memset(&rtsp_message_socket, 0x00, sizeof(rtsp_message_socket));
 
-        while ( RTSP_MSG_SUCCESS == receive_buffer_timedOut( m_tcpSockfd, 
-                                                             rtsp_message_socket, 
-                                                             sizeof(rtsp_message_socket),
-                                                             get_wait_timeout()))
+        while (( status_code = receive_buffer_timedOut( m_tcpSockfd, rtsp_message_socket, sizeof(rtsp_message_socket),get_wait_timeout())) &&
+                ( status_code == RTSP_MSG_SUCCESS ))
         {
             rtsp_msg_buffer.clear();
             rtsp_msg_buffer = rtsp_message_socket;
