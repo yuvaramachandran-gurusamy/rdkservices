@@ -586,8 +586,8 @@ gboolean MiracastGstPlayer::on_playbin2appsrc_bus_message(GstBus *bus, GstMessag
             g_error_free(error);
             g_free(info);
             GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)self->m_playbin2appsrc_pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "miracast_playbin2appsrc_error");
-            gst_element_set_state(self->m_playbin2appsrc_pipeline, GST_STATE_READY);
-            g_main_loop_quit(self->m_main_loop);
+            //gst_element_set_state(self->m_playbin2appsrc_pipeline, GST_STATE_READY);
+            //g_main_loop_quit(self->m_main_loop);
             break;
         }
         case GST_MESSAGE_EOS:
@@ -607,10 +607,13 @@ gboolean MiracastGstPlayer::on_playbin2appsrc_bus_message(GstBus *bus, GstMessag
                 static int id = 0;
                 id++;
                 gst_message_parse_state_changed(msg, &old, &now, &pending);
-                if (memcmp(GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)), "playbin", 7) == 0)
+                if (memcmp(GST_OBJECT_NAME(GST_MESSAGE_SRC(msg)), "miracast_playbin", 7) == 0)
                 {
-                    MIRACASTLOG_ERROR("Element [%s], Pipeline state change from Old [%s] -> New [%s] and Pending state is [%s]", GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)),
-                                    gst_element_state_get_name(old), gst_element_state_get_name(now), gst_element_state_get_name(pending));
+                    MIRACASTLOG_INFO("Element [%s], Pipeline state change from Old [%s] -> New [%s] and Pending state is [%s]",
+                                        GST_ELEMENT_NAME(GST_MESSAGE_SRC(msg)),
+                                        gst_element_state_get_name(old),
+                                        gst_element_state_get_name(now),
+                                        gst_element_state_get_name(pending));
                 }
                 std::string file_name = "miracast_playbin2appsrc_";
                 file_name += (GST_OBJECT_NAME(self->m_playbin2appsrc_pipeline));
@@ -719,20 +722,18 @@ void MiracastGstPlayer::playbin_source_setup(GstElement *pipeline, GstElement *s
     GstAppSrcCallbacks callbacks = {appsrc_need_data, appsrc_enough_data, nullptr};
     gst_app_src_set_callbacks(GST_APP_SRC(self->m_appsrc), &callbacks, user_data , nullptr);
     g_object_set(GST_APP_SRC(self->m_appsrc), "format", GST_FORMAT_TIME, nullptr);
+    g_object_set(GST_APP_SRC(self->m_appsrc), "is-live", true, nullptr);
 
-    /* we can set the length in appsrc. This allows some elements to estimate the
-     * total duration of the stream. It's a good idea to set the property when you
-     * can but it's not required. */
-    //g_object_set(self->app_src, "size", (gint64)self->length, nullptr);
+    std::string opt_max_bytes = "";
+    opt_max_bytes = parse_opt_flag( "/opt/miracast_appsrc_max_bytes" , true );
 
-    /* configure the appsrc, we will push data into the appsrc from the
-     * mainloop. */
-    //g_signal_connect(self->m_appsrc, "need-data", G_CALLBACK(start_feed), app);
-    //g_signal_connect(self->m_appsrc, "enough-data", G_CALLBACK(stop_feed), app);
+    guint64 test_max_size = 3*1024*1024;
 
-    // g_object_set (self->m_appsrc, "caps", self->capsSrc, nullptr);
-    // gst_app_src_set_caps ((GstAppSrc*)self->m_appsrc, self->capsSrc);
-    g_object_set(GST_APP_SRC(self->m_appsrc), "max-bytes", (guint64) 20 * 1024 * 1024, nullptr);
+    if (!opt_max_bytes.empty())
+    {
+        test_max_size = std::stoull(opt_max_bytes.c_str());
+    }
+    g_object_set(GST_APP_SRC(self->m_appsrc), "max-bytes", (guint64) test_max_size, nullptr);
 
     const gchar *set_cap = "video/mpegts, systemstream=(boolean)true, packetsize=(int)188";
     GstCaps *caps = gst_caps_from_string(set_cap);
@@ -1115,7 +1116,6 @@ bool MiracastGstPlayer::createPipeline()
     //if (!gst_element_link_many( m_udpsrc, m_rtpmp2tdepay , m_appsink, nullptr ))
     //if (!gst_element_link_many(m_udpsrc, m_rtpjitterbuffer, m_rtpmp2tdepay, m_appsinkqueue, m_appsink, nullptr ))
     if (!gst_element_link_many(m_udpsrc, m_rtpmp2tdepay, m_appsinkqueue, m_appsink, nullptr ))
-    
     {
         MIRACASTLOG_ERROR("Elements could not be linked.\n");
         gst_object_unref(m_udpsrc2appsink_pipeline);
@@ -1135,8 +1135,8 @@ bool MiracastGstPlayer::createPipeline()
         gst_object_unref (bus);
 
         // Pipeline created
-        g_object_set(m_playbin2appsrc_pipeline, "uri", "appsrc://", nullptr);
         g_signal_connect(m_playbin2appsrc_pipeline, "source-setup", G_CALLBACK(playbin_source_setup), this);
+        g_object_set(m_playbin2appsrc_pipeline, "uri", "appsrc://", nullptr);
     }
     m_video_sink = gst_element_factory_make("westerossink", nullptr);
 
