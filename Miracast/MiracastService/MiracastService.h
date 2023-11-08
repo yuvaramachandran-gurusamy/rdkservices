@@ -98,10 +98,11 @@ namespace WPEFramework
             uint32_t updatePlayerState(const JsonObject &parameters, JsonObject &response);
             uint32_t setLogging(const JsonObject &parameters, JsonObject &response);
 
-            std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e) throw();
+            std::string reasonDescription(eMIRACAST_SERVICE_ERR_CODE e);
             void getSystemPlugin();
             int updateSystemFriendlyName();
             void onFriendlyNameUpdateHandler(const JsonObject &parameters);
+            bool envGetValue(const char *key, std::string &value);
 
             // We do not allow this plugin to be copied !!
             MiracastService(const MiracastService &) = delete;
