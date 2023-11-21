@@ -437,7 +437,18 @@ MiracastError MiracastP2P::discover_devices(void)
     std::string command, retBuffer,opt_flag_buffer;
     MIRACASTLOG_TRACE("Entering..");
 
-    command = "P2P_FIND";
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_discovery");
+
+    if (!opt_flag_buffer.empty())
+    {
+        command = opt_flag_buffer;
+        MIRACASTLOG_INFO("Custom P2P Discovery applied[%s]",command.c_str());
+    }
+    else
+    {
+        command = "P2P_FIND";
+        MIRACASTLOG_INFO("default P2P Discovery applied[%s]",command.c_str());
+    }
 
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
@@ -451,10 +462,22 @@ MiracastError MiracastP2P::discover_devices(void)
 MiracastError MiracastP2P::stop_discover_devices(void)
 {
     MiracastError ret = MIRACAST_FAIL;
-    std::string command, retBuffer;
+    std::string command, retBuffer,opt_flag_buffer;
     MIRACASTLOG_TRACE("Entering...");
 
-    command = "P2P_STOP_FIND";
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_stop_discovery");
+
+    if (!opt_flag_buffer.empty())
+    {
+        command = opt_flag_buffer;
+        MIRACASTLOG_INFO("Custom P2P stop Discovery applied[%s]",command.c_str());
+    }
+    else
+    {
+        command = "P2P_STOP_FIND";
+        MIRACASTLOG_INFO("default P2P stop Discovery applied[%s]",command.c_str());
+    }
+
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
     {
