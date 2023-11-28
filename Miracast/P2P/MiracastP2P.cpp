@@ -232,7 +232,7 @@ MiracastError MiracastP2P::p2pUninit()
 
     if ( nullptr != m_wpa_p2p_cmd_ctrl_iface )
     {
-        stop_discover_devices();
+        // stop_discover_devices();
     }
     Release_P2PCtrlInterface();
 
@@ -408,9 +408,16 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET wifi_display 1";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
-        command = "WFD_SUBELEM_SET 0";
+        // command = "WFD_SUBELEM_SET 0";
+        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+        // command = "WFD_SUBELEM_SET 0 000600111c4400c8";
+        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        command = "SET config_methods pbc";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-        command = "WFD_SUBELEM_SET 0 000600111c4400c8";
+
+        /*Always act as GO*/
+        command = "SET p2p_go_intent 15";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_cfg");
@@ -422,7 +429,23 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         {
             command = "SET config_methods pbc";
         }
-	executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        command = "SET p2p_go_max_inactivity 86400";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        // @todo: Here fails to execute in p2pWpaCtrlSendCmd.
+        // command = "SET p2p_group_add persistent";
+        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        // Workaround added
+        command = "wpa_cli -i p2p0 p2p_group_add persistent";
+        MIRACASTLOG_INFO("Executing : %s\n", command.c_str());
+        system(command.c_str());
+
+        // @todo: Here fails to execute in p2pWpaCtrlSendCmd.
+        // command = "SET ssid_postfix Element-1234";
+        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
         /* Set Device type */
@@ -437,9 +460,11 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET p2p_ssid_postfix -Element-Xumo-TV";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
-        /* Set p2p_go_intent to 15 */
-        command = "SET p2p_go_intent 15";
-        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+        // Workaround added
+        command = "wpa_cli -i p2p0 p2p_set ssid_postfix ";
+        command.append(get_FriendlyName());
+        MIRACASTLOG_INFO("Executing : %s\n", command.c_str());
+        system(command.c_str());
 
         m_isWiFiDisplayParamsEnabled = true;
     }
