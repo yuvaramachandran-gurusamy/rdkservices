@@ -232,7 +232,7 @@ MiracastError MiracastP2P::p2pUninit()
 
     if ( nullptr != m_wpa_p2p_cmd_ctrl_iface )
     {
-        // stop_discover_devices();
+        stop_discover_devices();
     }
     Release_P2PCtrlInterface();
 
@@ -408,16 +408,9 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET wifi_display 1";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
-        // command = "WFD_SUBELEM_SET 0";
-        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-        // command = "WFD_SUBELEM_SET 0 000600111c4400c8";
-        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-
-        command = "SET config_methods pbc";
+        command = "WFD_SUBELEM_SET 0";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-
-        /*Always act as GO*/
-        command = "SET p2p_go_intent 15";
+        command = "WFD_SUBELEM_SET 0 000600111c4400c8";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_cfg");
@@ -434,18 +427,8 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET p2p_go_max_inactivity 86400";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
-        // @todo: Here fails to execute in p2pWpaCtrlSendCmd.
-        // command = "SET p2p_group_add persistent";
-        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-
-        // Workaround added
-        command = "wpa_cli -i p2p0 p2p_group_add persistent";
-        MIRACASTLOG_INFO("Executing : %s\n", command.c_str());
-        system(command.c_str());
-
-        // @todo: Here fails to execute in p2pWpaCtrlSendCmd.
-        // command = "SET ssid_postfix Element-1234";
-        // executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+        command = "SET p2p_go_intent 15";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
         /* Set Device type */
@@ -461,11 +444,21 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         // Workaround added
-        command = "wpa_cli -i p2p0 p2p_set ssid_postfix ";
-        command.append(get_FriendlyName());
-        MIRACASTLOG_INFO("Executing : %s\n", command.c_str());
-        system(command.c_str());
+        command = "p2p_set ssid_postfix _Element-1234";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
+        std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_grp_add");
+        if (!opt_flag_buffer.empty())
+        {
+            command = opt_flag_buffer;
+            MIRACASTLOG_INFO("Custom P2P GRP Add applied[%s]",command.c_str());
+        }
+        else
+        {
+            command = "P2P_GROUP_ADD persistent";
+            MIRACASTLOG_INFO("default P2P GRP Add applied[%s]",command.c_str());
+        }
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         m_isWiFiDisplayParamsEnabled = true;
     }
     MIRACASTLOG_TRACE("Exiting..");
@@ -481,6 +474,9 @@ void MiracastP2P::reset_WFDParameters(void)
 
 MiracastError MiracastP2P::discover_devices(void)
 {
+#if 1
+    return MIRACAST_OK;
+#else
     MiracastError ret = MIRACAST_FAIL;
     std::string command, retBuffer,opt_flag_buffer;
     MIRACASTLOG_TRACE("Entering..");
@@ -495,10 +491,14 @@ MiracastError MiracastP2P::discover_devices(void)
     }
     MIRACASTLOG_TRACE("Exiting..");
     return ret;
+#endif
 }
 
 MiracastError MiracastP2P::stop_discover_devices(void)
 {
+#if 1
+    return MIRACAST_OK;
+#else
     MiracastError ret = MIRACAST_FAIL;
     std::string command, retBuffer;
     MIRACASTLOG_TRACE("Entering...");
@@ -512,6 +512,7 @@ MiracastError MiracastP2P::stop_discover_devices(void)
     }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
+#endif
 }
 
 MiracastError MiracastP2P::connect_device(std::string MAC,std::string authType )
@@ -584,8 +585,19 @@ MiracastError MiracastP2P::remove_GroupInterface(std::string group_iface_name )
         ret = MIRACAST_FAIL;
     }
     else{
-        std::string command, retBuffer;
-        command = "P2P_GROUP_REMOVE " + group_iface_name;
+        std::string command, retBuffer,opt_flag_buffer;
+        opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_grp_remove");
+
+        if (!opt_flag_buffer.empty())
+        {
+            command = opt_flag_buffer;
+            MIRACASTLOG_INFO("Custom P2P GROUP REMOVE applied[%s]",command.c_str());
+        }
+        else
+        {
+            command = "P2P_GROUP_REMOVE " + group_iface_name;
+            MIRACASTLOG_INFO("default P2P GROUP REMOVE applied[%s]",command.c_str());
+        }
         ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     }
 
