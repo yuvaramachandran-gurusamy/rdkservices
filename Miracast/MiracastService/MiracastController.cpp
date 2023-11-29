@@ -395,18 +395,17 @@ void MiracastController::restart_session(bool start_discovering_enabled)
     reset_WFDSourceMACAddress();
     reset_WFDSourceName();
     stop_session();
-    //@TODO: Stop Discovery
-    // if (start_discovering_enabled){
-    //     discover_devices();
-    // }
+    if (start_discovering_enabled){
+        discover_devices();
+    }
     MIRACASTLOG_TRACE("Exiting...");
 }
 
 void MiracastController::stop_session(bool stop_streaming_needed)
 {
     MIRACASTLOG_TRACE("Entering...");
-    // stop_discover_devices();
-    // remove_P2PGroupInstance();
+    stop_discover_devices();
+    remove_P2PGroupInstance();
     MIRACASTLOG_TRACE("Exiting...");
 }
 
@@ -444,12 +443,12 @@ void MiracastController::checkAndInitiateP2PBackendDiscovery(void)
     {
         MIRACASTLOG_INFO("!!! BACKEND P2P DISCOVERY HAS BEEN STARTED !!!");
         /* Enabled the Device Discovery to allow other device to cast */
-        // discover_devices();
+        discover_devices();
     }
     else
     {
         MIRACASTLOG_INFO("!!! BACKEND P2P DISCOVERY HAS DISABLED !!!");
-        // stop_discover_devices();
+        stop_discover_devices();
     }
 }
 
@@ -497,7 +496,7 @@ MiracastError MiracastController::discover_devices(void)
     MIRACASTLOG_TRACE("Entering...");
     MiracastError ret = MIRACAST_FAIL;
     if (nullptr != m_p2p_ctrl_obj){
-        // ret = m_p2p_ctrl_obj->discover_devices();
+        ret = m_p2p_ctrl_obj->discover_devices();
     }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
@@ -508,7 +507,7 @@ MiracastError MiracastController::stop_discover_devices(void)
     MIRACASTLOG_TRACE("Entering...");
     MiracastError ret = MIRACAST_FAIL;
     if (nullptr != m_p2p_ctrl_obj){
-        // ret = m_p2p_ctrl_obj->stop_discover_devices();
+        ret = m_p2p_ctrl_obj->stop_discover_devices();
     }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
@@ -955,9 +954,9 @@ void MiracastController::Controller_Thread(void *args)
                             {
                                 //error_code = MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE;
                                 error_code = MIRACAST_SERVICE_ERR_CODE_SUCCESS;
-                                //session_restart_required = true;
+                                session_restart_required = true;
                                 MIRACASTLOG_ERROR("!!!! Unable to get the Source Device IP and Terminating Group Here !!!!");
-                                // remove_P2PGroupInstance();
+                                remove_P2PGroupInstance();
                             }
                         }
                         else
@@ -1062,15 +1061,15 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         MIRACASTLOG_INFO("CONTROLLER_START_DISCOVERING Received\n");
                         set_WFDParameters();
-                        // discover_devices();
-                        // start_discovering_enabled = true;
+                        discover_devices();
+                        start_discovering_enabled = true;
                     }
                     break;
                     case CONTROLLER_STOP_DISCOVERING:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_STOP_DISCOVERING Received\n");
-                        // stop_session(true);
-                        // start_discovering_enabled = false;
+                        stop_session(true);
+                        start_discovering_enabled = false;
                     }
                     break;
                     case CONTROLLER_RESTART_DISCOVERING:
@@ -1086,7 +1085,7 @@ void MiracastController::Controller_Thread(void *args)
                             reset_NewSourceName();
                             MIRACASTLOG_INFO("[%s] Cached Device info removed...",cached_mac_address.c_str());
                         }
-                        // restart_session(start_discovering_enabled);
+                        restart_session(start_discovering_enabled);
                         new_thunder_req_client_connection_sent = false;
                         another_thunder_req_client_connection_sent = false;
                         session_restart_required = true;
@@ -1145,7 +1144,7 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_FLUSH_CURRENT_SESSION:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_FLUSH_CURRENT_SESSION Received\n");
-                        // remove_P2PGroupInstance();
+                        remove_P2PGroupInstance();
                     }
                     break;
                     case CONTROLLER_CONNECT_REQ_REJECT:
