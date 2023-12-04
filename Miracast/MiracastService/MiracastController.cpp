@@ -379,6 +379,17 @@ eCONTROLLER_FW_STATES MiracastController::convertP2PtoSessionActions(P2P_EVENTS 
         state = CONTROLLER_GO_EVENT_ERROR;
     }
     break;
+     /* This change for ENABLE_PERSISTENT_GO_OPTION */
+    case EVENT_AP_STA_CONNECTED:
+    {
+        state = CONTROLLER_P2P_AP_STA_CONNECTED;
+    }
+    break;
+    case EVENT_AP_STA_DISCONNECTED:
+    {
+        state = CONTROLLER_P2P_AP_STA_DISCONNECTED;
+    }
+    break;
     default:
     {
         state = CONTROLLER_GO_UNKNOWN_EVENT;

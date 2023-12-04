@@ -273,6 +273,13 @@ void MiracastP2P::p2pCtrlMonitorThread()
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_INFO("P2P Provision discovery");
                     miracast_obj->event_handler(EVENT_PROVISION, (void *)evt_buf, m_event_buffer_len);
+                    /* This change for ENABLE_PERSISTENT_GO_OPTION */
+                    /* With the New change, need to run WPS_PBC for new devices. */
+                    {
+                        std::string command, retBuffer;
+                        command = "WPS_PBC";
+                        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+                    }
                 }
                 if (strstr(m_event_buffer, "P2P-PROV-DISC-SHOW-PIN"))
                 {
@@ -337,6 +344,19 @@ void MiracastP2P::p2pCtrlMonitorThread()
                 {
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_ERROR("P2P GO negotiation failure");
+                    miracast_obj->event_handler(EVENT_GO_NEG_FAILURE, (void *)evt_buf, m_event_buffer_len);
+                }
+                /* This change for ENABLE_PERSISTENT_GO_OPTION */
+                if (strstr(m_event_buffer, "AP-STA-CONNECTED"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P AP-STA-CONNECTED Event.");
+                    miracast_obj->event_handler(EVENT_GO_NEG_FAILURE, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "AP-STA-DISCONNECTED"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P AP-STA-DISCONNECTED Event.");
                     miracast_obj->event_handler(EVENT_GO_NEG_FAILURE, (void *)evt_buf, m_event_buffer_len);
                 }
             }
@@ -424,6 +444,7 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         }
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
+        /* This change for ENABLE_PERSISTENT_GO_OPTION */
         command = "SET p2p_go_max_inactivity 86400";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
@@ -441,10 +462,6 @@ MiracastError MiracastP2P::set_WFDParameters(void)
 
         /* Adding Post Fix name */
         command = "SET p2p_ssid_postfix -Element-Xumo-TV";
-        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-
-        // Workaround added
-        command = "p2p_set ssid_postfix _Element-1234";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_grp_add");
