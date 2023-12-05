@@ -273,16 +273,6 @@ void MiracastP2P::p2pCtrlMonitorThread()
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_INFO("P2P Provision discovery");
                     miracast_obj->event_handler(EVENT_PROVISION, (void *)evt_buf, m_event_buffer_len);
-                    /* This change for ENABLE_PERSISTENT_GO_OPTION */
-                    /* With the New change, need to run WPS_PBC for new devices. */
-                    {
-                        //std::string command, retBuffer;
-                        std::string command;
-                        command = "wpa_cli -i p2p0-p2p-0 WPS_PBC";
-                        //executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
-                        system(command.c_str());
-                        MIRACASTLOG_INFO("Initiating PBC[%s]",command.c_str());
-                    }
                 }
                 if (strstr(m_event_buffer, "P2P-PROV-DISC-SHOW-PIN"))
                 {
@@ -354,13 +344,13 @@ void MiracastP2P::p2pCtrlMonitorThread()
                 {
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_ERROR("Received P2P AP-STA-CONNECTED Event.");
-                    miracast_obj->event_handler(EVENT_GO_NEG_FAILURE, (void *)evt_buf, m_event_buffer_len);
+                    miracast_obj->event_handler(EVENT_AP_STA_CONNECTED, (void *)evt_buf, m_event_buffer_len);
                 }
                 if (strstr(m_event_buffer, "AP-STA-DISCONNECTED"))
                 {
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_ERROR("Received P2P AP-STA-DISCONNECTED Event.");
-                    miracast_obj->event_handler(EVENT_GO_NEG_FAILURE, (void *)evt_buf, m_event_buffer_len);
+                    miracast_obj->event_handler(EVENT_AP_STA_DISCONNECTED, (void *)evt_buf, m_event_buffer_len);
                 }
             }
         }
