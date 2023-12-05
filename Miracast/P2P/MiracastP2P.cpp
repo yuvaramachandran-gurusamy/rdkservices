@@ -276,9 +276,12 @@ void MiracastP2P::p2pCtrlMonitorThread()
                     /* This change for ENABLE_PERSISTENT_GO_OPTION */
                     /* With the New change, need to run WPS_PBC for new devices. */
                     {
-                        std::string command, retBuffer;
-                        command = "WPS_PBC";
-                        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+                        //std::string command, retBuffer;
+                        std::string command;
+                        command = "wpa_cli -i p2p0-p2p-0 WPS_PBC";
+                        //executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+                        system(command.c_str());
+                        MIRACASTLOG_INFO("Initiating PBC[%s]",command.c_str());
                     }
                 }
                 if (strstr(m_event_buffer, "P2P-PROV-DISC-SHOW-PIN"))
