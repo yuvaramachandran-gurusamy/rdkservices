@@ -1192,7 +1192,8 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_LAUNCH_REQUEST:
                     {
-                        std::string mac_address = get_WFDSourceMACAddress();
+                        //std::string mac_address = get_WFDSourceMACAddress();
+                        std::string mac_address = event_buffer;
                         char data[1024] = {0};
                         char command[128] = {0};
                         std::string remote_address = "";
@@ -1245,12 +1246,15 @@ void MiracastController::Controller_Thread(void *args)
                             sleep(1);
                         }
 
+                        std::string src_dev_name = "";
                         if (!remote_address.empty())
                         {
                             std::string src_dev_ip = remote_address;
-                            std::string src_dev_mac = get_WFDSourceMACAddress();
-                            std::string src_dev_name = get_WFDSourceName();
-                            std::string sink_dev_ip =  m_groupInfo->localIPAddr;
+                            std::string src_dev_mac = mac_address;
+                            src_dev_name = get_device_name(mac_address);
+                            std::string sink_dev_ip = m_groupInfo->localIPAddr;
+                            set_WFDSourceMACAddress(src_dev_mac);
+                            set_WFDSourceName(src_dev_name);
                             MIRACASTLOG_INFO("!!!! LaunchRequest src_dev_name[%s]src_dev_mac[%s]src_dev_ip[%s]sink_dev_ip[%s] !!!!",
                                              src_dev_name.c_str(),
                                              src_dev_mac.c_str(),
