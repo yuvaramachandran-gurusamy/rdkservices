@@ -115,6 +115,13 @@ typedef enum controller_framework_states_e
     /* This change for ENABLE_PERSISTENT_GO_OPTION */
     CONTROLLER_P2P_AP_STA_CONNECTED,
     CONTROLLER_P2P_AP_STA_DISCONNECTED,
+    CONTROLLER_P2P_WPS_PBC_ACTIVE,
+    CONTROLLER_P2P_CTRL_EVENT_EAP_STARTED,
+    CONTROLLER_P2P_CTRL_EVENT_EAP_FAILURE,
+    CONTROLLER_P2P_WPS_PBC_SUCCESS,
+    CONTROLLER_P2P_WPS_PBC_FAIL,
+    CONTROLLER_P2P_WPS_PBC_OVERLAPPED,
+    CONTROLLER_P2P_WPS_PBC_TIMEOUT,
     CONTROLLER_LAUNCH_REQUEST
 } eCONTROLLER_FW_STATES;
 
@@ -197,6 +204,7 @@ typedef enum miracast_service_error_code_e
     MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_NEGO_ERROR,
     MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_FORMATION_ERROR,
     MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE,
+    MIRACAST_SERVICE_ERR_CODE_P2P_WPS_OVERLAPPED,
     MIRACAST_SERVICE_ERR_CODE_MAX_ERROR
 } eMIRACAST_SERVICE_ERR_CODE;
 
@@ -223,11 +231,16 @@ eM_PLAYER_STOP_REASON_CODE;
 
 typedef struct d_info
 {
+    string orgP2PMACAddr;
     string deviceMAC;
     string deviceType;
     string modelName;
     string authType;
     bool isCPSupported;
+    bool isConnectRequestNotified;
+    bool isWPSPBCRequired;
+    bool isClientAcceptedByPBC;
+    bool isClientAcceptedBySTAConnected;
     enum DEVICEROLE deviceRole;
 } DeviceInfo;
 

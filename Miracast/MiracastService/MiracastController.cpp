@@ -390,6 +390,41 @@ eCONTROLLER_FW_STATES MiracastController::convertP2PtoSessionActions(P2P_EVENTS 
         state = CONTROLLER_P2P_AP_STA_DISCONNECTED;
     }
     break;
+    case CTRL_EVENT_EAP_STARTED:
+    {
+        state = CONTROLLER_P2P_CTRL_EVENT_EAP_STARTED;
+    }
+    break;
+    case CTRL_EVENT_EAP_FAILURE:
+    {
+        state = CONTROLLER_P2P_CTRL_EVENT_EAP_FAILURE;
+    }
+    break;
+    case WPS_PBC_ACTIVE:
+    {
+        state = CONTROLLER_P2P_WPS_PBC_ACTIVE;
+    }
+    break;
+    case WPS_PBC_SUCCESS:
+    {
+        state = CONTROLLER_P2P_WPS_PBC_SUCCESS;
+    }
+    break;
+    case WPS_PBC_FAIL:
+    {
+        state = CONTROLLER_P2P_WPS_PBC_FAIL;
+    }
+    break;
+    case WPS_PBC_OVERLAPPED:
+    {
+        state = CONTROLLER_P2P_WPS_PBC_OVERLAPPED;
+    }
+    break;
+    case WPS_PBC_TIMEOUT:
+    {
+        state = CONTROLLER_P2P_WPS_PBC_TIMEOUT;
+    }
+    break;
     default:
     {
         state = CONTROLLER_GO_UNKNOWN_EVENT;
@@ -524,6 +559,127 @@ MiracastError MiracastController::stop_discover_devices(void)
     return ret;
 }
 
+MiracastError MiracastController::create_PersistentGroupCtrlInterface(std::string group_iface_name)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    MiracastError ret = MIRACAST_FAIL;
+    if (nullptr != m_p2p_ctrl_obj)
+    {
+        ret = m_p2p_ctrl_obj->create_PersistentGroupCtrlInterface(group_iface_name);
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}
+
+MiracastError MiracastController::initiate_WPSPBC(void)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    MiracastError ret = MIRACAST_OK;
+    if ( nullptr != m_p2p_ctrl_obj )
+    {
+        ret = m_p2p_ctrl_obj->initiate_WPSPBC();
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}
+
+std::string MiracastController::retrive_Connected_DevIPFromARP(std::string mac_address)
+{
+    char data[1024] = {0};
+    char command[128] = {0};
+    std::string remote_address = "";
+    std::string popen_buffer = "";
+    FILE *popen_file_ptr = nullptr;
+    char *current_line_buffer = nullptr;
+    std::size_t len = 0;
+    unsigned char retry_count = 15;
+
+    sprintf(command,"cat /proc/net/arp | grep \"%s\" | awk '{print $1}'", mac_address.c_str());
+
+    while (retry_count--)
+    {
+        MIRACASTLOG_INFO("command is [%s]\n", command);
+        popen_file_ptr = popen(command, "r");
+        if (!popen_file_ptr)
+        {
+            MIRACASTLOG_ERROR("Could not open pipe for output.");
+        }
+        else
+        {
+            memset(data, 0x00, sizeof(data));
+            while (getline(&current_line_buffer, &len, popen_file_ptr) != -1)
+            {
+                sprintf(data + strlen(data), current_line_buffer);
+                MIRACASTLOG_INFO("data : [%s]", data);
+            }
+            pclose(popen_file_ptr);
+            popen_file_ptr = nullptr;
+
+            popen_buffer = data;
+            REMOVE_R(popen_buffer);
+            REMOVE_N(popen_buffer);
+
+            MIRACASTLOG_INFO("popen_buffer is [%s]\n", popen_buffer.c_str());
+
+            free(current_line_buffer);
+            current_line_buffer = nullptr;
+
+            if (!popen_buffer.empty())
+            {
+                MIRACASTLOG_INFO("%s is success and popen_buffer[%s]\n", command, popen_buffer.c_str());
+                remote_address = popen_buffer;
+                sleep(1);
+                break;
+            }
+        }
+        sleep(1);
+    }
+    return remote_address;
+}
+
+void MiracastController::notify_ClientConnectionErrorState(std::string mac_address, eMIRACAST_SERVICE_ERR_CODE error_code )
+{
+    DeviceInfo *current_device_info = get_device_details(mac_address);
+    if (( nullptr != m_notify_handler) && 
+        ( nullptr != current_device_info )&&
+        ( MIRACAST_SERVICE_ERR_CODE_SUCCESS != error_code ))
+    {
+        m_notify_handler->onMiracastServiceClientConnectionError( mac_address , 
+                                                                  current_device_info->modelName ,
+                                                                  error_code );
+    }
+}
+
+void MiracastController::initiate_LaunchRequest(std::string src_dev_name,std::string orgMacaddr,std::string p2p_dev_mac)
+{
+    std::string remote_address = "";
+
+    remote_address = retrive_Connected_DevIPFromARP(orgMacaddr);
+
+    if (!remote_address.empty())
+    {
+        std::string src_dev_ip = remote_address;
+        std::string src_dev_mac = p2p_dev_mac;
+        std::string sink_dev_ip = m_groupInfo->localIPAddr;
+        set_WFDSourceMACAddress(src_dev_mac);
+        set_WFDSourceName(src_dev_name);
+        MIRACASTLOG_INFO("!!!! LaunchRequest src_dev_name[%s]src_dev_mac[%s]src_dev_ip[%s]sink_dev_ip[%s] !!!!",
+                            src_dev_name.c_str(),
+                            src_dev_mac.c_str(),
+                            src_dev_ip.c_str(),
+                            sink_dev_ip.c_str());
+        if (nullptr != m_notify_handler)
+        {
+            m_notify_handler->onMiracastServiceLaunchRequest(src_dev_ip, src_dev_mac, src_dev_name, sink_dev_ip);
+        }
+    }
+    else
+    {
+        notify_ClientConnectionErrorState( p2p_dev_mac , MIRACAST_SERVICE_ERR_CODE_GENERIC_FAILURE  );
+    }
+    m_new_thunder_req_client_connection_sent = false;    
+}
+
 MiracastError MiracastController::connect_device(std::string device_mac , std::string device_name )
 {
     MIRACASTLOG_TRACE("Entering...");
@@ -551,6 +707,92 @@ MiracastError MiracastController::connect_device(std::string device_mac , std::s
     }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
+}
+
+MiracastError MiracastController::connectionRequestHandling(std::string received_mac_address, bool isWPSPBC_Needed )
+{
+    THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
+    MIRACASTLOG_TRACE("Entering...");
+    DeviceInfo *current_device_info = get_device_details(received_mac_address);
+    std::string device_name = "";
+
+    if ( nullptr == current_device_info )
+    {
+        MIRACASTLOG_TRACE("Exiting...");
+        return MIRACAST_FAIL;
+    }
+
+    if ( current_device_info->isConnectRequestNotified )
+    {
+        MIRACASTLOG_INFO("Already connect request has notified for [%s - %s]",
+                            device_name.c_str(),
+                            received_mac_address.c_str());
+        return MIRACAST_OK;
+    }
+
+    device_name = current_device_info->modelName;
+
+    if (get_WFDSourceMACAddress().empty())
+    {
+        if ((false == m_new_thunder_req_client_connection_sent) &&
+            (nullptr != m_thunder_req_handler_thread))
+        {
+            thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
+            strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
+            strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
+            m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
+            m_new_thunder_req_client_connection_sent = true;
+            MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
+            current_device_info->isConnectRequestNotified = true;
+        }
+        else
+        {
+            MIRACASTLOG_WARNING("!!! Another connect request has Received while new connection inprogress !!!\n");
+        }
+    }
+    else
+    {
+        if (0 == (received_mac_address.compare(get_WFDSourceMACAddress())))
+        {
+            MIRACASTLOG_WARNING("Duplicate Connect Request has Received");
+        }
+        else
+        {
+            if ((false == m_another_thunder_req_client_connection_sent) &&
+                (nullptr != m_thunder_req_handler_thread))
+            {
+                thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
+                strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
+                strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
+                m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
+                m_another_thunder_req_client_connection_sent = true;
+                MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
+                current_device_info->isConnectRequestNotified = true;
+            }
+            else
+            {
+                //  Need to handle connect request received evenafter connection already established with other client
+                MIRACASTLOG_ERROR("!!! 3rd connect request has Received while existing is inprogress MAC[%s][%s] !!!\n",
+                                    received_mac_address.c_str(),
+                                    device_name.c_str());
+            }
+        }
+    }
+
+    if ( current_device_info->isConnectRequestNotified )
+    {
+        if ( isWPSPBC_Needed )
+        {
+            current_device_info->isWPSPBCRequired = isWPSPBC_Needed;
+            current_device_info->isClientAcceptedByPBC = true;
+        }
+        else
+        {
+            current_device_info->isClientAcceptedBySTAConnected = true;
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
 }
 
 std::string MiracastController::get_localIp()
@@ -645,11 +887,12 @@ std::string MiracastController::get_FriendlyName(void)
 void MiracastController::Controller_Thread(void *args)
 {
     CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
-    bool    new_thunder_req_client_connection_sent = false,
-            another_thunder_req_client_connection_sent = false,
-            start_discovering_enabled = false,
+    bool    start_discovering_enabled = false,
             session_restart_required = false,
-            p2p_group_instance_alive = false;
+            p2p_group_instance_alive = false,
+            wpa_pbc_activated = false;
+    std::string wpa_pbc_inprogress_mac = "",
+                ctrl_evt_eap_wpspbc_mac = "";
 
     MIRACASTLOG_TRACE("Entering...");
 
@@ -681,13 +924,15 @@ void MiracastController::Controller_Thread(void *args)
                 {
                     case CONTROLLER_GO_DEVICE_FOUND:
                     {
-                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_FOUND Received\n");
+                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_FOUND Received");
                         std::string wfdSubElements;
                         DeviceInfo *device = new DeviceInfo;
                         device->deviceMAC = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
                         device->deviceType = parse_p2p_event_data(event_buffer.c_str(), "pri_dev_type");
                         device->modelName = parse_p2p_event_data(event_buffer.c_str(), "name");
                         wfdSubElements = parse_p2p_event_data(event_buffer.c_str(), "wfd_dev_info");
+                        device->isConnectRequestNotified = false;
+                        device->isWPSPBCRequired = false;
                         #if 0
                             device->isCPSupported = ((strtol(wfdSubElements.c_str(), nullptr, 16) >> 32) && 256);
                             device->deviceRole = (DEVICEROLE)((strtol(wfdSubElements.c_str(), nullptr, 16) >> 32) && 3);
@@ -699,7 +944,7 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_GO_DEVICE_LOST:
                     {
-                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_LOST Received\n");
+                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_LOST Received");
                         std::string lostMAC = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
                         size_t found;
                         int i = 0;
@@ -718,7 +963,7 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_GO_DEVICE_PROVISION:
                     {
-                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_PROVISION Received\n");
+                        MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_PROVISION Received");
                         // m_authType = "pbc";
                         std::string MAC = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
                         std::string authType = "pbc";
@@ -739,6 +984,24 @@ void MiracastController::Controller_Thread(void *args)
                             authType = token;
                         }
 
+                        if (( ! wpa_pbc_inprogress_mac.empty()) &&
+                            ( 0 == (wpa_pbc_inprogress_mac.compare(MAC))))
+                        {
+                            MIRACASTLOG_WARNING("Duplicate PROVISION request Received. Hence ignored");
+                        }
+                        else if (( false == wpa_pbc_activated ) && (wpa_pbc_inprogress_mac.empty()))
+                        {
+                            connectionRequestHandling(MAC,true);
+                            wpa_pbc_inprogress_mac = MAC;
+                            MIRACASTLOG_INFO("WPS_PBC to be initiated for [%s]",wpa_pbc_inprogress_mac.c_str());
+                        }
+                        else if ( ! wpa_pbc_inprogress_mac.empty())
+                        {
+                            MIRACASTLOG_WARNING("[%s] Ignored since already pbc inprogress for [%s]",
+                                                MAC.c_str(),
+                                                wpa_pbc_inprogress_mac.c_str());
+                        }
+
                         DeviceInfo *device_info_ptr = MiracastController::get_device_details(MAC);
                         if ( nullptr != device_info_ptr )
                         {
@@ -757,7 +1020,7 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_GO_NEG_REQUEST:
                     {
                         //THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
-                        MIRACASTLOG_INFO("CONTROLLER_GO_NEG_REQUEST Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_GO_NEG_REQUEST Received");
                         std::string received_mac_address;
                         size_t space_find = event_buffer.find(" ");
                         size_t dev_str = event_buffer.find("dev_passwd_id");
@@ -767,112 +1030,103 @@ void MiracastController::Controller_Thread(void *args)
                             REMOVE_SPACES(received_mac_address);
                         }
 
-                        std::string device_name = get_device_name(received_mac_address);
-
-                        if ( get_WFDSourceMACAddress().empty())
-                        {
-                            if (( false == new_thunder_req_client_connection_sent ) /*&&
-                                ( nullptr != m_thunder_req_handler_thread )*/)
-                            {
-                                //thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-                                //strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-                                //strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-                                //m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
-                                new_thunder_req_client_connection_sent = true;
-                                notify_ConnectionRequest(device_name,received_mac_address);
-                                MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
-                            }
-                            else
-                            {
-                                MIRACASTLOG_WARNING("!!! Another connect request has Received while new connection inprogress !!!\n");
-                            }
-                        }
-                        else
-                        {
-                            if (0 == (received_mac_address.compare(get_WFDSourceMACAddress())))
-                            {
-                                MIRACASTLOG_WARNING("Duplicate Connect Request has Received\n");
-                            }
-                            else
-                            {
-                                if (( false == another_thunder_req_client_connection_sent ) /*&&
-                                    ( nullptr != m_thunder_req_handler_thread )*/)
-                                {
-                                    //thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-                                    //strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-                                    //strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-                                    //m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
-                                    notify_ConnectionRequest(device_name,received_mac_address);
-                                    another_thunder_req_client_connection_sent = true;
-                                    MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
-                                }
-                                else
-                                {
-                                    //  Need to handle connect request received evenafter connection already established with other client
-                                    MIRACASTLOG_ERROR("!!! 3rd connect request has Received while existing is inprogress MAC[%s][%s] !!!\n",
-                                                        received_mac_address.c_str(),
-                                                        device_name.c_str());
-                                }
-                            }
-                        }
+                        connectionRequestHandling(received_mac_address);
                     }
                     break;
                     case CONTROLLER_P2P_AP_STA_CONNECTED:
                     {
-                        THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
+                        std::string orgmacAddr = "";
+                        std::string prefix = "AP-STA-CONNECTED ";
+                        std::string suffix = " p2p_dev_addr=";
+                        MIRACASTLOG_INFO("CONTROLLER_P2P_AP_STA_CONNECTED Received");
+                        std::string p2p_dev_mac = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
+                        DeviceInfo *current_device_info = get_device_details(p2p_dev_mac);
+                        connectionRequestHandling(p2p_dev_mac);
 
-                        MIRACASTLOG_INFO("CONTROLLER_P2P_AP_STA_CONNECTED Received\n");
-                        std::string received_mac_address = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
+                        size_t prefixPos = event_buffer.find(prefix);
+                        size_t suffixPos = event_buffer.find(suffix);
 
-                        std::string device_name = get_device_name(received_mac_address);
-
-                        if (get_WFDSourceMACAddress().empty())
+                        if (prefixPos != std::string::npos && suffixPos != std::string::npos)
                         {
-                            if ((false == new_thunder_req_client_connection_sent) &&
-                                (nullptr != m_thunder_req_handler_thread))
-                            {
-                                thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-                                strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-                                strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-                                m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
-                                new_thunder_req_client_connection_sent = true;
-                                MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
-                            }
-                            else
-                            {
-                                MIRACASTLOG_WARNING("!!! Another connect request has Received while new connection inprogress !!!\n");
-                            }
+                            orgmacAddr = event_buffer.substr(prefixPos + prefix.length(), suffixPos - (prefixPos + prefix.length()));
                         }
-                        else
+
+                        if ( nullptr != current_device_info )
                         {
-                            if (0 == (received_mac_address.compare(get_WFDSourceMACAddress())))
+                            current_device_info->orgP2PMACAddr = orgmacAddr;
+                            if ( current_device_info->isClientAcceptedByPBC )
                             {
-                                MIRACASTLOG_WARNING("Duplicate Connect Request has Received\n");
-                            }
-                            else
-                            {
-                                if ((false == another_thunder_req_client_connection_sent) &&
-                                    (nullptr != m_thunder_req_handler_thread))
-                                {
-                                    thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-                                    strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-                                    strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-                                    m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
-                                    another_thunder_req_client_connection_sent = true;
-                                    MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
-                                }
-                                else
-                                {
-                                    //  Need to handle connect request received evenafter connection already established with other client
-                                    MIRACASTLOG_ERROR("!!! 3rd connect request has Received while existing is inprogress MAC[%s][%s] !!!\n",
-                                                      received_mac_address.c_str(),
-                                                      device_name.c_str());
-                                }
+                                MIRACASTLOG_INFO("Launch Request initiated from CONTROLLER_P2P_AP_STA_CONNECTED");
+                                initiate_LaunchRequest(current_device_info->modelName, orgmacAddr , p2p_dev_mac);
+                                current_device_info->isClientAcceptedByPBC = false;
+                                current_device_info->isWPSPBCRequired = false;
                             }
                         }
                     }
                     break;
                     case CONTROLLER_P2P_AP_STA_DISCONNECTED:
+                    {
+                        MIRACASTLOG_INFO("CONTROLLER_P2P_AP_STA_DISCONNECTED Received");
+                        std::string p2p_dev_mac = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
+                        DeviceInfo *current_device_info = get_device_details(p2p_dev_mac);
+                        if ( current_device_info )
+                        {
+                            current_device_info->isConnectRequestNotified = false;
+                            current_device_info->isWPSPBCRequired = false;
+                            current_device_info->isClientAcceptedByPBC = false;
+                            current_device_info->isClientAcceptedBySTAConnected = false;
+                        }
+                    }
+                    break;
+                    case CONTROLLER_P2P_WPS_PBC_ACTIVE:
+                    {
+                        MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_ACTIVE Received");
+                        wpa_pbc_activated = true;
+                    }
+                    break;
+                    case CONTROLLER_P2P_CTRL_EVENT_EAP_STARTED:
+                    {
+                        MIRACASTLOG_INFO("CONTROLLER_P2P_CTRL_EVENT_EAP_STARTED Received");
+                        std::string searchSubstring = "CTRL-EVENT-EAP-STARTED ";
+                        size_t pos = event_buffer.find(searchSubstring);
+
+                        if (pos != std::string::npos)
+                        {
+                            ctrl_evt_eap_wpspbc_mac = event_buffer.substr(pos + searchSubstring.length());
+                            MIRACASTLOG_INFO("ctrl_evt_eap_wpspbc_mac [%s]",ctrl_evt_eap_wpspbc_mac.c_str());
+                        }
+                    }
+                    break;
+                    case CONTROLLER_P2P_CTRL_EVENT_EAP_FAILURE:
+                    {
+                        MIRACASTLOG_INFO("CONTROLLER_P2P_CTRL_EVENT_EAP_FAILURE Received");
+                    }
+                    break;
+                    case CONTROLLER_P2P_WPS_PBC_FAIL:
+                    case CONTROLLER_P2P_WPS_PBC_OVERLAPPED:
+                    case CONTROLLER_P2P_WPS_PBC_SUCCESS:
+                    {
+                        eMIRACAST_SERVICE_ERR_CODE error_code = MIRACAST_SERVICE_ERR_CODE_SUCCESS;
+
+                        if ( CONTROLLER_P2P_WPS_PBC_OVERLAPPED == controller_msgq_data.state )
+                        {
+                            error_code = MIRACAST_SERVICE_ERR_CODE_P2P_WPS_OVERLAPPED;
+                            MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_OVERLAPPED Received");
+                        }
+                        else if ( CONTROLLER_P2P_WPS_PBC_FAIL == controller_msgq_data.state )
+                        {
+                            error_code = MIRACAST_SERVICE_ERR_CODE_P2P_CONNECT_ERROR;
+                            MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_FAIL Received");
+                        }
+                        else
+                        {
+                            MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_SUCCESS Received");
+                        }
+                        wpa_pbc_activated = false;
+                        notify_ClientConnectionErrorState(ctrl_evt_eap_wpspbc_mac,error_code);
+                        wpa_pbc_inprogress_mac.clear();
+                        ctrl_evt_eap_wpspbc_mac.clear();
+                    }
                     break;
                     case CONTROLLER_GO_GROUP_STARTED:
                     case CONTROLLER_GO_NEG_FAILURE:
@@ -892,7 +1146,7 @@ void MiracastController::Controller_Thread(void *args)
                             size_t found = event_buffer.find("client");
                             size_t found_space = event_buffer.find(" ");
 
-                            MIRACASTLOG_TRACE("CONTROLLER_GO_GROUP_STARTED Received\n");
+                            MIRACASTLOG_TRACE("CONTROLLER_GO_GROUP_STARTED Received");
 
                             if (found != std::string::npos)
                             {
@@ -957,7 +1211,9 @@ void MiracastController::Controller_Thread(void *args)
 
                                 local_address = start_DHCPServer( m_groupInfo->interface );
                                 m_groupInfo->isGO = true;
-                                m_groupInfo->localIPAddr = local_address; 
+                                m_groupInfo->localIPAddr = local_address;
+
+                                create_PersistentGroupCtrlInterface(m_groupInfo->interface);
 
 #if ENABLE_DYNAMIC_STA_GO_MODE
                                 std::string mac_address = get_WFDSourceMACAddress();
@@ -1045,12 +1301,12 @@ void MiracastController::Controller_Thread(void *args)
                             if ( CONTROLLER_GO_GROUP_FORMATION_FAILURE == controller_msgq_data.state )
                             {
                                 error_code = MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_FORMATION_ERROR;
-                                MIRACASTLOG_ERROR("CONTROLLER_GO_GROUP_FORMATION_FAILURE Received\n");
+                                MIRACASTLOG_ERROR("CONTROLLER_GO_GROUP_FORMATION_FAILURE Received");
                             }
                             else if ( CONTROLLER_GO_NEG_FAILURE == controller_msgq_data.state )
                             {
                                 error_code = MIRACAST_SERVICE_ERR_CODE_P2P_GROUP_NEGO_ERROR;
-                                MIRACASTLOG_ERROR("CONTROLLER_GO_NEG_FAILURE Received\n");
+                                MIRACASTLOG_ERROR("CONTROLLER_GO_NEG_FAILURE Received");
                             }
 
                             if ( p2p_group_instance_alive )
@@ -1077,7 +1333,7 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_GO_GROUP_REMOVED:
                     {
-                        MIRACASTLOG_INFO("CONTROLLER_GO_GROUP_REMOVED Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_GO_GROUP_REMOVED Received");
                         if ( p2p_group_instance_alive )
                         {
                             std::string device_name = get_NewSourceName(),
@@ -1098,31 +1354,31 @@ void MiracastController::Controller_Thread(void *args)
                                 MIRACASTLOG_INFO("!!!! Cached Connect Request not found !!!!");
                             }
                         }
-                        new_thunder_req_client_connection_sent = false;
-                        another_thunder_req_client_connection_sent = false;
+                        m_new_thunder_req_client_connection_sent = false;
+                        m_another_thunder_req_client_connection_sent = false;
                         session_restart_required = true;
                         p2p_group_instance_alive = false;
                     }
                     break;
                     case CONTROLLER_GO_STOP_FIND:
                     {
-                        MIRACASTLOG_TRACE("[CONTROLLER_GO_STOP_FIND] Received\n");
+                        MIRACASTLOG_TRACE("[CONTROLLER_GO_STOP_FIND] Received");
                     }
                     break;
                     case CONTROLLER_GO_NEG_SUCCESS:
                     {
-                        MIRACASTLOG_INFO("[CONTROLLER_GO_NEG_SUCCESS] Received\n");
+                        MIRACASTLOG_INFO("[CONTROLLER_GO_NEG_SUCCESS] Received");
                     }
                     break;
                     case CONTROLLER_GO_GROUP_FORMATION_SUCCESS:
                     {
-                        MIRACASTLOG_INFO("[CONTROLLER_GO_GROUP_FORMATION_SUCCESS] Received\n");
+                        MIRACASTLOG_INFO("[CONTROLLER_GO_GROUP_FORMATION_SUCCESS] Received");
                     }
                     break;
                     case CONTROLLER_GO_EVENT_ERROR:
                     case CONTROLLER_GO_UNKNOWN_EVENT:
                     {
-                        MIRACASTLOG_ERROR("[GO_EVENT_ERROR/GO_UNKNOWN_EVENT] Received\n");
+                        MIRACASTLOG_ERROR("[GO_EVENT_ERROR/GO_UNKNOWN_EVENT] Received");
                     }
                     break;
                     default:
@@ -1140,7 +1396,7 @@ void MiracastController::Controller_Thread(void *args)
                 {
                     case CONTROLLER_START_DISCOVERING:
                     {
-                        MIRACASTLOG_INFO("CONTROLLER_START_DISCOVERING Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_START_DISCOVERING Received");
                         set_WFDParameters();
                         discover_devices();
                         start_discovering_enabled = true;
@@ -1148,7 +1404,7 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_STOP_DISCOVERING:
                     {
-                        MIRACASTLOG_INFO("CONTROLLER_STOP_DISCOVERING Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_STOP_DISCOVERING Received");
                         stop_session(true);
                         start_discovering_enabled = false;
                     }
@@ -1157,7 +1413,7 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         std::string cached_mac_address = get_NewSourceMACAddress(),
                                     mac_address = controller_msgq_data.msg_buffer;
-                        MIRACASTLOG_INFO("CONTROLLER_RESTART_DISCOVERING Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_RESTART_DISCOVERING Received");
                         m_connectionStatus = false;
 
                         if ((!cached_mac_address.empty()) && ( 0 == mac_address.compare(cached_mac_address)))
@@ -1167,118 +1423,66 @@ void MiracastController::Controller_Thread(void *args)
                             MIRACASTLOG_INFO("[%s] Cached Device info removed...",cached_mac_address.c_str());
                         }
                         restart_session(start_discovering_enabled);
-                        new_thunder_req_client_connection_sent = false;
-                        another_thunder_req_client_connection_sent = false;
+                        m_new_thunder_req_client_connection_sent = false;
+                        m_another_thunder_req_client_connection_sent = false;
                         session_restart_required = true;
                         p2p_group_instance_alive = false;
                     }
                     break;
                     case CONTROLLER_START_STREAMING:
                     {
-                        MIRACASTLOG_TRACE("[CONTROLLER_START_STREAMING] Received\n");
+                        MIRACASTLOG_TRACE("[CONTROLLER_START_STREAMING] Received");
                         //start_streaming();
                     }
                     break;
                     case CONTROLLER_PAUSE_STREAMING:
                     {
-                        MIRACASTLOG_TRACE("CONTROLLER_PAUSE_STREAMING Received\n");
+                        MIRACASTLOG_TRACE("CONTROLLER_PAUSE_STREAMING Received");
                     }
                     break;
                     case CONTROLLER_STOP_STREAMING:
                     {
-                        MIRACASTLOG_TRACE("CONTROLLER_STOP_STREAMING Received\n");
+                        MIRACASTLOG_TRACE("CONTROLLER_STOP_STREAMING Received");
                         //stop_streaming();
                     }
                     break;
                     case CONTROLLER_LAUNCH_REQUEST:
                     {
+                        // @todo: Need to revise the reduce the connected cache
                         //std::string mac_address = get_WFDSourceMACAddress();
                         std::string mac_address = event_buffer;
-                        char data[1024] = {0};
-                        char command[128] = {0};
                         std::string remote_address = "";
-                        std::string popen_buffer = "";
-                        FILE *popen_file_ptr = nullptr;
-                        char *current_line_buffer = nullptr;
-                        std::size_t len = 0;
-                        unsigned char retry_count = 15;
+                        DeviceInfo *current_device_info = get_device_details(mac_address);
 
-                        sprintf(command,
-                                "cat /proc/net/arp | grep \"%s\" | awk '{print $1}'",
-                                m_groupInfo->interface.c_str());
-
-                        while (retry_count--)
+                        if ( nullptr != current_device_info )
                         {
-                            MIRACASTLOG_INFO("command is [%s]\n", command);
-                            popen_file_ptr = popen(command, "r");
-                            if (!popen_file_ptr)
+                            if ( current_device_info->isWPSPBCRequired )
                             {
-                                MIRACASTLOG_ERROR("Could not open pipe for output.");
+                                /* This change for ENABLE_PERSISTENT_GO_OPTION */
+                                /* With the New change, need to run WPS_PBC for new devices.*/
+                                MIRACASTLOG_INFO("Initiating WPS_PBC");
+                                initiate_WPSPBC();
                             }
-                            else
+                            else if ( current_device_info->isClientAcceptedBySTAConnected )
                             {
-                                memset(data, 0x00, sizeof(data));
-                                while (getline(&current_line_buffer, &len, popen_file_ptr) != -1)
-                                {
-                                    sprintf(data + strlen(data), current_line_buffer);
-                                    MIRACASTLOG_INFO("data : [%s]", data);
-                                }
-                                pclose(popen_file_ptr);
-                                popen_file_ptr = nullptr;
-
-                                popen_buffer = data;
-                                REMOVE_R(popen_buffer);
-                                REMOVE_N(popen_buffer);
-
-                                MIRACASTLOG_INFO("popen_buffer is [%s]\n", popen_buffer.c_str());
-
-                                free(current_line_buffer);
-                                current_line_buffer = nullptr;
-
-                                if (!popen_buffer.empty())
-                                {
-                                    MIRACASTLOG_INFO("%s is success and popen_buffer[%s]\n", command, popen_buffer.c_str());
-                                    remote_address = popen_buffer;
-                                    sleep(1);
-                                    break;
-                                }
-                            }
-                            sleep(1);
-                        }
-
-                        std::string src_dev_name = "";
-                        if (!remote_address.empty())
-                        {
-                            std::string src_dev_ip = remote_address;
-                            std::string src_dev_mac = mac_address;
-                            src_dev_name = get_device_name(mac_address);
-                            std::string sink_dev_ip = m_groupInfo->localIPAddr;
-                            set_WFDSourceMACAddress(src_dev_mac);
-                            set_WFDSourceName(src_dev_name);
-                            MIRACASTLOG_INFO("!!!! LaunchRequest src_dev_name[%s]src_dev_mac[%s]src_dev_ip[%s]sink_dev_ip[%s] !!!!",
-                                             src_dev_name.c_str(),
-                                             src_dev_mac.c_str(),
-                                             src_dev_ip.c_str(),
-                                             sink_dev_ip.c_str());
-                            if (nullptr != m_notify_handler)
-                            {
-                                m_notify_handler->onMiracastServiceLaunchRequest(src_dev_ip, src_dev_mac, src_dev_name, sink_dev_ip);
+                                MIRACASTLOG_INFO("Launch Request initiated from CONTROLLER_LAUNCH_REQUEST");
+                                initiate_LaunchRequest( current_device_info->modelName, current_device_info->orgP2PMACAddr, mac_address );
+                                current_device_info->isClientAcceptedBySTAConnected = false;
                             }
                         }
-                        new_thunder_req_client_connection_sent = false;
                     }
                     break;
                     case CONTROLLER_CONNECT_REQ_FROM_THUNDER:
                     {
-                        MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_FROM_THUNDER Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_FROM_THUNDER Received");
                         std::string mac_address = event_buffer;
                         std::string device_name = get_device_name(mac_address);
 
                         if ( false == p2p_group_instance_alive )
                         {
                             connect_device(mac_address,device_name);
-                            new_thunder_req_client_connection_sent = false;
-                            another_thunder_req_client_connection_sent = false;
+                            m_new_thunder_req_client_connection_sent = false;
+                            m_another_thunder_req_client_connection_sent = false;
                             session_restart_required = true;
                         }
                         else
@@ -1302,7 +1506,7 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_FLUSH_CURRENT_SESSION:
                     {
-                        MIRACASTLOG_INFO("CONTROLLER_FLUSH_CURRENT_SESSION Received\n");
+                        MIRACASTLOG_INFO("CONTROLLER_FLUSH_CURRENT_SESSION Received");
                         // remove_P2PGroupInstance();
                     }
                     break;
@@ -1311,14 +1515,14 @@ void MiracastController::Controller_Thread(void *args)
                     {
                         if ( CONTROLLER_CONNECT_REQ_REJECT == controller_msgq_data.state )
                         {
-                            MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_REJECT Received\n");
+                            MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_REJECT Received");
                         }
                         else
                         {
-                            MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_TIMEOUT Received\n");
+                            MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_TIMEOUT Received");
                         }
-                        new_thunder_req_client_connection_sent = false;
-                        another_thunder_req_client_connection_sent = false;
+                        m_new_thunder_req_client_connection_sent = false;
+                        m_another_thunder_req_client_connection_sent = false;
                     }
                     break;
                     case CONTROLLER_TEARDOWN_REQ_FROM_THUNDER:
