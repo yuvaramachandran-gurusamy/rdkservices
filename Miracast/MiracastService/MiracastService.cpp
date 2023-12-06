@@ -901,6 +901,8 @@ namespace WPEFramework
 					return "P2P GENERIC FAILURE.";
 				case MIRACAST_SERVICE_ERR_CODE_P2P_CONNECT_ERROR:
 					return "P2P CONNECT FAILURE.";
+				case MIRACAST_SERVICE_ERR_CODE_P2P_WPS_OVERLAPPED:
+					return "P2P WPS OVERLAP DETECTED.";
 				default:
 					return "Unimplemented item";
 			}

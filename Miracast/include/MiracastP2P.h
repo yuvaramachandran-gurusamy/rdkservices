@@ -21,6 +21,7 @@
 #define _MIRACAST_P2P_H_
 
 #include <string.h>
+#include <mutex>
 #include <MiracastServiceError.h>
 #include <MiracastLogger.h>
 
@@ -32,7 +33,8 @@ using namespace MIRACAST;
 typedef enum INTERFACE
 {
     NON_GLOBAL_INTERFACE = 0,
-    GLOBAL_INTERFACE
+    GLOBAL_INTERFACE,
+    PERSISTENT_GROUP_INTERFACE
 }P2P_INTERFACE;
 
 typedef enum p2p_events_e
@@ -53,6 +55,13 @@ typedef enum p2p_events_e
     /* This change for ENABLE_PERSISTENT_GO_OPTION */
     EVENT_AP_STA_CONNECTED,
     EVENT_AP_STA_DISCONNECTED,
+    CTRL_EVENT_EAP_STARTED,
+    CTRL_EVENT_EAP_FAILURE,
+    WPS_PBC_ACTIVE,
+    WPS_PBC_SUCCESS,
+    WPS_PBC_FAIL,
+    WPS_PBC_OVERLAPPED,
+    WPS_PBC_TIMEOUT,
     EVENT_MAX
 }
 P2P_EVENTS;
@@ -74,11 +83,14 @@ private:
     std::string m_authType;
     struct wpa_ctrl *m_wpa_p2p_cmd_ctrl_iface;
     struct wpa_ctrl *m_wpa_p2p_ctrl_monitor;
+    struct wpa_ctrl *m_wpa_p2p_persistent_grp_cmd_ctrl_iface{nullptr};
+    struct wpa_ctrl *m_wpa_p2p_persistent_grp_ctrl_monitor{nullptr};
     bool m_stop_p2p_monitor;
     char m_event_buffer[2048];
     size_t m_event_buffer_len;
     bool m_isWiFiDisplayParamsEnabled;
     pthread_t m_p2p_ctrl_monitor_thread_id;
+    std::mutex  m_persistentGrpMutex;
 
     MiracastError p2pInit(std::string p2p_ctrl_iface);
     MiracastError p2pUninit();
@@ -103,6 +115,8 @@ public:
     MiracastError set_FriendlyName(std::string friendly_name , bool apply=false );
     std::string get_FriendlyName(void);
     MiracastError remove_GroupInterface(std::string group_iface_name);
+    MiracastError create_PersistentGroupCtrlInterface(std::string group_iface_name);
+    MiracastError initiate_WPSPBC(void);
 };
 
 #endif

@@ -43,6 +43,8 @@ MiracastP2P::MiracastP2P(void)
     m_p2p_ctrl_monitor_thread_id = 0;
     m_wpa_p2p_cmd_ctrl_iface = nullptr;
     m_wpa_p2p_ctrl_monitor = nullptr;
+    m_wpa_p2p_persistent_grp_cmd_ctrl_iface = nullptr;
+    m_wpa_p2p_persistent_grp_ctrl_monitor = nullptr;
     m_stop_p2p_monitor = false;
     m_isWiFiDisplayParamsEnabled = false;
 
@@ -119,6 +121,10 @@ int MiracastP2P::p2pWpaCtrlSendCmd(char *cmd, struct wpa_ctrl *wpa_p2p_ctrl_ifac
     {
         MIRACASTLOG_ERROR("WIFI_HAL: cmd=%s failed ", cmd);
     }
+    else
+    {
+        MIRACASTLOG_INFO("WIFI_HAL: cmd=%s done - %d", cmd,ret);
+    }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
@@ -134,6 +140,16 @@ void MiracastP2P::Release_P2PCtrlInterface(void)
     {
         wpa_ctrl_close(m_wpa_p2p_ctrl_monitor);
         m_wpa_p2p_ctrl_monitor = nullptr;
+    }
+    if ( m_wpa_p2p_persistent_grp_cmd_ctrl_iface )
+    {
+        wpa_ctrl_close(m_wpa_p2p_persistent_grp_cmd_ctrl_iface);
+        m_wpa_p2p_persistent_grp_cmd_ctrl_iface = nullptr;
+    }
+    if ( m_wpa_p2p_persistent_grp_ctrl_monitor )
+    {
+        wpa_ctrl_close(m_wpa_p2p_persistent_grp_ctrl_monitor);
+        m_wpa_p2p_persistent_grp_ctrl_monitor = nullptr;
     }
 }
 
@@ -354,6 +370,62 @@ void MiracastP2P::p2pCtrlMonitorThread()
                 }
             }
         }
+
+        m_persistentGrpMutex.lock();
+        if ((nullptr != m_wpa_p2p_persistent_grp_ctrl_monitor) &&
+            (wpa_ctrl_pending(m_wpa_p2p_persistent_grp_ctrl_monitor) > 0))
+        {
+            memset(m_event_buffer, '\0', sizeof(m_event_buffer));
+            m_event_buffer_len = sizeof(m_event_buffer) - 1;
+
+            if (0 == wpa_ctrl_recv(m_wpa_p2p_persistent_grp_ctrl_monitor, m_event_buffer, &m_event_buffer_len))
+            {
+                if (strstr(m_event_buffer, "CTRL-EVENT-EAP-STARTED"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P CTRL-EVENT-EAP-STARTED Event.");
+                    miracast_obj->event_handler(CTRL_EVENT_EAP_STARTED, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "CTRL-EVENT-EAP-FAILURE"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P CTRL-EVENT-EAP-FAILURE Event.");
+                    miracast_obj->event_handler(CTRL_EVENT_EAP_FAILURE, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "WPS-PBC-ACTIVE"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P WPS-PBC-ACTIVE Event.");
+                    miracast_obj->event_handler(WPS_PBC_ACTIVE, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "WPS-SUCCESS"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P WPS_PBC_SUCCESS Event.");
+                    miracast_obj->event_handler(WPS_PBC_SUCCESS, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "WPS-FAIL"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P WPS-FAIL Event.");
+                    miracast_obj->event_handler(WPS_PBC_FAIL, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "WPS-PBC-TIMEOUT"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P WPS-TIMEOUT Event.");
+                    miracast_obj->event_handler(WPS_PBC_TIMEOUT, (void *)evt_buf, m_event_buffer_len);
+                }
+                if (strstr(m_event_buffer, "WPS-OVERLAP-DETECTED"))
+                {
+                    char *evt_buf = strdup(m_event_buffer);
+                    MIRACASTLOG_ERROR("Received P2P WPS-OVERLAP-DETECTED Event.");
+                    miracast_obj->event_handler(WPS_PBC_OVERLAPPED, (void *)evt_buf, m_event_buffer_len);
+                }
+            }
+        }
+        m_persistentGrpMutex.unlock();
+
         usleep(50000);
     }
     MIRACASTLOG_TRACE("Exiting ctrl monitor thread");
@@ -361,12 +433,23 @@ void MiracastP2P::p2pCtrlMonitorThread()
 
 int MiracastP2P::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 {
+    struct wpa_ctrl *wpa_p2p_cmd_iface = nullptr;
     int ret = -1;
     MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_VERBOSE("WIFI_HAL: Command to execute - %s", cmd);
-    if ( nullptr != m_wpa_p2p_cmd_ctrl_iface )
+
+    if ( NON_GLOBAL_INTERFACE == iface )
     {
-        ret = p2pWpaCtrlSendCmd(cmd, m_wpa_p2p_cmd_ctrl_iface, ret_buf);
+        wpa_p2p_cmd_iface = m_wpa_p2p_cmd_ctrl_iface;
+    }
+    else if ( PERSISTENT_GROUP_INTERFACE == iface )
+    {
+        wpa_p2p_cmd_iface = m_wpa_p2p_persistent_grp_cmd_ctrl_iface;
+    }
+
+    if ( nullptr != wpa_p2p_cmd_iface )
+    {
+        ret = p2pWpaCtrlSendCmd(cmd, wpa_p2p_cmd_iface, ret_buf);
     }
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
@@ -374,6 +457,8 @@ int MiracastP2P::p2pExecute(char *cmd, enum INTERFACE iface, char *ret_buf)
 
 MiracastError MiracastP2P::executeCommand(std::string command, int interface, std::string &retBuffer)
 {
+    MiracastError ret = MIRACAST_OK;
+
     MIRACASTLOG_TRACE("Entering..");
 
     MIRACASTLOG_INFO("Executing P2P command %s", command.c_str());
@@ -384,7 +469,7 @@ MiracastError MiracastP2P::executeCommand(std::string command, int interface, st
         MIRACASTLOG_INFO("command return buffer is - %s", retBuffer.c_str());
     }
     MIRACASTLOG_TRACE("Exiting..");
-    return MIRACAST_OK;
+    return ret;
 }
 
 MiracastError MiracastP2P::Init( std::string p2p_ctrl_iface )
@@ -416,8 +501,7 @@ MiracastError MiracastP2P::set_WFDParameters(void)
     if (false == m_isWiFiDisplayParamsEnabled)
     {
         std::string command, retBuffer;
-        command = "STATUS";
-        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+        
         command = "SET wifi_display 1";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
@@ -602,15 +686,107 @@ MiracastError MiracastP2P::remove_GroupInterface(std::string group_iface_name )
         {
             command = opt_flag_buffer;
             MIRACASTLOG_INFO("Custom P2P GROUP REMOVE applied[%s]",command.c_str());
+            ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         }
+#if 0
         else
         {
             command = "P2P_GROUP_REMOVE " + group_iface_name;
             MIRACASTLOG_INFO("default P2P GROUP REMOVE applied[%s]",command.c_str());
+            ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
         }
-        ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+#endif
     }
 
     MIRACASTLOG_TRACE("Exiting..");
+    return ret;
+}
+
+MiracastError MiracastP2P::create_PersistentGroupCtrlInterface(std::string group_iface_name )
+{
+    MiracastError ret = MIRACAST_OK;
+    MIRACASTLOG_TRACE("Entering..");
+
+    if (group_iface_name.empty()){
+        MIRACASTLOG_ERROR("Empty group iface name has passed..");
+        ret = MIRACAST_FAIL;
+    }
+    else
+    {
+        int retry = 0;
+        std::string wpa_supp_ctrl_path_name = WPA_SUP_DFLT_CTRL_PATH;
+        wpa_supp_ctrl_path_name.append(group_iface_name);
+
+        if (0 != access(wpa_supp_ctrl_path_name.c_str(), F_OK))
+        {
+            MIRACASTLOG_ERROR("Unable to find P2P grp ctrl iface path[%s]", wpa_supp_ctrl_path_name.c_str());
+            return MIRACAST_INVALID_P2P_CTRL_IFACE;
+        }
+
+        m_persistentGrpMutex.lock();
+        while (retry++ < 10)
+        {
+            m_wpa_p2p_persistent_grp_cmd_ctrl_iface = wpa_ctrl_open(wpa_supp_ctrl_path_name.c_str());
+            if (m_wpa_p2p_persistent_grp_cmd_ctrl_iface != NULL)
+                break;
+            MIRACASTLOG_ERROR("WIFI_HAL: p2p ctrl_open returned NULL ");
+            sleep(1);
+        }
+
+        if ( nullptr == m_wpa_p2p_persistent_grp_cmd_ctrl_iface )
+        {
+            MIRACASTLOG_ERROR("WIFI_HAL: wpa_ctrl_open for p2p failed for control interface ");
+            MIRACASTLOG_TRACE("Exiting...");
+            ret = MIRACAST_P2P_INIT_FAILED;
+        }
+        else
+        {
+            MIRACASTLOG_VERBOSE("WIFI_HAL: m_wpa_p2p_persistent_grp_cmd_ctrl_iface created successfully.");
+            m_wpa_p2p_persistent_grp_ctrl_monitor = wpa_ctrl_open(wpa_supp_ctrl_path_name.c_str());
+            if ( nullptr == m_wpa_p2p_persistent_grp_ctrl_monitor )
+            {
+                MIRACASTLOG_ERROR("WIFI_HAL: wpa_ctrl_open for p2p failed for monitor interface ");
+                if ( m_wpa_p2p_persistent_grp_cmd_ctrl_iface )
+                {
+                    wpa_ctrl_close(m_wpa_p2p_persistent_grp_cmd_ctrl_iface);
+                    m_wpa_p2p_persistent_grp_cmd_ctrl_iface = nullptr;
+                }
+                ret = MIRACAST_P2P_INIT_FAILED;
+            }
+            else
+            {
+                MIRACASTLOG_VERBOSE("WIFI_HAL: m_wpa_p2p_persistent_grp_ctrl_monitor created successfully.");
+                if (wpa_ctrl_attach(m_wpa_p2p_persistent_grp_ctrl_monitor) != 0)
+                {
+                    MIRACASTLOG_ERROR("WIFI_HAL: p2p wpa_ctrl_attach failed ");
+                    if ( m_wpa_p2p_persistent_grp_cmd_ctrl_iface )
+                    {
+                        wpa_ctrl_close(m_wpa_p2p_persistent_grp_cmd_ctrl_iface);
+                        m_wpa_p2p_persistent_grp_cmd_ctrl_iface = nullptr;
+                    }
+                    if ( m_wpa_p2p_persistent_grp_ctrl_monitor )
+                    {
+                        wpa_ctrl_close(m_wpa_p2p_persistent_grp_ctrl_monitor);
+                        m_wpa_p2p_persistent_grp_ctrl_monitor = nullptr;
+                    }
+                    ret = MIRACAST_P2P_INIT_FAILED;
+                }
+            }
+        }
+        m_persistentGrpMutex.unlock();
+    }
+
+    MIRACASTLOG_TRACE("Exiting..");
+    return ret;   
+}
+
+MiracastError MiracastP2P::initiate_WPSPBC(void)
+{
+    MiracastError ret = MIRACAST_OK;
+    std::string command, retBuffer;
+    MIRACASTLOG_TRACE("Entering...");
+    command = "WPS_PBC";
+    ret = executeCommand(command, PERSISTENT_GROUP_INTERFACE , retBuffer);
+    MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
