@@ -410,7 +410,7 @@ void MiracastP2P::p2pCtrlMonitorThread()
                     MIRACASTLOG_ERROR("Received P2P WPS-FAIL Event.");
                     miracast_obj->event_handler(WPS_PBC_FAIL, (void *)evt_buf, m_event_buffer_len);
                 }
-                if (strstr(m_event_buffer, "WPS-PBC-TIMEOUT"))
+                if (strstr(m_event_buffer, "WPS-TIMEOUT"))
                 {
                     char *evt_buf = strdup(m_event_buffer);
                     MIRACASTLOG_ERROR("Received P2P WPS-TIMEOUT Event.");

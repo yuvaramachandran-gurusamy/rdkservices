@@ -661,8 +661,6 @@ void MiracastController::initiate_LaunchRequest(std::string src_dev_name,std::st
         std::string src_dev_ip = remote_address;
         std::string src_dev_mac = p2p_dev_mac;
         std::string sink_dev_ip = m_groupInfo->localIPAddr;
-        set_WFDSourceMACAddress(src_dev_mac);
-        set_WFDSourceName(src_dev_name);
         MIRACASTLOG_INFO("!!!! LaunchRequest src_dev_name[%s]src_dev_mac[%s]src_dev_ip[%s]sink_dev_ip[%s] !!!!",
                             src_dev_name.c_str(),
                             src_dev_mac.c_str(),
@@ -744,6 +742,8 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
             m_new_thunder_req_client_connection_sent = true;
             MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
             current_device_info->isConnectRequestNotified = true;
+            set_WFDSourceMACAddress(received_mac_address);
+            set_WFDSourceName(device_name);
         }
         else
         {
@@ -768,6 +768,8 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
                 m_another_thunder_req_client_connection_sent = true;
                 MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
                 current_device_info->isConnectRequestNotified = true;
+                set_NewSourceMACAddress(received_mac_address);
+                set_NewSourceName(device_name);
             }
             else
             {
@@ -1076,6 +1078,17 @@ void MiracastController::Controller_Thread(void *args)
                             current_device_info->isClientAcceptedByPBC = false;
                             current_device_info->isClientAcceptedBySTAConnected = false;
                         }
+
+                        if (0 == p2p_dev_mac.compare(get_NewSourceMACAddress()))
+                        {
+                            reset_NewSourceMACAddress();
+                            reset_NewSourceName();
+                        }
+                        if (0 == p2p_dev_mac.compare(get_WFDSourceMACAddress()))
+                        {
+                            reset_WFDSourceMACAddress();
+                            reset_WFDSourceName();
+                        }
                     }
                     break;
                     case CONTROLLER_P2P_WPS_PBC_ACTIVE:
@@ -1104,14 +1117,18 @@ void MiracastController::Controller_Thread(void *args)
                     break;
                     case CONTROLLER_P2P_WPS_PBC_FAIL:
                     case CONTROLLER_P2P_WPS_PBC_OVERLAPPED:
+                    case CONTROLLER_P2P_WPS_PBC_TIMEOUT:
                     case CONTROLLER_P2P_WPS_PBC_SUCCESS:
                     {
+                        DeviceInfo *current_device_info = get_device_details(wpa_pbc_inprogress_mac);
                         eMIRACAST_SERVICE_ERR_CODE error_code = MIRACAST_SERVICE_ERR_CODE_SUCCESS;
+                        bool reset_device_stats = true;
 
-                        if ( CONTROLLER_P2P_WPS_PBC_OVERLAPPED == controller_msgq_data.state )
+                        if (( CONTROLLER_P2P_WPS_PBC_OVERLAPPED == controller_msgq_data.state ) ||
+                            ( CONTROLLER_P2P_WPS_PBC_TIMEOUT == controller_msgq_data.state ))
                         {
-                            error_code = MIRACAST_SERVICE_ERR_CODE_P2P_WPS_OVERLAPPED;
-                            MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_OVERLAPPED Received");
+                            error_code = MIRACAST_SERVICE_ERR_CODE_P2P_WPS_TIMEOUT_OR_OVERLAPPED;
+                            MIRACASTLOG_INFO("[CONTROLLER_P2P_WPS_PBC_OVERLAPPED/CONTROLLER_P2P_WPS_PBC_TIMEOUT] Received");
                         }
                         else if ( CONTROLLER_P2P_WPS_PBC_FAIL == controller_msgq_data.state )
                         {
@@ -1121,9 +1138,31 @@ void MiracastController::Controller_Thread(void *args)
                         else
                         {
                             MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_SUCCESS Received");
+                            reset_device_stats = false;
                         }
                         wpa_pbc_activated = false;
+                        if (ctrl_evt_eap_wpspbc_mac.empty())
+                        {
+                            ctrl_evt_eap_wpspbc_mac = wpa_pbc_inprogress_mac;
+                        }
                         notify_ClientConnectionErrorState(ctrl_evt_eap_wpspbc_mac,error_code);
+                        if ( current_device_info && reset_device_stats )
+                        {
+                            current_device_info->isConnectRequestNotified = false;
+                            current_device_info->isWPSPBCRequired = false;
+                            current_device_info->isClientAcceptedByPBC = false;
+                            current_device_info->isClientAcceptedBySTAConnected = false;
+                            if (0 == ctrl_evt_eap_wpspbc_mac.compare(get_NewSourceMACAddress()))
+                            {
+                                reset_NewSourceMACAddress();
+                                reset_NewSourceName();
+                            }
+                            if (0 == ctrl_evt_eap_wpspbc_mac.compare(get_WFDSourceMACAddress()))
+                            {
+                                reset_WFDSourceMACAddress();
+                                reset_WFDSourceName();
+                            }
+                        }
                         wpa_pbc_inprogress_mac.clear();
                         ctrl_evt_eap_wpspbc_mac.clear();
                     }
