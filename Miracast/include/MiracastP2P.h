@@ -117,6 +117,7 @@ public:
     MiracastError remove_GroupInterface(std::string group_iface_name);
     MiracastError create_PersistentGroupCtrlInterface(std::string group_iface_name);
     MiracastError initiate_WPSPBC(void);
+    MiracastError stop_WPSPBC(void);
 };
 
 #endif

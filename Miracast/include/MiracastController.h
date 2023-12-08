@@ -127,6 +127,8 @@ private:
     MiracastError create_PersistentGroupCtrlInterface(std::string group_iface_name);
     MiracastError connectionRequestHandling(std::string received_mac_address, bool isWPSPBC_Needed=false );
     MiracastError initiate_WPSPBC(void);
+    MiracastError stop_WPSPBC(void);
+    MiracastError reset_CurrentWPSPBCStatus(bool reset_device_stats = true,bool need_wps_pbc_stop = true);
     std::string retrive_Connected_DevIPFromARP(std::string mac_address);
     void initiate_LaunchRequest(std::string src_dev_name,std::string orgMacaddr,std::string p2p_dev_mac);
     void notify_ClientConnectionErrorState(std::string mac_address, eMIRACAST_SERVICE_ERR_CODE error_code );
@@ -139,6 +141,8 @@ private:
     std::string m_new_device_mac_addr;
     std::string m_new_device_name;
     std::string m_localIp;
+    std::string m_wpa_pbc_inprogress_mac;
+    std::string m_ctrl_evt_eap_wpspbc_mac;
     vector<DeviceInfo *> m_deviceInfoList;
     GroupInfo *m_groupInfo;
     bool m_connectionStatus;
@@ -147,6 +151,7 @@ private:
     std::string  m_current_device_mac_addr;
     bool m_new_thunder_req_client_connection_sent{false};
     bool m_another_thunder_req_client_connection_sent{false};
+    bool m_wpa_pbc_activated{false};
 
     /*members for interacting with wpa_supplicant*/
     MiracastP2P *m_p2p_ctrl_obj;
