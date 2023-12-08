@@ -790,3 +790,14 @@ MiracastError MiracastP2P::initiate_WPSPBC(void)
     MIRACASTLOG_TRACE("Exiting...");
     return ret;
 }
+
+MiracastError MiracastP2P::stop_WPSPBC(void)
+{
+    MiracastError ret = MIRACAST_OK;
+    std::string command, retBuffer;
+    MIRACASTLOG_TRACE("Entering...");
+    command = "WPS_CANCEL";
+    ret = executeCommand(command, PERSISTENT_GROUP_INTERFACE , retBuffer);
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}

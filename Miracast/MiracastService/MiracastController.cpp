@@ -70,6 +70,7 @@ MiracastController::MiracastController(void)
     m_controller_thread = nullptr;
     m_tcpserverSockfd = -1;
     m_p2p_backend_discovery = false;
+    m_wpa_pbc_activated = false;
 
     MIRACASTLOG_TRACE("Exiting...");
 }
@@ -583,6 +584,57 @@ MiracastError MiracastController::initiate_WPSPBC(void)
     return ret;
 }
 
+MiracastError MiracastController::stop_WPSPBC(void)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    MiracastError ret = MIRACAST_OK;
+    if ( nullptr != m_p2p_ctrl_obj )
+    {
+        ret = m_p2p_ctrl_obj->stop_WPSPBC();
+    }
+    MIRACASTLOG_TRACE("Exiting...");
+    return ret;
+}
+
+MiracastError MiracastController::reset_CurrentWPSPBCStatus(bool reset_device_stats,bool need_wps_pbc_stop)
+{
+    MIRACASTLOG_TRACE("Entering...");
+    DeviceInfo *current_device_info = nullptr;
+
+    if ( need_wps_pbc_stop && m_wpa_pbc_activated )
+    {
+        stop_WPSPBC();
+    }
+
+    if (m_ctrl_evt_eap_wpspbc_mac.empty())
+    {
+        m_ctrl_evt_eap_wpspbc_mac = m_wpa_pbc_inprogress_mac;
+    }
+
+    current_device_info = get_device_details(m_wpa_pbc_inprogress_mac);
+
+    if ( current_device_info && reset_device_stats )
+    {
+        current_device_info->isConnectRequestNotified = false;
+        current_device_info->isWPSPBCRequired = false;
+        current_device_info->isClientAcceptedByPBC = false;
+        current_device_info->isClientAcceptedBySTAConnected = false;
+        if (0 == m_ctrl_evt_eap_wpspbc_mac.compare(get_NewSourceMACAddress()))
+        {
+            reset_NewSourceMACAddress();
+            reset_NewSourceName();
+        }
+        if (0 == m_ctrl_evt_eap_wpspbc_mac.compare(get_WFDSourceMACAddress()))
+        {
+            reset_WFDSourceMACAddress();
+            reset_WFDSourceName();
+        }
+    }
+    m_wpa_pbc_activated = false;
+    MIRACASTLOG_TRACE("Exiting...");
+    return MIRACAST_OK;
+}
+
 std::string MiracastController::retrive_Connected_DevIPFromARP(std::string mac_address)
 {
     char data[1024] = {0};
@@ -891,10 +943,7 @@ void MiracastController::Controller_Thread(void *args)
     CONTROLLER_MSGQ_STRUCT controller_msgq_data = {0};
     bool    start_discovering_enabled = false,
             session_restart_required = false,
-            p2p_group_instance_alive = false,
-            wpa_pbc_activated = false;
-    std::string wpa_pbc_inprogress_mac = "",
-                ctrl_evt_eap_wpspbc_mac = "";
+            p2p_group_instance_alive = false;
 
     MIRACASTLOG_TRACE("Entering...");
 
@@ -986,22 +1035,22 @@ void MiracastController::Controller_Thread(void *args)
                             authType = token;
                         }
 
-                        if (( ! wpa_pbc_inprogress_mac.empty()) &&
-                            ( 0 == (wpa_pbc_inprogress_mac.compare(MAC))))
+                        if (( ! m_wpa_pbc_inprogress_mac.empty()) &&
+                            ( 0 == (m_wpa_pbc_inprogress_mac.compare(MAC))))
                         {
                             MIRACASTLOG_WARNING("Duplicate PROVISION request Received. Hence ignored");
                         }
-                        else if (( false == wpa_pbc_activated ) && (wpa_pbc_inprogress_mac.empty()))
+                        else if (( false == m_wpa_pbc_activated ) && (m_wpa_pbc_inprogress_mac.empty()))
                         {
                             connectionRequestHandling(MAC,true);
-                            wpa_pbc_inprogress_mac = MAC;
-                            MIRACASTLOG_INFO("WPS_PBC to be initiated for [%s]",wpa_pbc_inprogress_mac.c_str());
+                            m_wpa_pbc_inprogress_mac = MAC;
+                            MIRACASTLOG_INFO("WPS_PBC to be initiated for [%s]",m_wpa_pbc_inprogress_mac.c_str());
                         }
-                        else if ( ! wpa_pbc_inprogress_mac.empty())
+                        else if ( ! m_wpa_pbc_inprogress_mac.empty())
                         {
                             MIRACASTLOG_WARNING("[%s] Ignored since already pbc inprogress for [%s]",
                                                 MAC.c_str(),
-                                                wpa_pbc_inprogress_mac.c_str());
+                                                m_wpa_pbc_inprogress_mac.c_str());
                         }
 
                         DeviceInfo *device_info_ptr = MiracastController::get_device_details(MAC);
@@ -1094,7 +1143,7 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_P2P_WPS_PBC_ACTIVE:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_ACTIVE Received");
-                        wpa_pbc_activated = true;
+                        m_wpa_pbc_activated = true;
                     }
                     break;
                     case CONTROLLER_P2P_CTRL_EVENT_EAP_STARTED:
@@ -1105,8 +1154,8 @@ void MiracastController::Controller_Thread(void *args)
 
                         if (pos != std::string::npos)
                         {
-                            ctrl_evt_eap_wpspbc_mac = event_buffer.substr(pos + searchSubstring.length());
-                            MIRACASTLOG_INFO("ctrl_evt_eap_wpspbc_mac [%s]",ctrl_evt_eap_wpspbc_mac.c_str());
+                            m_ctrl_evt_eap_wpspbc_mac = event_buffer.substr(pos + searchSubstring.length());
+                            MIRACASTLOG_INFO("m_ctrl_evt_eap_wpspbc_mac [%s]",m_ctrl_evt_eap_wpspbc_mac.c_str());
                         }
                     }
                     break;
@@ -1120,7 +1169,6 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_P2P_WPS_PBC_TIMEOUT:
                     case CONTROLLER_P2P_WPS_PBC_SUCCESS:
                     {
-                        DeviceInfo *current_device_info = get_device_details(wpa_pbc_inprogress_mac);
                         eMIRACAST_SERVICE_ERR_CODE error_code = MIRACAST_SERVICE_ERR_CODE_SUCCESS;
                         bool reset_device_stats = true;
 
@@ -1140,31 +1188,8 @@ void MiracastController::Controller_Thread(void *args)
                             MIRACASTLOG_INFO("CONTROLLER_P2P_WPS_PBC_SUCCESS Received");
                             reset_device_stats = false;
                         }
-                        wpa_pbc_activated = false;
-                        if (ctrl_evt_eap_wpspbc_mac.empty())
-                        {
-                            ctrl_evt_eap_wpspbc_mac = wpa_pbc_inprogress_mac;
-                        }
-                        notify_ClientConnectionErrorState(ctrl_evt_eap_wpspbc_mac,error_code);
-                        if ( current_device_info && reset_device_stats )
-                        {
-                            current_device_info->isConnectRequestNotified = false;
-                            current_device_info->isWPSPBCRequired = false;
-                            current_device_info->isClientAcceptedByPBC = false;
-                            current_device_info->isClientAcceptedBySTAConnected = false;
-                            if (0 == ctrl_evt_eap_wpspbc_mac.compare(get_NewSourceMACAddress()))
-                            {
-                                reset_NewSourceMACAddress();
-                                reset_NewSourceName();
-                            }
-                            if (0 == ctrl_evt_eap_wpspbc_mac.compare(get_WFDSourceMACAddress()))
-                            {
-                                reset_WFDSourceMACAddress();
-                                reset_WFDSourceName();
-                            }
-                        }
-                        wpa_pbc_inprogress_mac.clear();
-                        ctrl_evt_eap_wpspbc_mac.clear();
+                        notify_ClientConnectionErrorState(m_ctrl_evt_eap_wpspbc_mac,error_code);
+                        reset_CurrentWPSPBCStatus(reset_device_stats,false);
                     }
                     break;
                     case CONTROLLER_GO_GROUP_STARTED:
@@ -1462,6 +1487,7 @@ void MiracastController::Controller_Thread(void *args)
                             MIRACASTLOG_INFO("[%s] Cached Device info removed...",cached_mac_address.c_str());
                         }
                         restart_session(start_discovering_enabled);
+                        reset_CurrentWPSPBCStatus();
                         m_new_thunder_req_client_connection_sent = false;
                         m_another_thunder_req_client_connection_sent = false;
                         session_restart_required = true;
