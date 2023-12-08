@@ -69,6 +69,7 @@ MiracastGstPlayer::MiracastGstPlayer()
     m_currentPosition = 0.0f;
     m_buffering_level = 100;
     m_player_statistics_tid = 0;
+    m_GstPlayerStatsTimerID = 0;
     MIRACASTLOG_TRACE("Exiting...");
 }
 
@@ -194,6 +195,12 @@ bool MiracastGstPlayer::stop()
     if (m_player_statistics_tid){
         pthread_cancel(m_player_statistics_tid);
         m_player_statistics_tid = 0;
+    }
+
+    if (m_GstPlayerStatsTimerID)
+    {
+        g_source_remove(m_GstPlayerStatsTimerID);
+        m_GstPlayerStatsTimerID = 0;
     }
 
     if (m_playback_thread)
@@ -392,6 +399,15 @@ void* MiracastGstPlayer::monitor_player_statistics_thread(void *ctx)
     pthread_exit(nullptr);
 }
 
+gboolean MiracastGstPlayer::monitor_player_statistics_timercallback(gpointer userdata)
+{
+    MIRACASTLOG_TRACE("Entering..!!!");
+    MiracastGstPlayer *self = (MiracastGstPlayer *)userdata;
+    self->get_player_statistics();
+    MIRACASTLOG_TRACE("Exiting..!!!");
+    return G_SOURCE_CONTINUE;
+}
+
 double MiracastGstPlayer::getDuration( GstElement *pipeline )
 {
     MIRACASTLOG_TRACE("Entering..!!!");
@@ -462,7 +478,7 @@ void MiracastGstPlayer::print_pipeline_state(GstElement *pipeline)
 
     if ( nullptr == pipeline )
     {
-        MIRACASTLOG_ERROR("pipeline is NULL. Can't proceed with print_pipeline_state(). \n");
+        MIRACASTLOG_ERROR("pipeline is NULL");
     }
     else
     {
@@ -471,7 +487,7 @@ void MiracastGstPlayer::print_pipeline_state(GstElement *pipeline)
         current = pending = GST_STATE_VOID_PENDING;
 
         ret_state = gst_element_get_state(pipeline, &current, &pending, 0);
-        MIRACASTLOG_VERBOSE("\n[%s]Pipeline State - Current:[%s], Pending:[%s],Ret:[%d]\n",
+        MIRACASTLOG_VERBOSE("[%s]Pipeline State - Current:[%s], Pending:[%s],Ret:[%d]",
                             gst_element_get_name(pipeline),
                             gst_element_state_get_name(current),
                             gst_element_state_get_name(pending),
@@ -531,7 +547,7 @@ bool MiracastGstPlayer::get_player_statistics()
         gst_structure_free( stats );
      }
     print_pipeline_state(m_pipeline);
-    MIRACASTLOG_INFO("\n=============================================\n");
+    MIRACASTLOG_INFO("=============================================");
     MIRACASTLOG_TRACE("Exiting..!!!");	
     return ret;
 }
@@ -980,7 +996,17 @@ bool MiracastGstPlayer::createPipeline()
 
     g_main_context_pop_thread_default(m_main_loop_context);
     pthread_create(&m_playback_thread, nullptr, MiracastGstPlayer::playbackThread, this);
-    pthread_create(&m_player_statistics_tid, nullptr, MiracastGstPlayer::monitor_player_statistics_thread, this);
+    //pthread_create(&m_player_statistics_tid, nullptr, MiracastGstPlayer::monitor_player_statistics_thread, this);
+
+    std::string opt_flag_buffer;
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_player_status",true);
+
+    if (!opt_flag_buffer.empty())
+    {
+        guint interval = std::stoul(opt_flag_buffer);
+        m_GstPlayerStatsTimerID = g_timeout_add(interval, MiracastGstPlayer::monitor_player_statistics_timercallback, this);
+        MIRACASTLOG_INFO("monitor_player_statistics_timercallback configured as [%u]",interval);
+    }
 
     ret = gst_element_set_state(m_pipeline, GST_STATE_PLAYING);
 

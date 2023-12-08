@@ -64,6 +64,7 @@ private:
     GstElement *m_audioconvert{nullptr};
     bool m_firstVideoFrameReceived{false};
     MiracastRTSPMsg *m_rtsp_reference_instance{nullptr};
+    guint m_GstPlayerStatsTimerID{0};
 
     std::string m_uri;
     guint64 m_streaming_port;
@@ -89,6 +90,7 @@ private:
     static void onFirstVideoFrameCallback(GstElement* object, guint arg0, gpointer arg1,gpointer userdata);
     void notifyPlaybackState(eMIRA_GSTPLAYER_STATES gst_player_state);
     static gboolean busMessageCb(GstBus *bus, GstMessage *msg, gpointer user_data);
+    static gboolean monitor_player_statistics_timercallback(gpointer userdata);
     bool changePipelineState(GstState state) const;
 
     static void *playbackThread(void *ctx);
