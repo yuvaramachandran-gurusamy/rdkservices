@@ -1288,25 +1288,32 @@ RTSP_STATUS MiracastRTSPMsg::validate_rtsp_m2_request_ack(std::string rtsp_m2_re
 
     while (std::getline(ss, line,'\n'))
     {
-        processedBytes += line.length() + 1; // Add 1 for '\n'
-
-        if (line.find(public_tag) != std::string::npos)
+        if (line.find("GET_PARAMETER") == 0)
         {
-            prefix = public_tag;
-            public_str = line.substr(prefix.length());
-            REMOVE_R(public_str);
-            REMOVE_N(public_str);
-            ss.get();
-            processedBytes += 2; // Skip next '\r\n' line
+            // Stop processing when "GET_PARAMETER" is found at the beginning of a line
             break;
         }
-        else if (( false == foundSequence) &&(line.find(sequence_tag) != std::string::npos))
+        else
         {
-            prefix = sequence_tag;
-            seq_str = line.substr(prefix.length());
-            REMOVE_R(seq_str);
-            REMOVE_N(seq_str);
-            foundSequence = true;
+            processedBytes += line.length() + 1; // Add 1 for '\n'
+            if (line.find(public_tag) != std::string::npos)
+            {
+                prefix = public_tag;
+                public_str = line.substr(prefix.length());
+                REMOVE_R(public_str);
+                REMOVE_N(public_str);
+                //ss.get();
+                //processedBytes += 2; // Skip next '\r\n' line
+                //break;
+            }
+            else if (( false == foundSequence) &&(line.find(sequence_tag) != std::string::npos))
+            {
+                prefix = sequence_tag;
+                seq_str = line.substr(prefix.length());
+                REMOVE_R(seq_str);
+                REMOVE_N(seq_str);
+                foundSequence = true;
+            }
         }
     }
 
