@@ -761,7 +761,7 @@ MiracastError MiracastController::connect_device(std::string device_mac , std::s
 
 MiracastError MiracastController::connectionRequestHandling(std::string received_mac_address, bool isWPSPBC_Needed )
 {
-    THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
+    //THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
     MIRACASTLOG_TRACE("Entering...");
     DeviceInfo *current_device_info = get_device_details(received_mac_address);
     std::string device_name = "";
@@ -784,18 +784,19 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
 
     if (get_WFDSourceMACAddress().empty())
     {
-        if ((false == m_new_thunder_req_client_connection_sent) &&
-            (nullptr != m_thunder_req_handler_thread))
+        if ((false == m_new_thunder_req_client_connection_sent) /*&&
+            (nullptr != m_thunder_req_handler_thread)*/)
         {
-            thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-            strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-            strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-            m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
+            //thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
+            //strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
+            //strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
+            //m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
             m_new_thunder_req_client_connection_sent = true;
             MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
             current_device_info->isConnectRequestNotified = true;
             set_WFDSourceMACAddress(received_mac_address);
             set_WFDSourceName(device_name);
+            notify_ConnectionRequest(device_name,received_mac_address);
         }
         else
         {
@@ -810,18 +811,19 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
         }
         else
         {
-            if ((false == m_another_thunder_req_client_connection_sent) &&
-                (nullptr != m_thunder_req_handler_thread))
+            if ((false == m_another_thunder_req_client_connection_sent) /*&&
+                (nullptr != m_thunder_req_handler_thread)*/)
             {
-                thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
-                strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
-                strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
-                m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
+                //thunder_req_msgq_data.state = THUNDER_REQ_HLDR_CONNECT_DEVICE_FROM_CONTROLLER;
+                //strcpy(thunder_req_msgq_data.msg_buffer, received_mac_address.c_str());
+                //strcpy(thunder_req_msgq_data.buffer_user_data, device_name.c_str());
+                //m_thunder_req_handler_thread->send_message(&thunder_req_msgq_data, sizeof(thunder_req_msgq_data));
                 m_another_thunder_req_client_connection_sent = true;
                 MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
                 current_device_info->isConnectRequestNotified = true;
                 set_NewSourceMACAddress(received_mac_address);
                 set_NewSourceName(device_name);
+                notify_ConnectionRequest(device_name,received_mac_address);
             }
             else
             {
@@ -1066,6 +1068,7 @@ void MiracastController::Controller_Thread(void *args)
                                 command.append(" WPS_PBC");
                                 system(command.c_str());
                             }
+                        }
                     }
                     break;
                     case CONTROLLER_GO_NEG_REQUEST:
