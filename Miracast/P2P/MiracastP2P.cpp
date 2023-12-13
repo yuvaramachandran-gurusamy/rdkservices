@@ -417,6 +417,9 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
+        /* Set Device type */
+        command = "SET device_type 1-0050F204-1";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         m_isWiFiDisplayParamsEnabled = true;
     }
