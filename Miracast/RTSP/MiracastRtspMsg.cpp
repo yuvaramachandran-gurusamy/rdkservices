@@ -300,12 +300,28 @@ MiracastError MiracastRTSPMsg::create_RTSPThread(void)
 
 std::string MiracastRTSPMsg::get_WFDVideoFormat(void)
 {
-    return m_wfd_video_formats;
+    std::string return_buffer = m_wfd_video_formats;
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/mcast_player_video_fmts" , false);
+    if ( !opt_flag_buffer.empty())
+    {
+        MIRACASTLOG_INFO("OLD VIDEO FORMAT[%s]...",return_buffer.c_str());
+        return_buffer = opt_flag_buffer;
+        MIRACASTLOG_INFO("NEW VIDEO FORMAT[%s]...",return_buffer.c_str());
+    }
+    return return_buffer;
 }
 
 std::string MiracastRTSPMsg::get_WFDAudioCodecs(void)
 {
-    return m_wfd_audio_codecs;
+    std::string return_buffer = m_wfd_audio_codecs;
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/mcast_player_audio_fmts" , false);
+    if ( !opt_flag_buffer.empty())
+    {
+        MIRACASTLOG_INFO("OLD AUDIO FORMAT[%s]...",return_buffer.c_str());
+        return_buffer = opt_flag_buffer;
+        MIRACASTLOG_INFO("NEW AUDIO FORMAT[%s]...",return_buffer.c_str());
+    }
+    return return_buffer;
 }
 
 std::string MiracastRTSPMsg::get_WFDClientRTPPorts(void)
