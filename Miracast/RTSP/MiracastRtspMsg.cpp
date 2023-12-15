@@ -26,6 +26,8 @@ static std::string empty_string = "";
 void RTSPMsgHandlerCallback(void *args);
 
 #ifdef ENABLE_HDCP2X_SUPPORT
+#define HDCP2X_PORT 12000
+#define HDCP2X_SOCKET_BUF_MAX 4096
 void HDCPHandlerCallback(void *args);
 #endif
 
@@ -69,6 +71,9 @@ RTSP_PARSER_TEMPLATE MiracastRTSPMsg::rtsp_msg_parser_fields[] = {
     {RTSP_WFD_VIDEO_FMT_FIELD, "wfd_video_formats" , &MiracastRTSPMsg::get_WFDVideoFormat },
     {RTSP_WFD_AUDIO_CODEC_FIELD, "wfd_audio_codecs" , &MiracastRTSPMsg::get_WFDAudioCodecs},
     {RTSP_WFD_CLI_RTP_PORTS_FIELD, "wfd_client_rtp_ports" , &MiracastRTSPMsg::get_WFDClientRTPPorts},
+    {RTSP_WFD_DISPLAY_EDID_FIELD, "wfd_display_edid" , &MiracastRTSPMsg::get_WFDDisplayEdid},
+    {RTSP_WFD_UIBC_CAPS_FIELD, "wfd_uibc_capability" , &MiracastRTSPMsg::get_WFDUIBCCapability},
+    {RTSP_WFD_CONNECTOR_TYPE_FIELD, "wfd_connector_type" , &MiracastRTSPMsg::get_WFDConnectorType},
     {RTSP_M3_REQ_VALIDATE_MARKER_END, ""},
 
     {RTSP_WFD_STREAMING_URL_FIELD, "wfd_presentation_URL: "},
@@ -289,10 +294,22 @@ MiracastError MiracastRTSPMsg::create_RTSPThread(void)
     {
         error_code = m_rtsp_msg_handler_thread->start();
 
-        if ( MIRACAST_OK != error_code ){
+        if ( MIRACAST_OK != error_code )
+        {
             delete m_rtsp_msg_handler_thread;
             m_rtsp_msg_handler_thread = nullptr;
         }
+#ifdef ENABLE_HDCP2X_SUPPORT
+        else
+        {
+            m_hdcp_handler_thread = new MiracastThread( "HDCP_Thread",
+                                                        RTSP_HANDLER_THREAD_STACK,
+                                                        RTSP_HANDLER_MSG_COUNT,
+                                                        RTSP_HANDLER_MSGQ_SIZE,
+                                                        reinterpret_cast<void (*)(void *)>(&HDCPHandlerCallback),
+                                                        this);
+        }
+#endif /*ENABLE_HDCP2X_SUPPORT*/
     }
     MIRACASTLOG_TRACE("Exiting...");
     return error_code;
@@ -300,28 +317,12 @@ MiracastError MiracastRTSPMsg::create_RTSPThread(void)
 
 std::string MiracastRTSPMsg::get_WFDVideoFormat(void)
 {
-    std::string return_buffer = m_wfd_video_formats;
-    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/mcast_player_video_fmts" , false);
-    if ( !opt_flag_buffer.empty())
-    {
-        MIRACASTLOG_INFO("OLD VIDEO FORMAT[%s]...",return_buffer.c_str());
-        return_buffer = opt_flag_buffer;
-        MIRACASTLOG_INFO("NEW VIDEO FORMAT[%s]...",return_buffer.c_str());
-    }
-    return return_buffer;
+    return m_wfd_video_formats;
 }
 
 std::string MiracastRTSPMsg::get_WFDAudioCodecs(void)
 {
-    std::string return_buffer = m_wfd_audio_codecs;
-    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/mcast_player_audio_fmts" , false);
-    if ( !opt_flag_buffer.empty())
-    {
-        MIRACASTLOG_INFO("OLD AUDIO FORMAT[%s]...",return_buffer.c_str());
-        return_buffer = opt_flag_buffer;
-        MIRACASTLOG_INFO("NEW AUDIO FORMAT[%s]...",return_buffer.c_str());
-    }
-    return return_buffer;
+    return m_wfd_audio_codecs;
 }
 
 std::string MiracastRTSPMsg::get_WFDClientRTPPorts(void)
@@ -331,7 +332,17 @@ std::string MiracastRTSPMsg::get_WFDClientRTPPorts(void)
 
 std::string MiracastRTSPMsg::get_WFDUIBCCapability(void)
 {
-    return m_wfd_uibc_capability;
+    return "none";
+}
+
+std::string MiracastRTSPMsg::get_WFDDisplayEdid(void)
+{
+    return "none";
+}
+
+std::string MiracastRTSPMsg::get_WFDConnectorType(void)
+{
+    return "7";
 }
 
 std::string MiracastRTSPMsg::get_WFDContentProtection(void)
@@ -2096,7 +2107,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
             start_monitor_keep_alive_msg = true;
             start_streaming(video_rect_st);
             MIRACASTLOG_INFO("!!!! GstPlayer instance created, Waiting for first-frame !!!!");
-            //set_state(MIRACAST_PLAYER_STATE_PLAYING , true );
+            set_state(MIRACAST_PLAYER_STATE_PLAYING , true );
         }
         else
         {
@@ -2298,7 +2309,7 @@ void MiracastRTSPMsg::RTSPMessageHandler_Thread(void *args)
                         MIRACASTLOG_INFO("!!! RTSP_NOTIFY_GSTPLAYER_STATE[%#08X] !!!\n",rtsp_message_data.gst_player_state);
                         if ( MIRACAST_GSTPLAYER_STATE_FIRST_VIDEO_FRAME_RECEIVED == rtsp_message_data.gst_player_state )
                         {
-                            set_state(MIRACAST_PLAYER_STATE_PLAYING , true );
+                            //set_state(MIRACAST_PLAYER_STATE_PLAYING , true );
                         }
                     }
                     break;
@@ -2366,8 +2377,9 @@ void MiracastRTSPMsg::DumpBuffer(char *buffer, int length)
 void MiracastRTSPMsg::HDCPTCPServerHandlerThread(void *args)
 {
     char buff[HDCP2X_SOCKET_BUF_MAX];
-    int sockfd, connfd, len;
+    int sockfd, connfd;
     struct sockaddr_in servaddr, cli;
+    unsigned int len = 0;
 
     // socket create and verification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -2385,7 +2397,7 @@ void MiracastRTSPMsg::HDCPTCPServerHandlerThread(void *args)
     servaddr.sin_port = htons(HDCP2X_PORT);
 
     // Binding newly created socket to given IP and verification
-    if ((bind(sockfd, (SA *)&servaddr, sizeof(servaddr))) != 0)
+    if ((bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
     {
         MIRACASTLOG_ERROR("socket bind failed...\n");
     }
@@ -2402,7 +2414,7 @@ void MiracastRTSPMsg::HDCPTCPServerHandlerThread(void *args)
     len = sizeof(cli);
 
     // Accept the data packet from client and verification
-    connfd = accept(sockfd, (SA *)&cli, &len);
+    connfd = accept(sockfd, (struct sockaddr *)&cli, &len);
     if (connfd < 0)
     {
         MIRACASTLOG_ERROR("server accept failed...\n");
@@ -2435,7 +2447,6 @@ void HDCPHandlerCallback(void *args)
 #endif /*ENABLE_HDCP2X_SUPPORT*/
 
 #ifdef ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER
-
 MiracastError MiracastRTSPMsg::create_TestNotifier(void)
 {
     MiracastError error_code = MIRACAST_OK;
