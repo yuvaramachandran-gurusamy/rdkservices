@@ -898,6 +898,10 @@ bool MiracastGstPlayer::createPipeline()
     /*{{{ westerossink related element configuration*/
     MIRACASTLOG_TRACE(">>>>>>>westerossink configuration start");
     updateVideoSinkRectangle();
+    
+    /* Set AV Sync Mode */
+    g_object_set(G_OBJECT(m_video_sink), "avsync-mode", "2", nullptr);
+    
     g_signal_connect(m_video_sink, "first-video-frame-callback",G_CALLBACK(onFirstVideoFrameCallback), (gpointer)this);
     MIRACASTLOG_TRACE("westerossink configuration end<<<<<<<<");
     /*}}}*/
