@@ -915,25 +915,6 @@ bool MiracastGstPlayer::createPipeline()
     /*{{{ westerossink related element configuration*/
     MIRACASTLOG_TRACE(">>>>>>>westerossink configuration start");
     updateVideoSinkRectangle();
-#if 0
-    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag( "/opt/miracast_westerossink_immediate_output" );
-    if (!opt_flag_buffer.empty())
-    {
-        /* Set immediate-output Mode to true */
-        g_object_set(G_OBJECT(m_video_sink), "immediate-output", true, nullptr);
-        MIRACASTLOG_INFO("[TEST] Set immediate-output as true to westerossink");
-    }
-
-    guint64 field_value = 0;
-
-    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_westerossink_avsync_mode",true);
-    if (!opt_flag_buffer.empty())
-    {
-        field_value = std::stoull(opt_flag_buffer.c_str());
-        g_object_set(G_OBJECT(m_video_sink), "avsync-mode", field_value, nullptr);
-        MIRACASTLOG_INFO("[TEST] Set avsync-mode as %llu to westerossink",field_value);
-    }
-#endif
     g_signal_connect(m_video_sink, "first-video-frame-callback",G_CALLBACK(onFirstVideoFrameCallback), (gpointer)this);
     MIRACASTLOG_TRACE("westerossink configuration end<<<<<<<<");
     /*}}}*/
