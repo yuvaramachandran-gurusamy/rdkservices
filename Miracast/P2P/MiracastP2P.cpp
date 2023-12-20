@@ -421,6 +421,14 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "SET device_type 1-0050F204-1";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
+        /* Set persistent_reconnect to true */
+        command = "SET persistent_reconnect 1";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        /* Adding Post Fix name */
+        command = "SET p2p_ssid_postfix -Element-Xumo-TV";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
         m_isWiFiDisplayParamsEnabled = true;
     }
     MIRACASTLOG_TRACE("Exiting..");
