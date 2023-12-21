@@ -649,7 +649,9 @@ namespace WPEFramework {
             IARM_Bus_PWRMgr_RebootParam_t rebootParam;
             strncpy(rebootParam.requestor, "SystemServices", sizeof(rebootParam.requestor));
             strncpy(rebootParam.reboot_reason_custom, customReason.c_str(), sizeof(rebootParam.reboot_reason_custom));
+            rebootParam.reboot_reason_custom[sizeof(rebootParam.reboot_reason_custom) - 1] = '\0';
             strncpy(rebootParam.reboot_reason_other, otherReason.c_str(), sizeof(rebootParam.reboot_reason_other));
+            rebootParam.reboot_reason_other[sizeof(rebootParam.reboot_reason_other) - 1] = '\0';
             LOGINFO("requestSystemReboot: custom reason: %s, other reason: %s\n", rebootParam.reboot_reason_custom,
                 rebootParam.reboot_reason_other);
 
@@ -2353,6 +2355,8 @@ namespace WPEFramework {
                 JsonObject& response)
 	{
 		bool resp = true;
+                bool isUniversal = false, isOlson = true;
+
 		if (parameters.HasLabel("timeZone")) {
 			std::string dir = dirnameOf(TZ_FILE);
 			std::string timeZone = "";
@@ -2362,11 +2366,22 @@ namespace WPEFramework {
 				if (timeZone.empty() || (timeZone == "null")) {
 					LOGERR("Empty timeZone received.");
 				}
-				else if( (pos == string::npos) ||  ( (pos != string::npos) &&  (pos+1 == timeZone.length())  )   )
-				{
-					LOGERR("Invalid timezone format received : %s . Timezone should be in Olson format  Ex : America/New_York .  \n", timeZone.c_str());
-				}
-				else {
+
+                                if( (timeZone.compare("Universal")) == 0) {
+                                     isUniversal = true;
+                                     isOlson = false;
+                                }
+
+                                if(isOlson) {
+                                    if( (pos == string::npos) ||  ( (pos != string::npos) &&  (pos+1 == timeZone.length())  )   ) {
+				        LOGERR("Invalid timezone format received : %s . Timezone should be in either Universal or  Olson format  Ex : America/New_York .  \n", timeZone.c_str());
+                                        isOlson = false;
+                                        resp = false;
+
+                                    }
+                                }
+
+				 if( (isUniversal == true) || (isOlson == true)) {
 					std::string path =ZONEINFO_DIR;
 					path += "/";
 					std::string country = timeZone.substr(0,pos);

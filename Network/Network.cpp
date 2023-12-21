@@ -153,31 +153,15 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             m_stunBindTimeout = 30;
             m_stunCacheTimeout = 0;
             m_stunSync = true;
-            m_useIpv4WifiCache = false;
-            m_useIpv6WifiCache = false;
-            m_useIpv4EthCache = false;
-            m_useIpv6EthCache = false;
+            m_useIpv4Cache = false;
+            m_useIpv6Cache = false;
             m_useStbIPCache = false;
             m_stbIpCache = "";
             m_useDefInterfaceCache = false;
-            m_useIPv4InternetCache = false;
-            m_useIPv6InternetCache = false;
-            m_useInternetCache = false;
-            m_useIPv4ConnectionStateCache = false;
-            m_useIPv6ConnectionStateCache = false;
-            m_useConnectionStateCache = false;
             m_defInterfaceCache = "";
             m_defIpversionCache = "";
-            m_ipv4WifiCache = {0};
-            m_ipv6WifiCache = {0};
-            m_ipv4EthCache = {0};
-            m_ipv6EthCache = {0};
-            m_InternetCache = false;
-            m_ipv4InternetCache = false;
-            m_ipv6InternetCache = false;
-            m_ConnectionStateCache = NO_INTERNET;
-            m_ipv4ConnectionStateCache = NO_INTERNET;
-            m_ipv6ConnectionStateCache = NO_INTERNET;
+            m_ipv4Cache = {0};
+            m_ipv6Cache = {0};
         }
 
         Network::~Network()
@@ -188,9 +172,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
         {
             m_service = service;
             m_service->AddRef();
-            config.FromString(service->ConfigLine());
-            connectivityMonitor.setConnectivityDefaultEndpoints(config.getEndpoints());
-            connectivityMonitor.setConnectivityMonitorEndpoints(config.getEndpoints());
             string msg;
             if (Utils::IARM::init())
             {
@@ -221,7 +202,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
                     IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, eventHandler) );
                     IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, eventHandler) );
                     IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE, eventHandler) );
-                    IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, eventHandler) );
                     LOGINFO("Successfully activated Network Plugin");
                     m_isPluginInited = true;
                 }
@@ -250,7 +230,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
                 IARM_CHECK( IARM_Bus_RemoveEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, eventHandler) );
                 IARM_CHECK( IARM_Bus_RemoveEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, eventHandler) );
                 IARM_CHECK( IARM_Bus_RemoveEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE, eventHandler) );
-                IARM_CHECK( IARM_Bus_RemoveEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, eventHandler) );
             }
             Unregister("getQuirks");
             Unregister("getInterfaces");
@@ -371,7 +350,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
                 IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, eventHandler) );
                 IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, eventHandler) );
                 IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE, eventHandler) );
-                IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, eventHandler) );
                 LOGINFO("NETWORK_AVAILABILITY_RETRY_SUCCESS: threadEventRegistration successfully subscribed to IARM event for Network Plugin");
                 m_isPluginInited = true;
             }
@@ -481,6 +459,7 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
                         IARM_BUS_NetSrvMgr_Iface_EventData_t iarmData = { 0 };
                     strncpy(iarmData.setInterface, interface.c_str(), INTERFACE_SIZE);
+                    iarmData.setInterface[sizeof(iarmData.setInterface) - 1] = '\0';
                     iarmData.persist = persist;
 
                     if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface, (void *)&iarmData, sizeof(iarmData)))
@@ -872,7 +851,9 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
                 IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = {0};
                 strncpy(iarmData.interface, interface.c_str(), 16);
+                iarmData.interface[sizeof(iarmData.interface) - 1] = '\0';
                 strncpy(iarmData.ipversion, ipversion.c_str(), 16);
+                iarmData.ipversion[sizeof(iarmData.ipversion) - 1] = '\0';
                 iarmData.autoconfig = autoconfig;
                 strncpy(iarmData.ipaddress, ipaddr.c_str(), 16);
                 strncpy(iarmData.netmask, netmask.c_str(), 16);
@@ -1055,10 +1036,11 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
         bool Network::getIPIARMWrapper(IARM_BUS_NetSrvMgr_Iface_Settings_t& iarmData, const string interface, const string ipversion)
         {
            strncpy(iarmData.interface, interface.c_str(), 16);
+           iarmData.interface[sizeof(iarmData.interface) - 1] = '\0';
            strncpy(iarmData.ipversion, ipversion.c_str(), 16);
+           iarmData.ipversion[sizeof(iarmData.ipversion) - 1] = '\0';
            if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
-               return true;
-
+                return true;
            return false;
         }
 
@@ -1076,60 +1058,58 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             if (ipversion.empty())
                 ipversion = m_defIpversionCache;
 
+            Utils::String::toUpper(interface);
+            Utils::String::toUpper(ipversion);
+
             IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = { 0 };
-            strncpy(iarmData.interface, interface.c_str(), 16);
-            strncpy(iarmData.ipversion, ipversion.c_str(), 16);
-            iarmData.isSupported = true;
-
-            if (Utils::String::equal(ipversion, "ipv4") && Utils::String::equal(interface, "wifi"))
+            if(Utils::String::equal(ipversion, "IPV4") && m_useIpv4Cache && Utils::String::equal(interface, m_ipv4Cache.interface))
             {
-                if ((!m_useIpv4WifiCache) && (getIPIARMWrapper(m_ipv4WifiCache, interface, ipversion)))
-                    m_useIpv4WifiCache = true;
-
-                if (m_useIpv4WifiCache)
-                {
-                    memcpy(&iarmData, &m_ipv4WifiCache, sizeof(m_ipv4WifiCache));
-                    result = true;
-                }
-            }
-            else if (Utils::String::equal(ipversion, "ipv4") && Utils::String::equal(interface, "ethernet"))
-            {
-                if ((!m_useIpv4EthCache) && (getIPIARMWrapper(m_ipv4EthCache, interface, ipversion)))
-                    m_useIpv4EthCache = true;
-
-                if (m_useIpv4EthCache)
-                {
-                    memcpy(&iarmData, &m_ipv4EthCache, sizeof(m_ipv4EthCache));
-                    result = true;
-                }
-            }
-            else if (Utils::String::equal(ipversion, "ipv6") && Utils::String::equal(interface, "wifi"))
-            {
-                if ((!m_useIpv6WifiCache) && (getIPIARMWrapper(m_ipv6WifiCache, interface, ipversion)))
-                    m_useIpv6WifiCache = true;
-
-                if (m_useIpv6WifiCache)
-                {
-                    memcpy(&iarmData, &m_ipv6WifiCache, sizeof(m_ipv6WifiCache));
-                    result = true;
-                }
-            }
-            else if (Utils::String::equal(ipversion, "ipv6") && Utils::String::equal(interface, "ethernet"))
-            {
-                if ((!m_useIpv6EthCache) && (getIPIARMWrapper(m_ipv6EthCache, interface, ipversion)))
-                    m_useIpv6EthCache = true;
-
-                if (m_useIpv6EthCache)
-                {
-                    memcpy(&iarmData, &m_ipv6EthCache, sizeof(m_ipv6EthCache));
-                    result = true;
-                }
-            }
-            else if (getIPIARMWrapper(iarmData, interface, ipversion))
-            {
+                LOGINFO("Reading Ipv4 cache");
+                memcpy(&iarmData, &m_ipv4Cache, sizeof(m_ipv4Cache));
                 result = true;
-                m_defInterfaceCache = string(iarmData.interface);
-                m_defIpversionCache = string(iarmData.ipversion);
+            }
+            else if (Utils::String::equal(ipversion, "IPV6") && m_useIpv6Cache && Utils::String::equal(interface, m_ipv6Cache.interface))
+            {
+                LOGINFO("Reading Ipv6 cache");
+                memcpy(&iarmData, &m_ipv6Cache, sizeof(m_ipv6Cache));
+                result = true;
+            }
+            else
+            {
+                iarmData.isSupported = true;
+                if(getIPIARMWrapper(iarmData, interface, ipversion))
+                {
+                    if(strcmp(iarmData.ipversion, "IPV4") == 0)
+                    {
+                        if(NETWORK_IPADDRESS_ACQUIRED == iarmData.errCode)
+                        {
+                            memcpy(&m_ipv4Cache, &iarmData, sizeof(m_ipv4Cache));
+                            m_useIpv4Cache = true;
+                        }
+                        result = true;
+                    }
+                    else if(strcmp(iarmData.ipversion, "IPV6") == 0)
+                    {
+                        if(NETWORK_IPADDRESS_ACQUIRED == iarmData.errCode)
+                        {
+                            memcpy(&m_ipv6Cache, &iarmData, sizeof(m_ipv6Cache));
+                            m_useIpv6Cache = true;
+                        }
+                        result = true;
+                    }
+                    else
+                    {
+                        LOGERR("wrong ipversion returned ! <%s>", iarmData.ipversion);
+                    }
+
+                    if (ipversion.empty() || interface.empty())
+                    {
+                        m_defInterfaceCache = string(iarmData.interface);
+                        m_defIpversionCache = string(iarmData.ipversion);
+                    }
+                }
+                else
+                    LOGERR ("IARM Call Failed: %s", IARM_BUS_NETSRVMGR_API_getIPSettings);
             }
 
             if (result == true)
@@ -1147,8 +1127,24 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
                 m_ipversion = string(iarmData.ipversion);
             }
-
             return result;
+        }
+
+        void  Network::setInternetSubsystem()
+        {
+            PluginHost::ISubSystem* subSystem = m_service->SubSystems();
+
+            if (subSystem != nullptr) {
+
+                const PluginHost::ISubSystem::IInternet* internet(subSystem->Get<PluginHost::ISubSystem::IInternet>());
+                if (nullptr == internet)
+                {
+                    subSystem->Set(PluginHost::ISubSystem::INTERNET, this);
+                    LOGWARN("Set INTERNET ISubSystem");
+                }
+
+                subSystem->Release();
+            }
         }
 
         uint32_t Network::isConnectedToInternet (const JsonObject &parameters, JsonObject &response)
@@ -1162,82 +1158,19 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             {
                 getDefaultStringParameter("ipversion", ipversionStr, "");
                 Utils::String::toUpper(ipversionStr);
-                if ((ipversionStr == "IPV4") && m_useIPv4InternetCache)
+
+                if (ipversionStr == "IPV4")
+                    ipversion = NSM_IPRESOLVE_V4;
+                else if (ipversionStr == "IPV6")
+                    ipversion = NSM_IPRESOLVE_V6;
+
+                isconnected = connectivityMonitor.isConnectedToInternet(ipversion);
+
+                if (isconnected)
                 {
-                    isconnected = m_ipv4InternetCache;
-                    LOGINFO("isConnectedToInternet ipv4 cashed = %s", isconnected?"true":"false");
+                    setInternetSubsystem();
                 }
-                else if ((ipversionStr == "IPV6") && m_useIPv6InternetCache)
-                {
-                    isconnected = m_ipv6InternetCache;
-                    LOGINFO("isConnectedToInternet ipv6 cashed = %s", isconnected?"true":"false");
-                }
-                else if ((ipversionStr == "") && m_useInternetCache)
-                {
-                    isconnected = m_InternetCache;
-                    LOGINFO("isConnectedToInternet cashed = %s", isconnected?"true":"false");
-                }
-                else
-                {
-                    if (ipversionStr == "IPV4")
-                        ipversion = NSM_IPRESOLVE_V4;
-                    else if (ipversionStr == "IPV6")
-                        ipversion = NSM_IPRESOLVE_V6;
 
-                    isconnected = connectivityMonitor.isConnectedToInternet(ipversion);
-
-                    if (isconnected)
-                    {
-                        PluginHost::ISubSystem* subSystem = m_service->SubSystems();
-
-                        if (subSystem != nullptr) {
-
-                            const PluginHost::ISubSystem::IInternet* internet(subSystem->Get<PluginHost::ISubSystem::IInternet>());
-                            if (nullptr == internet)
-                            {
-                                if (m_ipversion.empty())
-                                {
-                                    JsonObject p, r;
-                                    getIPSettings(p, r);
-                                }
-
-                                if (m_publicIPAddress.empty())
-                                {
-                                    JsonObject p2, r2;
-                                    if (ipversionStr == "IPV6")
-                                        p2["ipv6"] = true;
-                                    getPublicIP(p2, r2);
-                                }
-
-                                if (!m_publicIPAddress.empty())
-                                {
-                                    subSystem->Set(PluginHost::ISubSystem::INTERNET, this);
-                                    LOGWARN("Set INTERNET ISubSystem");
-                                }
-                                else
-                                    LOGERR("Connected to Internet, but no publicIP");
-                            }
- 
-                            subSystem->Release();
-                        }
-                    }
-
-                    if (ipversionStr == "IPV4")
-                    {
-                        m_useIPv4InternetCache = true;
-                        m_ipv4InternetCache = isconnected;
-                    }
-                    else if (ipversionStr == "IPV6")
-                    {
-                        m_useIPv6InternetCache = true;
-                        m_ipv6InternetCache = isconnected; 
-                    }
-                    else
-                    {
-                        m_useInternetCache = true;
-                        m_InternetCache = isconnected; 
-                    }
-                }
                 response["connectedToInternet"] = isconnected;
                 if(ipversionStr == "IPV4" || ipversionStr == "IPV6")
                     response["ipversion"] = ipversionStr.c_str();
@@ -1299,53 +1232,26 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             {
                 getDefaultStringParameter("ipversion", ipversionStr, "");
                 Utils::String::toUpper(ipversionStr);
-                if ((ipversionStr == "IPV4") && m_useIPv4ConnectionStateCache)
-                {
-                    internetState = m_ipv4ConnectionStateCache;
-                }
-                else if ((ipversionStr == "IPV6") && m_useIPv6ConnectionStateCache)
-                {
-                    internetState = m_ipv6ConnectionStateCache;
-                }
-                else if ((ipversionStr == "") && m_useConnectionStateCache)
-                {
-                    internetState = m_ConnectionStateCache;
-                }
-                else
-                {
-                    nsm_ipversion _ipversion = NSM_IPRESOLVE_WHATEVER;
-                    if (ipversionStr == "IPV4")
-                        _ipversion = NSM_IPRESOLVE_V4;
-                    else if (ipversionStr == "IPV6")
-                        _ipversion = NSM_IPRESOLVE_V6;
 
-                    internetState = connectivityMonitor.getInternetConnectionState(_ipversion);
-                    if (ipversionStr == "IPV4")
-                    {
-                        m_useIPv4ConnectionStateCache = true;
-                        m_ipv4ConnectionStateCache = internetState;
-                    }
-                    else if (ipversionStr == "IPV6")
-                    {
-                        m_useIPv6ConnectionStateCache = true;
-                        m_ipv6ConnectionStateCache = internetState;
-                    }
-                    else
-                    {
-                        m_useConnectionStateCache = true;
-                        m_ConnectionStateCache = internetState;
-                    }
-                }
-                LOGINFO("InternetConnectionState = %d ", static_cast<int>(internetState));
+                nsm_ipversion _ipversion = NSM_IPRESOLVE_WHATEVER;
+                if (ipversionStr == "IPV4")
+                    _ipversion = NSM_IPRESOLVE_V4;
+                else if (ipversionStr == "IPV6")
+                    _ipversion = NSM_IPRESOLVE_V6;
+
+                internetState = connectivityMonitor.getInternetConnectionState(_ipversion);
+
                 response["state"] = static_cast<int>(internetState);
-                if(ipversionStr == "IPV4" || ipversionStr == "IPV6")
-                    response["ipversion"] = ipversionStr.c_str();
 
                 if (internetState == CAPTIVE_PORTAL)
                 {
-                    LOGINFO("Captive potal found URI = %s ", connectivityMonitor.getCaptivePortalURI().c_str());
-                    response["URI"] = connectivityMonitor.getCaptivePortalURI();
+                    std::string captivePortal = connectivityMonitor.getCaptivePortalURI();
+                    response["URI"] = captivePortal;
+                    LOGINFO("Captive potal found URI = %s ", captivePortal.c_str());
                 }
+
+                if(ipversionStr == "IPV4" || ipversionStr == "IPV6")
+                    response["ipversion"] = ipversionStr.c_str();
 
                 result = true;
             }
@@ -1363,7 +1269,6 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
             if(m_isPluginInited)
             {
-                LOGERR("Captive potal URI feature not include");
                 response["URI"] = connectivityMonitor.getCaptivePortalURI();
             }
             else
@@ -1379,7 +1284,7 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             bool result = false;
             if (parameters.HasLabel("interval"))
             {
-                result = connectivityMonitor.startConnectivityMonitor(parameters["interval"].Number());
+                result = connectivityMonitor.doContinuousConnectivityMonitoring(parameters["interval"].Number());
             }
             else
             {
@@ -1391,7 +1296,7 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 
         uint32_t Network::stopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            bool result = connectivityMonitor.stopConnectivityMonitor();
+            bool result = connectivityMonitor.stopContinuousConnectivityMonitoring();
             returnResponse(result);
         }
 
@@ -1493,7 +1398,9 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
                 getNumberParameter("cache_timeout", iarmData.cache_timeout);
 
                 strncpy(iarmData.server, server.c_str(), MAX_HOST_NAME_LEN);
+                iarmData.server[sizeof(iarmData.server) - 1] = '\0';
                 strncpy(iarmData.interface, iface.c_str(), 16);
+                iarmData.interface[sizeof(iarmData.interface) - 1] = '\0';
 
                 iarmData.public_ip[0] = '\0';
 
@@ -1516,18 +1423,13 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             return (Core::ERROR_NONE);
         }
 
-       void Network::notifyInternetStatusChange(nsm_internetState InternetConnectionState, bool notifyNow)
+       void Network::notifyInternetStatusChange(nsm_internetState InternetConnectionState)
         {
-            static nsm_internetState prveInternetState = nsm_internetState::UNKNOWN;
-            if( (prveInternetState != InternetConnectionState) || notifyNow)
-            {
-                if (Network::_instance) {
-                    Network::_instance->onInternetStatusChange(InternetConnectionState);
-                    prveInternetState = InternetConnectionState;
-                }
-                else
-                    LOGWARN("WARNING - cannot notify InternetStatusChange events without a Network plugin instance!");
+            if (Network::_instance) {
+                Network::_instance->onInternetStatusChange(InternetConnectionState);
             }
+            else
+                LOGWARN("WARNING - cannot notify InternetStatusChange events without a Network plugin instance!");
         }
 
         /*
@@ -1540,6 +1442,7 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             params["interface"] = m_netUtils.getInterfaceDescription(interface);
             params["enabled"] = enabled;
             sendNotify("onInterfaceStatusChanged", params);
+            connectivityMonitor.signalConnectivityMonitor();
         }
 
         void Network::onInterfaceConnectionStatusChanged(string interface, bool connected)
@@ -1549,32 +1452,30 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             params["status"] = string (connected ? "CONNECTED" : "DISCONNECTED");
             m_useStbIPCache = false;
             m_useDefInterfaceCache = false;
-            m_useIpv4WifiCache = false;
-            m_useIpv6WifiCache = false;
-            m_useIpv4EthCache = false;
-            m_useIpv6EthCache = false;
+            m_useIpv4Cache = false;
+            m_useIpv6Cache = false;
             m_defIpversionCache = "";
             m_defInterfaceCache = "";
-            m_useInternetCache = false;
-            m_useIPv4InternetCache = false;
-            m_useIPv6InternetCache = false;
-            m_useIPv4ConnectionStateCache = false;
-            m_useIPv6ConnectionStateCache = false;
-            m_useConnectionStateCache = false;
 
             sendNotify("onConnectionStatusChanged", params);
-            connectivityMonitor.signalConnectivityMonitor();
+            if(connected)
+            {
+                connectivityMonitor.doInitialConnectivityMonitoring(30);
+            }
+            else
+            {
+                if (!connectivityMonitor.isMonitorThreadRunning())
+                {
+                    /*run the thread again to notify no_internet state*/
+                    connectivityMonitor.doInitialConnectivityMonitoring(30);
+                }
+                connectivityMonitor.stopInitialConnectivityMonitoring();
+            }
         }
 
         void Network::onInternetStatusChange(nsm_internetState InternetConnectionState)
         {
             JsonObject params;
-            m_useInternetCache = false;
-            m_useConnectionStateCache = false;
-            m_useIPv4InternetCache = false;
-            m_useIPv4ConnectionStateCache = false;
-            m_useIPv6InternetCache = false;
-            m_useIPv6ConnectionStateCache = false;
             params["state"] = static_cast <int> (InternetConnectionState);
             switch (InternetConnectionState)
             {
@@ -1589,6 +1490,8 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
                 break;
                 case FULLY_CONNECTED:
                     params["status"] = string("FULLY_CONNECTED");
+                    // when fully connected to internet set Network subsystem
+                    setInternetSubsystem();
                 break;
                 default:
                     LOGERR("onInternetStatusChange event date error <%d>", InternetConnectionState);
@@ -1606,33 +1509,13 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             if (!ipv6Addr.empty())
             {
                 params["ip6Address"] = ipv6Addr;
-                if (Utils::String::equal(onInterface, "wifi"))
-                {
-                    m_useIpv6WifiCache = false;
-                }
-                else if (Utils::String::equal(onInterface, "ethernet"))
-                {
-                    m_useIpv6EthCache = false;
-                }
-                m_useIPv6InternetCache = false;
-                m_useIPv6ConnectionStateCache = false;
+                m_useIpv6Cache = false;
             }
             if (!ipv4Addr.empty())
             {
                 params["ip4Address"] = ipv4Addr;
-                if (Utils::String::equal(onInterface, "wifi"))
-                {
-                    m_useIpv4WifiCache = false;
-                }
-                else if (Utils::String::equal(onInterface, "ethernet"))
-                {
-                    m_useIpv4EthCache = false;
-                }
-                m_useIPv4InternetCache = false;
-                m_useIPv4ConnectionStateCache = false;
+                m_useIpv4Cache = false;
             }
-            m_useInternetCache = false;
-            m_useConnectionStateCache = false;
             params["status"] = string (acquired ? "ACQUIRED" : "LOST");
             sendNotify("onIPAddressStatusChanged", params);
             connectivityMonitor.signalConnectivityMonitor();
@@ -1645,16 +1528,8 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
             params["newInterfaceName"] = m_netUtils.getInterfaceDescription(newInterface);
             m_useStbIPCache = false;
             m_useDefInterfaceCache = false;
-            m_useIpv4WifiCache = false;
-            m_useIpv6WifiCache = false;
-            m_useIpv4EthCache = false;
-            m_useIpv6EthCache = false;
-            m_useInternetCache = false;
-            m_useIPv4InternetCache = false;
-            m_useIPv6InternetCache = false;
-            m_useIPv4ConnectionStateCache = false;
-            m_useIPv6ConnectionStateCache = false;
-            m_useConnectionStateCache = false;
+            m_useIpv4Cache = false;
+            m_useIpv6Cache = false;
             m_defIpversionCache = "";
             m_defaultInterface = ""; /* REFPLTV-1319 : Resetting when there is switch in interface, to get new value in getDefaultInterface() */
             m_gatewayInterface = "";

@@ -196,10 +196,15 @@ bool sFactoryModeBlockResidentApp = false;
 bool sForceResidentAppLaunch = false;
 static bool sRunning = true;
 bool needsScreenshot = false;
+sem_t gInitializeSemaphore;
 
-#ifdef HIBERNATE_NATIVE_APPS_ON_SUSPENDED
-std::mutex nativeAppWasResumedMutex;
-map<string,bool> nativeAppWasResumed;
+#ifdef RDKSHELL_DUAL_ODM_SUPPORT
+static Device_Mode_FactoryModes_t sFactoryMode = DEVICE_MODE_CVTE_B1_AGING;
+#endif
+
+#ifdef HIBERNATE_SUPPORT_ENABLED
+std::mutex gSuspendedOrHibernatedApplicationsMutex;
+map<string, bool> gSuspendedOrHibernatedApplications;
 #endif
 
 #define ANY_KEY 65536
@@ -271,12 +276,59 @@ static bool checkAssemblyFactoryMode_wrapper()
         bool ret = false;
         Device_Mode_Result_t result = Device_Mode_getFactoryMode(&factoryMode);
         if(result == DEVICE_MODE_RESULT_SUCCESS) {
+#ifdef RDKSHELL_DUAL_ODM_SUPPORT
+                if (factoryMode == DEVICE_MODE_ODM_1_FACTORY_MODE || factoryMode == DEVICE_MODE_ODM_2_FACTORY_MODE) {
+			std::cout << "Device in Assembly FactoryMode\n";
+                        sFactoryMode = factoryMode;
+                        ret = true;
+                }
+#else		
                 if (factoryMode == DEVICE_MODE_ODM_FACTORY_MODE) {
                         std::cout << "Device in Assembly FactoryMode\n";
                         ret = true;
                 }
+#endif		
         }
         return ret;
+}
+
+char* getFactoryAppUrl()
+{
+	char* factoryAppUrl = NULL;
+#ifdef RDKSHELL_DUAL_ODM_SUPPORT
+	bool isOdmEnabled = checkAssemblyFactoryMode_wrapper();
+	if ((sFactoryMode == DEVICE_MODE_ODM_1_FACTORY_MODE) && (isOdmEnabled == true))
+	{
+		factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_APP_URL");
+	}
+	else if ((sFactoryMode == DEVICE_MODE_ODM_2_FACTORY_MODE) && (isOdmEnabled == true))
+	{
+		factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_2_APP_URL");
+	}
+	else if (isOdmEnabled == false)
+	{
+		Device_Mode_FactoryModes_t factoryMode;
+		Device_Mode_Result_t result = Device_Mode_getODMModeFromPID(&factoryMode);
+		if(result == DEVICE_MODE_RESULT_SUCCESS) {
+			if (factoryMode == DEVICE_MODE_ODM_1_FACTORY_MODE || factoryMode == DEVICE_MODE_ODM_FACTORY_MODE) {
+				factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_APP_URL");
+			} else if (factoryMode == DEVICE_MODE_ODM_2_FACTORY_MODE) {
+				factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_2_APP_URL");
+			} else if(factoryMode == DEVICE_MODE_CVTE_AT_MODE) {
+				factoryAppUrl = getenv("RDKSHELL_MAINBOARD_MANUFACTURING_FACTORY_APP_URL");
+			} else {
+				factoryAppUrl = getenv("RDKSHELL_MAINBOARD_MANUFACTURING_FACTORY_APP_URL");
+			}
+		}
+	}
+	else
+	{
+		factoryAppUrl = getenv("RDKSHELL_MAINBOARD_MANUFACTURING_FACTORY_APP_URL");
+	}
+#else
+	factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_APP_URL");
+#endif
+	return factoryAppUrl;
 }
 #endif
 FactoryAppLaunchStatus sFactoryAppLaunchStatus = NOTLAUNCHED;
@@ -610,6 +662,11 @@ namespace WPEFramework {
                mRDKShell.notify(RDKShell::RDKSHELL_EVENT_ON_LAUNCHED, params);
                mLaunchEnabled = false;
             }
+#ifdef HIBERNATE_SUPPORT_ENABLED
+            gSuspendedOrHibernatedApplicationsMutex.lock();
+            gSuspendedOrHibernatedApplications[mCallSign] = isSuspended;
+            gSuspendedOrHibernatedApplicationsMutex.unlock();
+#endif
 
             if (isSuspended)
             {
@@ -622,10 +679,7 @@ namespace WPEFramework {
                 if (Utils::getRFCConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AppHibernate.Enable", param)
                     && strncasecmp(param.value, "true", 4) == 0)
                 {
-                    nativeAppWasResumedMutex.lock();
-                    if ((mCallSign.find("Netflix") != std::string::npos || mCallSign.find("Cobalt") != std::string::npos)
-                        && nativeAppWasResumed.find(mCallSign) != nativeAppWasResumed.end()
-                        && nativeAppWasResumed[mCallSign])
+                    if ((mCallSign.find("Netflix") != std::string::npos || mCallSign.find("Cobalt") != std::string::npos))
                     {
                         // call RDKShell.hibernate
                         std::thread requestsThread =
@@ -638,15 +692,9 @@ namespace WPEFramework {
 
                         requestsThread.detach();
                     }
-                    nativeAppWasResumedMutex.unlock();
                 }
 #endif
             }
-#ifdef HIBERNATE_NATIVE_APPS_ON_SUSPENDED
-            nativeAppWasResumedMutex.lock();
-            nativeAppWasResumed[mCallSign] = (state == PluginHost::IStateControl::RESUMED);
-            nativeAppWasResumedMutex.unlock();
-#endif
 
           }
 
@@ -1049,17 +1097,29 @@ namespace WPEFramework {
                     }
                 gExitReasonMutex.lock();
                 gApplicationsExitReason[service->Callsign()] = AppLastExitReason::DEACTIVATED;
-#ifdef HIBERNATE_NATIVE_APPS_ON_SUSPENDED
-                nativeAppWasResumedMutex.lock();
-                nativeAppWasResumed[service->Callsign()] = false;
-                nativeAppWasResumedMutex.unlock();
+
+#ifdef HIBERNATE_SUPPORT_ENABLED
+                //Reset app suspended/hibernated
+                gSuspendedOrHibernatedApplicationsMutex.lock();
+                auto suspendedOrHibernatedIt = gSuspendedOrHibernatedApplications.find(service->Callsign());
+                if (suspendedOrHibernatedIt != gSuspendedOrHibernatedApplications.end())
+                {
+                    gSuspendedOrHibernatedApplications.erase(suspendedOrHibernatedIt);
+                }
+                gSuspendedOrHibernatedApplicationsMutex.unlock();
 #endif
                 if(service->Reason() == PluginHost::IShell::FAILURE)
                 {
                     gApplicationsExitReason[service->Callsign()] = AppLastExitReason::CRASH;
                 }
                 gExitReasonMutex.unlock();
+            }
+        }
 
+        void RDKShell::MonitorClients::handleDeinitialized(PluginHost::IShell* service)
+        {
+            if (service)
+            {
                 std::string configLine = service->ConfigLine();
                 if (configLine.empty())
                 {
@@ -1107,6 +1167,7 @@ namespace WPEFramework {
             }
         }
 
+
         void RDKShell::MonitorClients::StateChange(PluginHost::IShell* service)
         {
             if (service)
@@ -1117,10 +1178,15 @@ namespace WPEFramework {
                 if ((currentState == PluginHost::IShell::DEACTIVATED) || (currentState == PluginHost::IShell::DESTROYED))
                 {
                      gApplicationsExitReason[service->Callsign()] = AppLastExitReason::DEACTIVATED;
-#ifdef HIBERNATE_NATIVE_APPS_ON_SUSPENDED
-                    nativeAppWasResumedMutex.lock();
-                    nativeAppWasResumed[service->Callsign()] = false;
-                    nativeAppWasResumedMutex.unlock();
+#ifdef HIBERNATE_SUPPORT_ENABLED
+                    //Reset app suspended/hibernated on Deactivation/Destroy
+                    gSuspendedOrHibernatedApplicationsMutex.lock();
+                    auto suspendedOrHibernatedIt = gSuspendedOrHibernatedApplications.find(service->Callsign());
+                    if (suspendedOrHibernatedIt != gSuspendedOrHibernatedApplications.end())
+                    {
+                        gSuspendedOrHibernatedApplications.erase(suspendedOrHibernatedIt);
+                    }
+                    gSuspendedOrHibernatedApplicationsMutex.unlock();
 #endif
                 }
                 if(service->Reason() == PluginHost::IShell::FAILURE)
@@ -1304,7 +1370,9 @@ namespace WPEFramework {
             handleDeactivated(service);
        }
         void RDKShell::MonitorClients::Deinitialized(VARIABLE_IS_NOT_USED const string& callsign, VARIABLE_IS_NOT_USED PluginHost::IShell* service)
-       {}
+        {
+            handleDeinitialized(service);
+        }
        void RDKShell::MonitorClients::Unavailable(const string& callsign, PluginHost::IShell* service)
        {}
 #endif /* USE_THUNDER_R4 */
@@ -1573,6 +1641,7 @@ namespace WPEFramework {
             }
 
             mErmEnabled = CompositorController::isErmEnabled();
+            sem_init(&gInitializeSemaphore, 0, 0);
             shellThread = std::thread([=]() {
                 bool isRunning = true;
                 gRdkShellMutex.lock();
@@ -1620,6 +1689,7 @@ namespace WPEFramework {
                 isRunning = sRunning;
                 gRdkShellMutex.unlock();
                 gRdkShellSurfaceModeEnabled = CompositorController::isSurfaceModeEnabled();
+                sem_post(&gInitializeSemaphore);
                 while(isRunning) {
                   const double maxSleepTime = (1000 / gCurrentFramerate) * 1000;
                   double startFrameTime = RdkShell::microseconds();
@@ -1785,6 +1855,7 @@ namespace WPEFramework {
         RialtoConnector *rialtoBridge = new RialtoConnector();
         rialtoConnector = std::shared_ptr<RialtoConnector>(rialtoBridge);
 #endif //  ENABLE_RIALTO_FEATURE
+            sem_wait(&gInitializeSemaphore);
             return "";
         }
 
@@ -1965,6 +2036,7 @@ namespace WPEFramework {
             gKillClientRequests.clear();
             gRdkShellMutex.unlock();
             gExternalDestroyApplications.clear();
+            sem_destroy(&gInitializeSemaphore);
         }
 
         string RDKShell::Information() const
@@ -3849,6 +3921,16 @@ namespace WPEFramework {
                         setAVBlocked(callsign, blockAV);
                     }
                 }
+#ifdef HIBERNATE_SUPPORT_ENABLED
+                //Reset app suspended/hibernated for launch
+                gSuspendedOrHibernatedApplicationsMutex.lock();
+                auto suspendedOrHibernatedIt = gSuspendedOrHibernatedApplications.find(appCallsign);
+                if (suspendedOrHibernatedIt != gSuspendedOrHibernatedApplications.end())
+                {
+                    gSuspendedOrHibernatedApplications.erase(suspendedOrHibernatedIt);
+                }
+                gSuspendedOrHibernatedApplicationsMutex.unlock();
+#endif
 
                 //check to see if plugin already exists
                 bool newPluginFound = false;
@@ -5303,7 +5385,7 @@ namespace WPEFramework {
                 getStringParameter("factoryappstage", ftaStage);
                 if (ftaStage == "assembly")
                 {
-                    factoryAppUrl = getenv("RDKSHELL_ASSEMBLY_FACTORY_APP_URL");
+			factoryAppUrl = getFactoryAppUrl();
                 }
                 else if (ftaStage == "mainboard")
                 {
@@ -6303,6 +6385,9 @@ namespace WPEFramework {
                     else
                     {
                         eventMsg["success"] = true;
+                        gSuspendedOrHibernatedApplicationsMutex.lock();
+                        gSuspendedOrHibernatedApplications[callsign] = true;
+                        gSuspendedOrHibernatedApplicationsMutex.unlock();
                     }
                     notify(RDKShell::RDKSHELL_EVENT_ON_HIBERNATED, eventMsg);
                 });
@@ -6605,14 +6690,34 @@ namespace WPEFramework {
                         std::string compositorName = toLower(previousFocusedIterator->first);
                         if (compositorName == previousFocusedClient)
                         {
-                            std::cout << "setting the focus of " << compositorName << " to false " << std::endl;
-                            Exchange::IFocus *focusedCallsign = mCurrentService->QueryInterfaceByCallsign<Exchange::IFocus>(previousFocusedIterator->first);
-                            if (focusedCallsign != NULL)
+#ifdef HIBERNATE_SUPPORT_ENABLED
+                            // Skip for suspended and hibernated apps, since not needed and may cause unwanted restore from hibernation
+                            bool skipFocus = false;
+                            gSuspendedOrHibernatedApplicationsMutex.lock();
+                            if (gSuspendedOrHibernatedApplications.find(previousFocusedIterator->first) != gSuspendedOrHibernatedApplications.end())
                             {
-                                uint32_t status = focusedCallsign->Focused(false);
-                                std::cout << "result of set focus to false: " << status << std::endl;
-                                focusedCallsign->Release();
+                                skipFocus = gSuspendedOrHibernatedApplications[previousFocusedIterator->first];
                             }
+
+                            if (skipFocus == false)
+                            {
+#endif
+                                std::cout << "setting the focus of " << compositorName << " to false " << std::endl;
+                                Exchange::IFocus *focusedCallsign = mCurrentService->QueryInterfaceByCallsign<Exchange::IFocus>(previousFocusedIterator->first);
+                                if (focusedCallsign != NULL)
+                                {
+                                    uint32_t status = focusedCallsign->Focused(false);
+                                    std::cout << "result of set focus to false: " << status << std::endl;
+                                    focusedCallsign->Release();
+                                }
+#ifdef HIBERNATE_SUPPORT_ENABLED
+                             }
+                            else
+                            {
+                                std::cout << "setting the focus for " << compositorName << " to false skipped, plugin suspended or hibernated " << std::endl;
+                            }
+                            gSuspendedOrHibernatedApplicationsMutex.unlock();
+#endif
                             break;
                         }
                     }
