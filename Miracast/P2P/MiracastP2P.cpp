@@ -417,6 +417,21 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
+        /* Set Device type */
+        command = "SET device_type 1-0050F204-1";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        /* Set persistent_reconnect to true */
+        command = "SET persistent_reconnect 1";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        /* Adding Post Fix name */
+        command = "SET p2p_ssid_postfix -Element-Xumo-TV";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
+
+        /* Set p2p_go_intent to 15 */
+        command = "SET p2p_go_intent 15";
+        executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         m_isWiFiDisplayParamsEnabled = true;
     }
@@ -437,7 +452,8 @@ MiracastError MiracastP2P::discover_devices(void)
     std::string command, retBuffer,opt_flag_buffer;
     MIRACASTLOG_TRACE("Entering..");
 
-    command = "P2P_FIND";
+    /*Start Passive Scanning*/
+    command = "P2P_EXT_LISTEN 200 1000";
 
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
@@ -454,7 +470,8 @@ MiracastError MiracastP2P::stop_discover_devices(void)
     std::string command, retBuffer;
     MIRACASTLOG_TRACE("Entering...");
 
-    command = "P2P_STOP_FIND";
+    /*Stop Passive Scanning*/
+    command = "P2P_EXT_LISTEN 0 0";
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
     {

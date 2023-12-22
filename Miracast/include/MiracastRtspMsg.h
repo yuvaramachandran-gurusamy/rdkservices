@@ -140,6 +140,9 @@ typedef enum rtsp_parser_fields_e
     RTSP_WFD_VIDEO_FMT_FIELD,
     RTSP_WFD_AUDIO_CODEC_FIELD,
     RTSP_WFD_CLI_RTP_PORTS_FIELD,
+    RTSP_WFD_DISPLAY_EDID_FIELD,
+    RTSP_WFD_UIBC_CAPS_FIELD,
+    RTSP_WFD_CONNECTOR_TYPE_FIELD,
     RTSP_M3_REQ_VALIDATE_MARKER_END,
     /* M3 Request validation Mark END */
 
@@ -447,6 +450,8 @@ public:
     std::string get_WFDAudioCodecs(void);
     std::string get_WFDClientRTPPorts(void);
     std::string get_WFDUIBCCapability(void);
+    std::string get_WFDDisplayEdid(void);
+    std::string get_WFDConnectorType(void);
     std::string get_WFDContentProtection(void);
     std::string get_WFDSecScreenSharing(void);
     std::string get_WFDPortraitDisplay(void);
@@ -498,6 +503,12 @@ public:
     void send_msgto_test_notifier_thread(MIRACAST_PLAYER_TEST_NOTIFIER_MSGQ_ST stMsgQ);
     MiracastThread  *m_test_notifier_thread;
 #endif /* ENABLE_MIRACAST_PLAYER_TEST_NOTIFIER */
+
+#ifdef ENABLE_HDCP2X_SUPPORT
+    void DumpBuffer(char *buffer, int length);
+    void HDCPTCPServerHandlerThread(void *args);
+    MiracastThread *m_hdcp_handler_thread;
+#endif /*ENABLE_HDCP2X_SUPPORT*/
 
     static std::string format_string(const char *fmt, const std::vector<const char *> &args)
     {

@@ -320,6 +320,7 @@ eCONTROLLER_FW_STATES MiracastController::convertP2PtoSessionActions(P2P_EVENTS 
     }
     break;
     case EVENT_PROVISION:
+    case EVENT_SHOW_PIN:
     {
         state = CONTROLLER_GO_DEVICE_PROVISION;
     }
@@ -443,6 +444,7 @@ void MiracastController::checkAndInitiateP2PBackendDiscovery(void)
     else
     {
         MIRACASTLOG_INFO("!!! BACKEND P2P DISCOVERY HAS DISABLED !!!");
+        stop_discover_devices();
     }
 }
 
@@ -696,6 +698,21 @@ void MiracastController::Controller_Thread(void *args)
                         MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_PROVISION Received\n");
                         // m_authType = "pbc";
                         std::string MAC = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
+
+                        if (std::string::npos != event_buffer.find("P2P-PROV-DISC-SHOW-PIN"))
+                        {
+                            std::istringstream iss(event_buffer);
+                            std::string token;
+
+                            // Ignore the first two tokens (P2P-PROV-DISC-SHOW-PIN and the MAC address)
+                            iss >> token;
+
+                            iss >> token;
+
+                            // Get the third token which is PIN
+                            iss >> token;
+                            MIRACASTLOG_INFO("!!!! P2P-PROV-DISC-SHOW-PIN is [%s] !!!!",token.c_str());
+                        }
                     }
                     break;
                     case CONTROLLER_GO_NEG_REQUEST:
