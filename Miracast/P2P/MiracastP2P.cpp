@@ -413,7 +413,15 @@ MiracastError MiracastP2P::set_WFDParameters(void)
         command = "WFD_SUBELEM_SET 0 000600111c4400c8";
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
-        command = "SET config_methods pbc";
+        std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_custom_p2p_cfg");
+        if (!opt_flag_buffer.empty())
+        {
+            command = "SET config_methods " + opt_flag_buffer;
+        }
+        else
+        {
+            command = "SET config_methods pbc";
+        }
         executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
 
         set_FriendlyName(get_FriendlyName() , true);
@@ -481,7 +489,7 @@ MiracastError MiracastP2P::stop_discover_devices(void)
     return ret;
 }
 
-MiracastError MiracastP2P::connect_device(std::string MAC)
+MiracastError MiracastP2P::connect_device(std::string MAC,std::string authType )
 {
     MIRACASTLOG_TRACE("Entering...");
     MiracastError ret = MIRACAST_FAIL;
@@ -489,7 +497,7 @@ MiracastError MiracastP2P::connect_device(std::string MAC)
     command.append(SPACE_CHAR);
     command.append(MAC);
     command.append(SPACE_CHAR);
-    command.append(m_authType);
+    command.append(authType);
 #if 0
     // configuring go_intent as 0 to make our device as p2p_client insteadof getting p2p_group_owner
     command.append(SPACE_CHAR);
