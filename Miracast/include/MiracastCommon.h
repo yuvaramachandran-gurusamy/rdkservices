@@ -220,6 +220,7 @@ typedef struct d_info
     string deviceMAC;
     string deviceType;
     string modelName;
+    string authType;
     bool isCPSupported;
     enum DEVICEROLE deviceRole;
 } DeviceInfo;
@@ -375,7 +376,7 @@ private:
 class MiracastCommon
 {
     public:
-        static std::string parse_opt_flag( std::string file_name , bool integer_check );
+        static std::string parse_opt_flag( std::string file_name , bool integer_check = false );
 };
 
 #endif

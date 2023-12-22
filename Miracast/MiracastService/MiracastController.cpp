@@ -457,6 +457,13 @@ void MiracastController::event_handler(P2P_EVENTS eventId, void *data, size_t le
     event_buffer = (char *)data;
     free(data);
 
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_suppress_p2p_events");
+    if (!opt_flag_buffer.empty())
+    {
+        MIRACASTLOG_TRACE("Exiting...");
+        return;
+    }
+
     if (nullptr != m_controller_thread){
         controller_msgq_data.msg_type = P2P_MSG;
         controller_msgq_data.state = convertP2PtoSessionActions(eventId);
@@ -507,10 +514,11 @@ MiracastError MiracastController::connect_device(std::string device_mac , std::s
     MIRACASTLOG_TRACE("Entering...");
     MIRACASTLOG_INFO("Connecting to the MAC - %s", device_mac.c_str());
     MiracastError ret = MIRACAST_FAIL;
+    DeviceInfo *device_info_ptr = MiracastController::get_device_details(device_mac);
 
-    if (nullptr != m_p2p_ctrl_obj)
+    if ((nullptr != m_p2p_ctrl_obj) && ( nullptr != device_info_ptr ))
     {
-        ret = m_p2p_ctrl_obj->connect_device(device_mac);
+        ret = m_p2p_ctrl_obj->connect_device(device_mac,device_info_ptr->authType);
         if (MIRACAST_OK == ret )
         {
             set_WFDSourceMACAddress(device_mac);
@@ -698,6 +706,7 @@ void MiracastController::Controller_Thread(void *args)
                         MIRACASTLOG_TRACE("CONTROLLER_GO_DEVICE_PROVISION Received\n");
                         // m_authType = "pbc";
                         std::string MAC = parse_p2p_event_data(event_buffer.c_str(), "p2p_dev_addr");
+                        std::string authType = "pbc";
 
                         if (std::string::npos != event_buffer.find("P2P-PROV-DISC-SHOW-PIN"))
                         {
@@ -712,6 +721,13 @@ void MiracastController::Controller_Thread(void *args)
                             // Get the third token which is PIN
                             iss >> token;
                             MIRACASTLOG_INFO("!!!! P2P-PROV-DISC-SHOW-PIN is [%s] !!!!",token.c_str());
+                            authType = token;
+                        }
+
+                        DeviceInfo *device_info_ptr = MiracastController::get_device_details(MAC);
+                        if ( nullptr != device_info_ptr )
+                        {
+                            device_info_ptr->authType = authType;
                         }
                     }
                     break;
