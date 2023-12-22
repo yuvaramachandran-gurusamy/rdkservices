@@ -158,21 +158,28 @@ std::string MiracastCommon::parse_opt_flag( std::string file_name , bool integer
     }
     else
     {
-        std::string word;
-        parse_opt_flag_file >> word;
+        std::string line = "";
+        if (std::getline(parse_opt_flag_file, line))
+        {
+            MIRACASTLOG_INFO("Content in [%s] is [%s]",file_name.c_str(),line.c_str());
+        }
+        else
+        {
+            MIRACASTLOG_ERROR("No Content in [%s]",file_name.c_str());
+        }
         parse_opt_flag_file.close();
 
-        return_buffer = word;
+        return_buffer = line;
 
         if (integer_check)
         {
-            if (word.empty())
+            if (line.empty())
             {
                 integer_check = false;
             }
             else
             {
-                for (char c : word) {
+                for (char c : line) {
                     if (!isdigit(c))
                     {
                         integer_check = false;
