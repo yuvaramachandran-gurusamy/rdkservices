@@ -922,7 +922,7 @@ bool MiracastGstPlayer::createPipeline()
     MIRACASTLOG_TRACE("Set disable-xrun as true to amlhalasink");
     g_object_set(G_OBJECT(m_audio_sink), "disable-xrun" , true, nullptr );
     MIRACASTLOG_INFO("Set avsync-mode as 2 to amlhalasink");
-    g_object_set(G_OBJECT(m_audio_sink), "avsync-mode" ,"2", nullptr );
+    g_object_set(G_OBJECT(m_audio_sink), "avsync-mode" , 2, nullptr );
     MIRACASTLOG_TRACE("amlhalasink configuration end<<<<<<<<");
     /*}}}*/
 
