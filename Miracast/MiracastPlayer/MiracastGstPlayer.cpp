@@ -900,20 +900,22 @@ bool MiracastGstPlayer::createPipeline()
     MIRACASTLOG_TRACE(">>>>>>>westerossink configuration start");
     updateVideoSinkRectangle();
 
-    std::string aml_solution1_enabled = MiracastCommon::parse_opt_flag("/opt/miracast_AML_S1");
-    if (!aml_solution1_enabled.empty())
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag( "/opt/miracast_westerossink_immediate_output" );
+    if (!opt_flag_buffer.empty())
     {
-        MIRACASTLOG_INFO("[AML-S1] Set immediate-output as true to westerossink");
         /* Set immediate-output Mode to true */
         g_object_set(G_OBJECT(m_video_sink), "immediate-output", true, nullptr);
+        MIRACASTLOG_INFO("[TEST] Set immediate-output as true to westerossink");
     }
 
-    std::string aml_solution2_enabled = MiracastCommon::parse_opt_flag("/opt/miracast_AML_S2");
-    if (!aml_solution2_enabled.empty())
+    guint64 field_value = 0;
+
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_westerossink_avsync_mode",true);
+    if (!opt_flag_buffer.empty())
     {
-        MIRACASTLOG_INFO("[AML-S2] Set avsync-mode as 0 to westerossink");
-        /* Set immediate-output Mode to true */
-        g_object_set(G_OBJECT(m_video_sink), "avsync-mode", 0, nullptr);
+        field_value = std::stoull(opt_flag_buffer.c_str());
+        g_object_set(G_OBJECT(m_video_sink), "avsync-mode", field_value, nullptr);
+        MIRACASTLOG_INFO("[TEST] Set avsync-mode as %llu to westerossink",field_value);
     }
     
     g_signal_connect(m_video_sink, "first-video-frame-callback",G_CALLBACK(onFirstVideoFrameCallback), (gpointer)this);
@@ -936,17 +938,28 @@ bool MiracastGstPlayer::createPipeline()
     MIRACASTLOG_TRACE("Set disable-xrun as true to amlhalasink");
     g_object_set(G_OBJECT(m_audio_sink), "disable-xrun" , true, nullptr );
     
-    std::string avoid_iptv_mode = MiracastCommon::parse_opt_flag("/opt/miracast_avoid_iptv_mode");
-    if (avoid_iptv_mode.empty())
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_amlhalasink_avsyncmode");
+    if (!opt_flag_buffer.empty())
     {
-        MIRACASTLOG_INFO("Set avsync-mode as 2 to amlhalasink");
-        g_object_set(G_OBJECT(m_audio_sink), "avsync-mode" , 2, nullptr );
+        field_value = std::stoull(opt_flag_buffer.c_str());
+        g_object_set(G_OBJECT(m_audio_sink), "avsync-mode" , field_value, nullptr );
+        MIRACASTLOG_INFO("[TEST] Set avsync-mode as %llu to amlhalasink",field_value);
+    }
+    else
+    {
+        opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_avoid_amlhalasink_iptv_mode");
+        if (opt_flag_buffer.empty())
+        {
+            g_object_set(G_OBJECT(m_audio_sink), "avsync-mode" , 2, nullptr );
+            MIRACASTLOG_INFO("[DEFAULT] Set avsync-mode as 2 to amlhalasink");
+        }
     }
 
-    if ((!aml_solution1_enabled.empty()) || (!aml_solution2_enabled.empty()))
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_amlhalasink_directmode");
+    if (!opt_flag_buffer.empty())
     {
-        MIRACASTLOG_INFO("[AML-S1 and S2] Set direct-mode as False to amlhalasink");
         g_object_set(G_OBJECT(m_audio_sink), "direct-mode" , false, nullptr );
+        MIRACASTLOG_INFO("[TEST] Set direct-mode as False to amlhalasink");
     }
     
     MIRACASTLOG_TRACE("amlhalasink configuration end<<<<<<<<");
