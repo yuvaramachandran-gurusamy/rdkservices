@@ -885,10 +885,8 @@ void MiracastController::Controller_Thread(void *args)
                                 std::size_t len = 0;
                                 unsigned char retry_count = 15;
 
-                                sprintf( command,
-                                            "cat /proc/net/arp | grep \"%s\" | awk '{print $1}'",
-                                            m_groupInfo->interface.c_str());
-
+                                //sprintf( command, "cat /proc/net/arp | grep \"%s\" | awk '{print $1}'", m_groupInfo->interface.c_str());
+                                sprintf( command, "awk '$6 == \"%s\" && $4 !~ /incomplete/ {print $1}' /proc/net/arp", m_groupInfo->interface.c_str());
                                 while ( retry_count-- )
                                 {
                                     MIRACASTLOG_INFO("command is [%s]\n", command);
