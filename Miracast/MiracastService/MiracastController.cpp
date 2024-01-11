@@ -99,7 +99,6 @@ MiracastError MiracastController::create_ControllerFramework(std::string p2p_ctr
     MIRACASTLOG_TRACE("Entering...");
 
 #if 0
-
     m_thunder_req_handler_thread = new MiracastThread(THUNDER_REQ_HANDLER_THREAD_NAME,
                                                       THUNDER_REQ_HANDLER_THREAD_STACK,
                                                       THUNDER_REQ_HANDLER_MSGQ_COUNT,
