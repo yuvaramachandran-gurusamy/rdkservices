@@ -620,6 +620,7 @@ private:
     RTSP_STATUS send_rstp_msg(int sockfd, std::string rtsp_response_buffer);
     std::string get_localIp();
     MiracastError updateVideoRectangle( VIDEO_RECT_STRUCT videorect );
+    void calculate_length_by_giventag( std::string msg_buffer ,  const char* given_tag , int &total_bytes, int &processed_bytes );
 };
 
 #endif
