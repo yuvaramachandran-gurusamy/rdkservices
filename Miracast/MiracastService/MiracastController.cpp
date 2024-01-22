@@ -631,6 +631,8 @@ MiracastError MiracastController::reset_CurrentWPSPBCStatus(bool reset_device_st
         }
     }
     m_wpa_pbc_activated = false;
+    m_wpa_pbc_inprogress_mac.clear();
+    m_ctrl_evt_eap_wpspbc_mac.clear();
     MIRACASTLOG_TRACE("Exiting...");
     return MIRACAST_OK;
 }
