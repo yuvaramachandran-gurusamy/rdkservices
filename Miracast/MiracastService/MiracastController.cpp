@@ -796,9 +796,9 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
             m_new_thunder_req_client_connection_sent = true;
             MIRACASTLOG_INFO("!!! Connection Request reported waiting for user action !!!\n");
             current_device_info->isConnectRequestNotified = true;
+            notify_ConnectionRequest(device_name,received_mac_address);
             set_WFDSourceMACAddress(received_mac_address);
             set_WFDSourceName(device_name);
-            notify_ConnectionRequest(device_name,received_mac_address);
         }
         else
         {
@@ -823,9 +823,9 @@ MiracastError MiracastController::connectionRequestHandling(std::string received
                 m_another_thunder_req_client_connection_sent = true;
                 MIRACASTLOG_INFO("!!! New Connection Request reported waiting for user action !!!\n");
                 current_device_info->isConnectRequestNotified = true;
+                notify_ConnectionRequest(device_name,received_mac_address);
                 set_NewSourceMACAddress(received_mac_address);
                 set_NewSourceName(device_name);
-                notify_ConnectionRequest(device_name,received_mac_address);
             }
             else
             {
@@ -1073,6 +1073,7 @@ void MiracastController::Controller_Thread(void *args)
                         }
                     }
                     break;
+                #if 0
                     case CONTROLLER_GO_NEG_REQUEST:
                     {
                         //THUNDER_REQ_HDLR_MSGQ_STRUCT thunder_req_msgq_data = {0};
@@ -1089,6 +1090,7 @@ void MiracastController::Controller_Thread(void *args)
                         connectionRequestHandling(received_mac_address);
                     }
                     break;
+                #endif
                     case CONTROLLER_P2P_AP_STA_CONNECTED:
                     {
                         std::string orgmacAddr = "";
@@ -1403,6 +1405,7 @@ void MiracastController::Controller_Thread(void *args)
                     case CONTROLLER_GO_GROUP_REMOVED:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_GO_GROUP_REMOVED Received");
+                    #if 0
                         if ( p2p_group_instance_alive )
                         {
                             std::string device_name = get_NewSourceName(),
@@ -1423,6 +1426,7 @@ void MiracastController::Controller_Thread(void *args)
                                 MIRACASTLOG_INFO("!!!! Cached Connect Request not found !!!!");
                             }
                         }
+                    #endif
                         m_new_thunder_req_client_connection_sent = false;
                         m_another_thunder_req_client_connection_sent = false;
                         session_restart_required = true;
@@ -1542,6 +1546,7 @@ void MiracastController::Controller_Thread(void *args)
                         }
                     }
                     break;
+#if 0
                     case CONTROLLER_CONNECT_REQ_FROM_THUNDER:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_CONNECT_REQ_FROM_THUNDER Received");
@@ -1574,6 +1579,7 @@ void MiracastController::Controller_Thread(void *args)
                         }
                     }
                     break;
+#endif
                     case CONTROLLER_FLUSH_CURRENT_SESSION:
                     {
                         MIRACASTLOG_INFO("CONTROLLER_FLUSH_CURRENT_SESSION Received");
@@ -1876,7 +1882,8 @@ void MiracastController::send_thundermsg_to_controller_thread(MIRACAST_SERVICE_S
             {
                 MIRACASTLOG_INFO("[MIRACAST_SERVICE_ACCEPT_CLIENT]");
                 strcpy(controller_msgq_data.msg_buffer, m_current_device_mac_addr.c_str());
-                controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
+                //controller_msgq_data.state = CONTROLLER_CONNECT_REQ_FROM_THUNDER;
+                controller_msgq_data.state = CONTROLLER_LAUNCH_REQUEST;
                 reason = "Accepted";
             }
             else
