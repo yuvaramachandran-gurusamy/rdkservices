@@ -1116,6 +1116,7 @@ void MiracastController::Controller_Thread(void *args)
                             {
                                 MIRACASTLOG_INFO("Launch Request initiated from CONTROLLER_P2P_AP_STA_CONNECTED");
                                 initiate_LaunchRequest(current_device_info->modelName, orgmacAddr , p2p_dev_mac);
+                                current_device_info->isConnectRequestNotified = false;
                                 current_device_info->isClientAcceptedByPBC = false;
                                 current_device_info->isWPSPBCRequired = false;
                             }
@@ -1541,6 +1542,7 @@ void MiracastController::Controller_Thread(void *args)
                             {
                                 MIRACASTLOG_INFO("Launch Request initiated from CONTROLLER_LAUNCH_REQUEST");
                                 initiate_LaunchRequest( current_device_info->modelName, current_device_info->orgP2PMACAddr, mac_address );
+                                current_device_info->isConnectRequestNotified = false;
                                 current_device_info->isClientAcceptedBySTAConnected = false;
                             }
                         }
