@@ -715,7 +715,7 @@ void MiracastController::initiate_LaunchRequest(std::string src_dev_name,std::st
         std::string src_dev_ip = remote_address;
         std::string src_dev_mac = p2p_dev_mac;
         std::string sink_dev_ip = m_groupInfo->localIPAddr;
-        MIRACASTLOG_INFO("!!!! LaunchRequest src_dev_name[%s]src_dev_mac[%s]src_dev_ip[%s]sink_dev_ip[%s] !!!!",
+        MIRACASTLOG_INFO("#### MCAST-TRIAGE-OK-LAUNCH LAUNCH REQ FOR SRC_NAME[%s] SRC_MAC[%s] SRC_IP[%s] SINK_IP[%s] ####",
                             src_dev_name.c_str(),
                             src_dev_mac.c_str(),
                             src_dev_ip.c_str(),
