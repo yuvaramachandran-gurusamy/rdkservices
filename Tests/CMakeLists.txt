@@ -35,7 +35,7 @@ add_executable(${PROJECT_NAME}
         mocks/Wraps.cpp
         mocks/Dobby.cpp
 	mocks/rdkshell.cpp
-		mocks/opkgMock.cpp
+	mocks/opkgMock.cpp
         )
 
 set_source_files_properties(
@@ -70,7 +70,7 @@ include_directories(../LocationSync
         ../HdmiInput
         ../HdcpProfile
         ../Network
-	      ../WifiManager
+	../WifiManager
         ../TraceControl
         ../Warehouse
         ../ActivityMonitor
@@ -88,6 +88,9 @@ include_directories(../LocationSync
         ../Packager
 	../TextToSpeech
 	../SystemAudioPlayer
+	../Miracast/include
+	../Miracast/MiracastService
+	../Miracast/MiracastPlayer
         )
 link_directories(../LocationSync
         ../SecurityAgent
@@ -108,7 +111,7 @@ link_directories(../LocationSync
         ../HdmiInput
         ../HdcpProfile
         ../Network
-	       ../WifiManager
+	../WifiManager
         ../TraceControl
         ../Warehouse
         ../ActivityMonitor
@@ -126,6 +129,7 @@ link_directories(../LocationSync
         ../Packager
 	../TextToSpeech
 	../SystemAudioPlayer
+	../Miracast
         )
 
 target_link_libraries(${PROJECT_NAME}
@@ -168,6 +172,8 @@ target_link_libraries(${PROJECT_NAME}
         ${NAMESPACE}Packager
 	${NAMESPACE}TextToSpeech
 	${NAMESPACE}SystemAudioPlayer
+	${NAMESPACE}MiracastService
+	${NAMESPACE}MiracastPlayer
         )
 
 target_include_directories(${PROJECT_NAME}
