@@ -457,11 +457,21 @@ void MiracastP2P::reset_WFDParameters(void)
 MiracastError MiracastP2P::discover_devices(void)
 {
     MiracastError ret = MIRACAST_FAIL;
-    std::string command, retBuffer,opt_flag_buffer;
+    std::string command, retBuffer;
     MIRACASTLOG_TRACE("Entering..");
 
-    /*Start Passive Scanning*/
-    command = "P2P_EXT_LISTEN 200 1000";
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_p2p_start_discovery");
+    if (opt_flag_buffer.empty())
+    {
+        /*Start Passive Scanning*/
+        command = "P2P_EXT_LISTEN 200 1000";
+        MIRACASTLOG_INFO("[DEFAULT] Start Discovery with Passive Scan");
+    }
+    else
+    {
+        command = opt_flag_buffer;
+        MIRACASTLOG_INFO("[CUSTOM] Start Discovery with [%s]",command.c_str());
+    }
 
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
@@ -479,7 +489,19 @@ MiracastError MiracastP2P::stop_discover_devices(void)
     MIRACASTLOG_TRACE("Entering...");
 
     /*Stop Passive Scanning*/
-    command = "P2P_EXT_LISTEN 0 0";
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_p2p_stop_discovery");
+    if (opt_flag_buffer.empty())
+    {
+        /*Stop Passive Scanning*/
+        command = "P2P_EXT_LISTEN 0 0";
+        MIRACASTLOG_INFO("[DEFAULT] Stop Discovery with Passive Scan");
+    }
+    else
+    {
+        command = opt_flag_buffer;
+        MIRACASTLOG_INFO("[CUSTOM] Stop Discovery with [%s]",command.c_str());
+    }
+
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
     {
