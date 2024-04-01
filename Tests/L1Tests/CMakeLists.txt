@@ -44,6 +44,7 @@ add_executable(${PROJECT_NAME}
         ../mocks/Dobby.cpp
         ../mocks/rdkshell.cpp
 	../mocks/opkgMock.cpp
+	../mocks/WpaCtrl.cpp
         )
 
 set_source_files_properties(

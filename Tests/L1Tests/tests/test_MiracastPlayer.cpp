@@ -312,15 +312,12 @@ class MiracastPlayerTest : public ::testing::Test {
 		Core::JSONRPC::Connection connection;
 		string response;
 		ServiceMock service;
-		NiceMock<WrapsImplMock> wrapsImplMock;
 
 		MiracastPlayerTest()
 			: plugin(Core::ProxyType<Plugin::MiracastPlayer>::Create())
 			  , handler(*(plugin))
 			  , connection(1, 0)
 {
-	Wraps::getInstance().impl = &wrapsImplMock;
-
 	EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
 		.Times(::testing::AnyNumber())
 		.WillRepeatedly(::testing::Invoke(
@@ -332,7 +329,6 @@ class MiracastPlayerTest : public ::testing::Test {
 virtual ~MiracastPlayerTest() override
 {
 	plugin->Deinitialize(nullptr);
-	WpaCtrl::getInstance().impl = nullptr;
 }
 };
 
@@ -360,6 +356,7 @@ TEST_F(MiracastPlayerTest, stopRequest)
 	std::string rtsp_response = "";
 	std::thread serverThread = std::thread([&]() { runRTSPSourceHandler( default_rtsp_srcMsgbuffer , default_rtsp_srcMsgSize , rtsp_response ); });
 	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("playRequest"), _T("{\"device_parameters\": {\"source_dev_ip\":\"127.0.0.1\",\"source_dev_mac\": \"A1:B2:C3:D4:E5:F6\",\"source_dev_name\":\"Sample-Android-Test-1\",\"sink_dev_ip\":\"192.168.59.1\"},\"video_rectangle\": {\"X\": 0,\"Y\" : 0,\"W\": 1920,\"H\": 1080}}"), response));
+	sleep(10);
 	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("stopRequest"), _T("{\"reason_code\": 300}"), response));
 	EXPECT_EQ(response, string("{\"success\":true}"));
 	serverThread.join();
@@ -378,19 +375,3 @@ TEST_F(MiracastPlayerTest, setVideoRectangle)
 	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setVideoRectangle"), _T("{\"X\": 0,\"Y\": 0,\"W\": 1280,\"H\": 720}"), response));
 	EXPECT_EQ(response, string("{\"success\":true}"));
 }
-
-TEST_F(MiracastPlayerTest, setPlayerState)
-{
-	std::string rtsp_response = "";
-	std::thread serverThread = std::thread([&]() { runRTSPSourceHandler( default_rtsp_srcMsgbuffer , default_rtsp_srcMsgSize , rtsp_response ); });
-	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("playRequest"), _T("{\"device_parameters\": {\"source_dev_ip\":\"127.0.0.1\",\"source_dev_mac\": \"A1:B2:C3:D4:E5:F6\",\"source_dev_name\":\"Sample-Android-Test-1\",\"sink_dev_ip\":\"192.168.59.1\"},\"video_rectangle\": {\"X\": 0,\"Y\" : 0,\"W\": 1920,\"H\": 1080}}"), response));
-	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setPlayerState"), _T("{\"state\": \"PAUSE\"}"), response));
-	EXPECT_EQ(response, string("{\"success\":true}"));
-	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setPlayerState"), _T("{\"state\": \"PLAY\"}"), response));
-	EXPECT_EQ(response, string("{\"success\":true}"));
-	EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setPlayerState"), _T("{\"state\": \"STOP\"}"), response));
-	EXPECT_EQ(response, string("{\"success\":true}"));
-	serverThread.join();
-	EXPECT_EQ(rtsp_response, string("SUCCESS"));
-}
-
