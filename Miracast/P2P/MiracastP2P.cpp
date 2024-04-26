@@ -461,7 +461,15 @@ MiracastError MiracastP2P::discover_devices(void)
     MIRACASTLOG_TRACE("Entering..");
 
     /*Start Passive Scanning*/
-    command = "P2P_EXT_LISTEN 200 1000";
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_p2p_discovery");
+    if (!opt_flag_buffer.empty())
+    {
+        command = opt_flag_buffer;
+    }
+    else
+    {
+        command = "P2P_EXT_LISTEN 200 1000";
+    }
 
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
@@ -479,7 +487,15 @@ MiracastError MiracastP2P::stop_discover_devices(void)
     MIRACASTLOG_TRACE("Entering...");
 
     /*Stop Passive Scanning*/
-    command = "P2P_EXT_LISTEN 0 0";
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_p2p_stop_discovery");
+    if (!opt_flag_buffer.empty())
+    {
+        command = opt_flag_buffer;
+    }
+    else
+    {
+        command = "P2P_EXT_LISTEN 0 0";
+    }
     ret = executeCommand(command, NON_GLOBAL_INTERFACE, retBuffer);
     if (ret != MIRACAST_OK)
     {
