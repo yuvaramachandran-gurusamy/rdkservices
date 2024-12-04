@@ -78,7 +78,7 @@ if(WPEFRAMEWORK_SECURITYUTIL_FOUND)
 endif()
 
 if(NOT RDK_SERVICES_L1_TEST AND NOT RDK_SERVICE_L2_TEST)
-	target_link_libraries(${MODULE_NAME} PRIVATE MiracastPlayerHal)
+	#target_link_libraries(${MODULE_NAME} PRIVATE MiracastPlayerHal)
 endif()
 
 install(TARGETS ${MODULE_NAME}

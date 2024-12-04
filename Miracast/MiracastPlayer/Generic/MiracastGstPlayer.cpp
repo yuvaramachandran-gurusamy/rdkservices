@@ -29,9 +29,71 @@
 #include "MiracastLogger.h"
 #include "MiracastRTSPMsg.h"
 #include "MiracastGstPlayer.h"
-#include <SoC_MiracastPlayer.h>
+//#include <SoC_MiracastPlayer.h>
 
 MiracastGstPlayer *MiracastGstPlayer::m_GstPlayer{nullptr};
+
+static GstElement* m_soc_audioSink = nullptr;
+
+static void SoC_ConfigureVideoDecodeErrorPolicy(void)
+{
+    MIRACASTLOG_INFO("Applying Error policy as [echo 2151665463 > /sys/module/amvdec_mh264/parameters/error_proc_policy]");
+    system("echo 2151665463 > /sys/module/amvdec_mh264/parameters/error_proc_policy");
+}
+
+static GstElement* SoC_GetAudioSinkProperty(void)
+{
+    MIRACASTLOG_TRACE("Entering ...");
+    if ( nullptr == m_soc_audioSink )
+    {
+        m_soc_audioSink = gst_element_factory_make("amlhalasink", "miracast_amlhalasink");
+
+        if ( nullptr == m_soc_audioSink )
+        {
+            MIRACASTLOG_ERROR("Failed to create amlhalasink");
+        }
+        else
+        {
+            MIRACASTLOG_TRACE(">>>>>>> amlhalasink configuration start");
+
+            /* avsync-mode: Set avsync mode 0 (amaster) 1 (pcr master) 2 (iptv)
+             *                  flags: readable, writable
+             *                  Unsigned Integer. Range: 0 - 2 Default: 1
+             */
+            MIRACASTLOG_INFO("Set avsync-mode as [IPTV] to amlhalasink");
+            g_object_set(G_OBJECT(m_soc_audioSink), "avsync-mode" , 2 , nullptr );
+
+            /* disable-xrun: If the audio stream is not stable like in Mircast case, set it to prevent unexpected pause
+             *                  flags: writable
+             *                  Boolean. Default: false Write only
+             */
+            MIRACASTLOG_INFO("Set disable-xrun as true to amlhalasink");
+            g_object_set(G_OBJECT(m_soc_audioSink), "disable-xrun" , true , nullptr );
+
+            MIRACASTLOG_TRACE("amlhalasink configuration end <<<<<<<<");
+        }
+    }
+    MIRACASTLOG_TRACE("Exiting ...");
+    return m_soc_audioSink;
+}
+
+static gboolean SoC_ReleaseAudioSinkProperty(GstElement* audioSink)
+{
+    gboolean returnValue = false;
+    MIRACASTLOG_TRACE("Entering ...");
+    if (( nullptr == m_soc_audioSink ) || ( m_soc_audioSink != audioSink ))
+    {
+        MIRACASTLOG_WARNING("!!! Invalid Handle[%x] Current[%x] !!!",audioSink,m_soc_audioSink);
+    }
+    else
+    {
+        gst_object_unref(m_soc_audioSink);
+        m_soc_audioSink = nullptr;
+        returnValue = true;
+    }
+    MIRACASTLOG_TRACE("Exiting [%x] ...",returnValue);
+    return returnValue;
+}
 
 MiracastGstPlayer *MiracastGstPlayer::getInstance()
 {
@@ -409,7 +471,6 @@ GstFlowReturn MiracastGstPlayer::appendPipelineNewSampleHandler(GstElement *elt,
     MiracastGstPlayer *self = static_cast<MiracastGstPlayer*>(userdata);
     GstSample *sample = NULL;
     GstBuffer *buffer = NULL;
-    GstMapInfo map;
 
     if (nullptr == self->m_appsrc)
     {
@@ -434,6 +495,9 @@ GstFlowReturn MiracastGstPlayer::appendPipelineNewSampleHandler(GstElement *elt,
         return GST_FLOW_ERROR;
     }
 
+#if 0
+    GstMapInfo map;
+
     // Map the buffer for reading
     if (!gst_buffer_map(buffer, &map, GST_MAP_READ))
     {
@@ -443,16 +507,16 @@ GstFlowReturn MiracastGstPlayer::appendPipelineNewSampleHandler(GstElement *elt,
     }
 
     GstBuffer *new_buffer = gst_buffer_new_allocate(NULL, map.size, NULL);
-
     // Copy data from the original buffer to the new buffer
     gst_buffer_fill(new_buffer, 0, map.data, map.size);
-
     MIRACASTLOG_INFO("==> Received sample size [%u][%x] <==",map.size,new_buffer);
-
-    self->m_customQueueHandle->sendData(static_cast<void*>(new_buffer));
-
     // Unmap and cleanup
     gst_buffer_unmap(buffer, &map);
+#else
+    //MIRACASTLOG_INFO("Sending GstBuffer to Q");
+    gst_buffer_ref(buffer);
+    self->m_customQueueHandle->sendData(static_cast<void*>(buffer));
+#endif
     gst_sample_unref(sample);
 
     return GST_FLOW_OK;
@@ -637,16 +701,18 @@ gboolean MiracastGstPlayer::playbinPipelineBusMessage (GstBus * bus, GstMessage 
 
 gboolean MiracastGstPlayer::pushBufferToAppsrc(gpointer userdata)
 {
-    MIRACASTLOG_TRACE("Entering...");
-    MiracastGstPlayer *self = static_cast<MiracastGstPlayer*>(userdata);
-    void* buffer;
-    GstBuffer *gstBuffer;
+    MiracastGstPlayer *self = (MiracastGstPlayer *)userdata;
+    MIRACASTLOG_TRACE("Entering..!!!");
+    void* buffer = nullptr;
+    GstBuffer *gstBuffer = nullptr;
+
     self->m_customQueueHandle->ReceiveData(buffer);
 
     gstBuffer = static_cast<GstBuffer*>(buffer);
 
     if (nullptr != gstBuffer)
     {
+        //MIRACASTLOG_INFO("Sending GstBuffer to Appsrc");
         // Push the new buffer to appsrc
         GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(self->m_appsrc), gstBuffer);
         if (ret != GST_FLOW_OK)
@@ -654,7 +720,7 @@ gboolean MiracastGstPlayer::pushBufferToAppsrc(gpointer userdata)
             MIRACASTLOG_ERROR("Error pushing buffer to appsrc");
         }
     }
-    MIRACASTLOG_TRACE("Exiting...");
+    MIRACASTLOG_TRACE("Exiting..!!!");
     return TRUE;
 }
 
@@ -663,11 +729,11 @@ void MiracastGstPlayer::gst_bin_need_data(GstAppSrc *src, guint length, gpointer
 {
     MIRACASTLOG_TRACE("Entering...");
     MiracastGstPlayer *self = static_cast<MiracastGstPlayer*>(userdata);
-    MIRACASTLOG_INFO("AppSrc empty");
+    MIRACASTLOG_TRACE("AppSrc empty");
     if ((self->m_sourceId == 0) && (false == self->m_destroyTimer))
     {
-        MIRACASTLOG_INFO("start feeding\n");
-        self->m_sourceId = g_idle_add((GSourceFunc)pushBufferToAppsrc, self);
+        //MIRACASTLOG_INFO("start feeding\n");
+        //self->m_sourceId = g_idle_add((GSourceFunc)pushBufferToAppsrc, self);
     }
     MIRACASTLOG_TRACE("Exiting...");
     return;
@@ -728,7 +794,7 @@ bool MiracastGstPlayer::createPipeline()
     GstStateChangeReturn ret;
     GstBus *bus = nullptr;
     bool return_value = true;
-    m_customQueueHandle = new MessageQueue(100,gstBufferReleaseCallback);
+    m_customQueueHandle = new MessageQueue(500,gstBufferReleaseCallback);
 
     if (nullptr == m_customQueueHandle)
     {
@@ -750,17 +816,15 @@ bool MiracastGstPlayer::createPipeline()
     m_rtpjitterbuffer = gst_element_factory_make("rtpjitterbuffer", "miracast_rtpjitterbuffer");
     m_rtpmp2tdepay = gst_element_factory_make("rtpmp2tdepay", "miracast_rtpmp2tdepay");
     m_tsparse = gst_element_factory_make("tsparse", "miracast_tsparse");
-    m_Queue = gst_element_factory_make("queue", "miracast_queue");
     m_appsink = gst_element_factory_make("appsink", "miracast_appsink");
     m_video_sink = gst_element_factory_make("westerossink", "miracast_westerossink");
     m_audio_sink = SoC_GetAudioSinkProperty();
 
     if (!m_append_pipeline || !m_udpsrc || !m_rtpjitterbuffer || !m_rtpmp2tdepay ||
-        !m_tsparse || !m_Queue || !m_appsink || !m_video_sink || !m_audio_sink )
+        !m_tsparse || !m_appsink || !m_video_sink || !m_audio_sink )
     {
         MIRACASTLOG_ERROR("Append Pipeline[%x]: Element creation failure, check below",m_append_pipeline);
-        MIRACASTLOG_WARNING("udpsrc[%x]rtpjitterbuffer[%x]rtpmp2tdepay[%x]Queue[%x]",
-                            m_udpsrc,m_rtpjitterbuffer,m_rtpmp2tdepay,m_Queue);
+        MIRACASTLOG_WARNING("udpsrc[%x]rtpjitterbuffer[%x]rtpmp2tdepay[%x]",m_udpsrc,m_rtpjitterbuffer,m_rtpmp2tdepay);
         MIRACASTLOG_WARNING("tsparse[%x]appsink[%x]videosink[%x]audiosink[%x]",
                             m_tsparse,m_appsink,m_video_sink,m_audio_sink);
         return -1;
@@ -789,16 +853,30 @@ bool MiracastGstPlayer::createPipeline()
     MIRACASTLOG_TRACE(">>>>>>>rtpjitterbuffer configuration start");
     MIRACASTLOG_TRACE("Set the 'post-drop-messages' and 'do-lost' to rtpjitterbuffer.");
     g_object_set(G_OBJECT(m_rtpjitterbuffer), "post-drop-messages", true, "do-lost" , true , nullptr );
+    std::string opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_faststart-min-packets",true,false);
+
+    if (!opt_flag_buffer.empty())
+    {
+        uint64_t packetsPerBuffer = std::stoull(opt_flag_buffer);
+        MIRACASTLOG_INFO("Set 'faststart-min-packets' to rtpjitterbuffer");
+        g_object_set(G_OBJECT(m_rtpjitterbuffer), "faststart-min-packets", packetsPerBuffer, nullptr );
+    }
     MIRACASTLOG_TRACE("rtpjitterbuffer configuration end<<<<<<<<");
+    
     /*}}}*/
 
     /*{{{ tsparse related element configuration*/
     MIRACASTLOG_TRACE(">>>>>>>tsparse configuration start");
-    uint64_t packetsPerBuffer = 512;
     MIRACASTLOG_TRACE("Set 'set-timestamps' to tsparse");
     g_object_set(G_OBJECT(m_tsparse), "set-timestamps", true, nullptr );
-    MIRACASTLOG_TRACE("Set 'alignment' to tsparse");
-    g_object_set(G_OBJECT(m_tsparse), "alignment", packetsPerBuffer, nullptr );
+    opt_flag_buffer = MiracastCommon::parse_opt_flag("/opt/miracast_tsparse",true,false);
+
+    if (!opt_flag_buffer.empty())
+    {
+        uint64_t packetsPerBuffer = std::stoull(opt_flag_buffer);
+        MIRACASTLOG_INFO("Set 'alignment' to tsparse");
+        g_object_set(G_OBJECT(m_tsparse), "alignment", packetsPerBuffer, nullptr );
+    }
     MIRACASTLOG_TRACE("tsparse configuration end<<<<<<<<");
     /*}}}*/
 
@@ -821,7 +899,6 @@ bool MiracastGstPlayer::createPipeline()
     gst_bin_add_many(GST_BIN(m_append_pipeline), 
                         m_udpsrc,
                         m_rtpjitterbuffer,
-                        m_Queue,
                         m_rtpmp2tdepay,
                         m_tsparse,
                         m_appsink,
@@ -829,7 +906,6 @@ bool MiracastGstPlayer::createPipeline()
 
     if (!gst_element_link_many(m_udpsrc,
                                 m_rtpjitterbuffer,
-                                m_Queue,
                                 m_rtpmp2tdepay,
                                 m_tsparse,
                                 m_appsink,
@@ -874,8 +950,9 @@ bool MiracastGstPlayer::createPipeline()
 
     /* launching things */
     MIRACASTLOG_INFO("m_playbin_pipeline, GST_STATE_PLAYING");
-    ret = gst_element_set_state(m_append_pipeline, GST_STATE_PLAYING);
     ret = gst_element_set_state(m_playbin_pipeline, GST_STATE_PLAYING);
+    ret = gst_element_set_state(m_append_pipeline, GST_STATE_PLAYING);
+    m_sourceId = g_idle_add((GSourceFunc)pushBufferToAppsrc, this);
 
     if (ret == GST_STATE_CHANGE_FAILURE)
     {
@@ -928,6 +1005,11 @@ bool MiracastGstPlayer::stop()
     {
         pthread_join(m_playback_thread,nullptr);
     }
+    if (m_player_statistics_tid)
+    {
+        m_statistics_thread_loop = false;
+        pthread_join(m_player_statistics_tid,nullptr);
+    }
     GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(m_append_pipeline));
     if (bus)
     {
@@ -972,39 +1054,24 @@ bool MiracastGstPlayer::stop()
         gst_object_unref(m_video_sink);
         m_video_sink = nullptr;
     }
-    if (m_h264parse)
-    {
-        gst_object_unref(m_h264parse);
-        m_h264parse = nullptr;
-    }
-    if (m_vQueue)
-    {
-        gst_object_unref(m_vQueue);
-        m_vQueue = nullptr;
-    }
-    if (m_tsdemux)
-    {
-        gst_bin_remove(GST_BIN(m_append_pipeline), m_tsdemux);
-        gst_object_unref(m_tsdemux);
-        m_tsdemux = nullptr;
-    }
+
     if (m_tsparse)
     {
         gst_bin_remove(GST_BIN(m_append_pipeline), m_tsparse);
         gst_object_unref(m_tsparse);
         m_tsparse = nullptr;
     }
-    if (m_Queue)
-    {
-        gst_bin_remove(GST_BIN(m_append_pipeline), m_Queue);
-        gst_object_unref(m_Queue);
-        m_Queue = nullptr;
-    }
     if (m_rtpmp2tdepay)
     {
         gst_bin_remove(GST_BIN(m_append_pipeline), m_rtpmp2tdepay);
         gst_object_unref(m_rtpmp2tdepay);
         m_rtpmp2tdepay = nullptr;
+    }
+    if (m_tsdemux)
+    {
+        gst_bin_remove(GST_BIN(m_append_pipeline), m_tsdemux);
+        gst_object_unref(m_tsdemux);
+        m_tsdemux = nullptr;
     }
     if (m_rtpjitterbuffer)
     {
@@ -1043,7 +1110,6 @@ bool MiracastGstPlayer::stop()
         gst_caps_unref(m_capsSrc);
         m_capsSrc = nullptr;
     }
-
     if (m_customQueueHandle)
     {
         delete m_customQueueHandle;
