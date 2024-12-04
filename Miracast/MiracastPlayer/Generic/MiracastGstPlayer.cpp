@@ -924,6 +924,18 @@ bool MiracastGstPlayer::createPipeline()
     }
     else
     {
+        gint flags;
+
+        /* Read the state of the current flags */
+	    g_object_get(m_playbin_pipeline, "flags", &flags, nullptr);
+        MIRACASTLOG_INFO("playbin flags1: 0x%x", flags);
+
+        //flags = GST_PLAY_FLAG_VIDEO | GST_PLAY_FLAG_AUDIO | GST_PLAY_FLAG_NATIVE_AUDIO | GST_PLAY_FLAG_NATIVE_VIDEO; // AudioSink not linked
+        flags = GST_PLAY_FLAG_VIDEO | GST_PLAY_FLAG_AUDIO | GST_PLAY_FLAG_NATIVE_VIDEO;
+        MIRACASTLOG_INFO("playbin new flags: 0x%x", flags);
+
+        g_object_set(m_playbin_pipeline, "flags", flags, nullptr);
+
         bus = gst_element_get_bus (m_playbin_pipeline);
         gst_bus_add_watch (bus, (GstBusFunc) playbinPipelineBusMessage, this);
         gst_object_unref (bus);
