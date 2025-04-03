@@ -209,6 +209,7 @@ namespace WPEFramework
                 char strBuffer[512] = {0}; 
                 size_t len = 0;
 
+                LOGINFO("Entering ...");
                 in.getBuffer(&buf, &len);
                 for (unsigned int i = 0; i < len; i++) {
                    snprintf(strBuffer + (i*3) , sizeof(strBuffer) - (i*3), "%02X ",(uint8_t) *(buf + i));
@@ -216,6 +217,7 @@ namespace WPEFramework
                 LOGINFO("   >>>>>    Received CEC Frame: :%s \n",strBuffer);
 
                 MessageDecoder(processor).decode(in);
+                LOGINFO("Exiting ...");
        }
 
 //=========================================== HdmiCecSinkProcessor =========================================
@@ -644,13 +646,16 @@ namespace WPEFramework
        }
       void HdmiCecSinkProcessor::process (const ReportAudioStatus &msg, const Header &header)
        {
+             LOGINFO("Entering ...");
              printHeader(header);
              LOGINFO("Command: ReportAudioStatus  %s audio Mute status %d  means %s  and current Volume level is %d \n",GetOpName(msg.opCode()),msg.status.getAudioMuteStatus(),msg.status.toString().c_str(),msg.status.getAudioVolume());
 	     if(header.to.toInt() == LogicalAddress::BROADCAST){
 		LOGINFO("Ignore Broadcast messages, accepts only direct messages");
+		LOGINFO("Exiting ...");
 		return;
 	     }
              HdmiCecSink::_instance->Process_ReportAudioStatus_msg(msg);
+             LOGINFO("Exiting ...");
        }
       void HdmiCecSinkProcessor::process (const GiveFeatures &msg, const Header &header)
        {
@@ -1210,6 +1215,7 @@ namespace WPEFramework
          }
          void HdmiCecSink::Process_ReportAudioStatus_msg(const ReportAudioStatus msg)
          {
+            LOGINFO("Entering ...");
             JsonObject params;
             if(!HdmiCecSink::_instance)
                return;
@@ -1229,7 +1235,7 @@ namespace WPEFramework
             params["muteStatus"]  = msg.status.getAudioMuteStatus();
             params["volumeLevel"] = msg.status.getAudioVolume();
             sendNotify(eventString[HDMICECSINK_EVENT_REPORT_AUDIO_STATUS], params);
-
+            LOGINFO("Exiting ...");
          }
 		 void HdmiCecSink::sendKeyPressEvent(const int logicalAddress, int keyCode)
 		 {
